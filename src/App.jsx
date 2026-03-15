@@ -1,4 +1,18 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+
+const STORAGE_KEY = "dtf_config_v1";
+
+function loadConfig() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveConfig(cfg) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); return true; }
+  catch { return false; }
+}
 
 const uid = () => Math.random().toString(36).slice(2, 8);
 
@@ -131,24 +145,50 @@ function findSplitSheets(allPieces, sheets) {
 const emptyLine = () => ({ id: uid(), qty: "", prendaId: "", quien: "Yo", placementIds: [], customs: [], otroName: "", otroCost: "" });
 
 export default function App() {
+  const saved = loadConfig();
+
   const [lines, setLines] = useState([{ ...emptyLine(), qty: 1 }]);
   const [designWho, setDesignWho] = useState("Cliente trae arte");
   const [designId, setDesignId] = useState("d0");
   const [fixId, setFixId] = useState("f0");
-  const [margin, setMargin] = useState(80);
+  const [margin, setMargin] = useState(saved?.margin ?? 80);
   const [tab, setTab] = useState("cotizar");
   const [cfgTab, setCfgTab] = useState("negocio");
 
-  const [prendas, setPrendas] = useState(INIT_PRENDAS);
-  const [placements, setPlacements] = useState(INIT_PLACEMENTS);
-  const [sheets, setSheets] = useState(INIT_SHEETS);
-  const [designTypes, setDesignTypes] = useState(INIT_DESIGN);
-  const [fixTypes, setFixTypes] = useState(INIT_FIX);
-  const [volTiers, setVolTiers] = useState(INIT_VOL);
-  const [poliBolsa, setPoliBolsa] = useState(900);
-  const [poliGramos, setPoliGramos] = useState(907);
-  const [businessName, setBusinessName] = useState("ARTAMPA");
-  const [energyCost, setEnergyCost] = useState(0.01);
+  const [prendas, setPrendas] = useState(saved?.prendas ?? INIT_PRENDAS);
+  const [placements, setPlacements] = useState(saved?.placements ?? INIT_PLACEMENTS);
+  const [sheets, setSheets] = useState(saved?.sheets ?? INIT_SHEETS);
+  const [designTypes, setDesignTypes] = useState(saved?.designTypes ?? INIT_DESIGN);
+  const [fixTypes, setFixTypes] = useState(saved?.fixTypes ?? INIT_FIX);
+  const [volTiers, setVolTiers] = useState(saved?.volTiers ?? INIT_VOL);
+  const [poliBolsa, setPoliBolsa] = useState(saved?.poliBolsa ?? 900);
+  const [poliGramos, setPoliGramos] = useState(saved?.poliGramos ?? 907);
+  const [businessName, setBusinessName] = useState(saved?.businessName ?? "ARTAMPA");
+  const [energyCost, setEnergyCost] = useState(saved?.energyCost ?? 0.01);
+
+  // Save state
+  const [saveStatus, setSaveStatus] = useState("idle"); // idle | dirty | saved
+  const [savedSnapshot, setSavedSnapshot] = useState(saved);
+  const isFirstRender = useRef(true);
+
+  const currentConfig = useMemo(() => ({
+    margin, prendas, placements, sheets, designTypes, fixTypes, volTiers,
+    poliBolsa, poliGramos, businessName, energyCost
+  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, energyCost]);
+
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    setSaveStatus("dirty");
+  }, [currentConfig]);
+
+  const handleSave = useCallback(() => {
+    const ok = saveConfig(currentConfig);
+    if (ok) {
+      setSavedSnapshot(currentConfig);
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 2500);
+    }
+  }, [currentConfig]);
 
   const poliRate = poliBolsa / poliGramos;
 
@@ -275,6 +315,26 @@ export default function App() {
         {/* ═══ CONFIG ═══ */}
         {tab === "config" && (
           <div className="fi">
+            {/* SAVE BAR */}
+            <div style={{
+              position: "sticky", top: 0, zIndex: 50, marginBottom: 12,
+              background: saveStatus === "dirty" ? "#FFF8F0" : saveStatus === "saved" ? "#F0FAF0" : "#FAF7F4",
+              border: `1.5px solid ${saveStatus === "dirty" ? "#F0C080" : saveStatus === "saved" ? "#80C880" : "#E0D8CE"}`,
+              borderRadius: 10, padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between",
+              transition: "all .3s"
+            }}>
+              <span style={{ fontSize: 12, color: saveStatus === "dirty" ? "#C47A30" : saveStatus === "saved" ? "#2A7A2A" : "#A09080", fontWeight: 600 }}>
+                {saveStatus === "dirty" ? "⚠ Cambios sin guardar" : saveStatus === "saved" ? "✅ Guardado — cambios aplicados" : "Configuración"}
+              </span>
+              <button onClick={handleSave} style={{
+                padding: "5px 18px", borderRadius: 7, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer",
+                background: saveStatus === "saved" ? "#4A9A4A" : saveStatus === "dirty" ? "#C45C3B" : "#8C7E70",
+                color: "white", transition: "all .3s"
+              }}>
+                {saveStatus === "saved" ? "✓ Guardado" : "Guardar"}
+              </button>
+            </div>
+
             <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
               {[["negocio","Mi Negocio"],["prendas","Prendas"],["placements","Placements"],["sheets","Hojas DTF"],["poli","Poliamida"],["design","Diseño"],["fix","Corrección"],["vol","Volumen"]].map(([k,v])=>(
                 <button key={k} className="ct" onClick={() => setCfgTab(k)}
