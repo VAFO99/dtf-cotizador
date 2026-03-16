@@ -47,12 +47,13 @@ export async function saveConfigRemote(cfg) {
 
 // ── COTIZACIONES ─────────────────────────────────────────────
 
-export async function loadCotizaciones() {
+export async function loadCotizaciones(limit = 50, offset = 0) {
   try {
     const { data, error } = await supabase
       .from("cotizaciones")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.warn("Supabase cotizaciones load error:", error.message);

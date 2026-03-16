@@ -163,7 +163,9 @@ export default function App() {
   const [margenMin, setMargenMin]     = useState(saved?.margenMin ?? 30);
   const [pedidos, setPedidos]         = useState(() => loadPedidos());
   const [agruparPorColor, setAgruparPorColor] = useState(saved?.agruparPorColor ?? false);
-  const [pedidoTab, setPedidoTab]     = useState("cotizar"); // cotizar | pedidos
+  const [pedidoTab, setPedidoTab]     = useState("Todos");
+  const [pedidosPage, setPedidosPage]   = useState(0);
+  const PEDIDOS_PER_PAGE = 20;
   const [syncStatus, setSyncStatus]   = useState("idle");
   const [supabaseReady, setSupabaseReady] = useState(false);
   // PIN gate
@@ -188,19 +190,26 @@ export default function App() {
     darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, adminPin, whatsappBiz
   }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias, darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, adminPin, whatsappBiz]);
 
+  // Track unsaved changes (just the indicator dot, no auto-POST)
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (isInitializing.current) return;
     setSaveStatus("dirty");
   }, [currentConfig]);
 
-  const handleSave = useCallback(() => {
-    const ok = saveConfig(currentConfig);
-    if (ok) {
+  const handleSave = useCallback(async () => {
+    setSaveStatus("saving");
+    const localOk = saveConfig(currentConfig);
+    if (supabaseReady) await saveConfigRemote(currentConfig);
+    if (localOk === false) {
+      setSaveStatus("error");
+      setTimeout(() => setSaveStatus("dirty"), 3000);
+    } else {
       setSavedSnapshot(currentConfig);
       setSaveStatus("saved");
-      setTimeout(() => setSaveStatus("idle"), 2000);
+      setTimeout(() => setSaveStatus("idle"), 2500);
     }
-  }, [currentConfig]);
+  }, [currentConfig, supabaseReady]);
 
   // ── Supabase init: load remote data on first mount ──
   useEffect(() => {
@@ -282,27 +291,7 @@ export default function App() {
   }, []); // eslint-disable-line
 
   // Auto-save 1.5s after any config change (skip during init)
-  const autoSaveTimer = useRef(null);
-  useEffect(() => {
-    if (isFirstRender.current) return;
-    if (isInitializing.current) return; // skip during Supabase init
-    clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(async () => {
-      const result = saveConfig(currentConfig);
-      if (result === false) {
-        setSaveStatus("error");
-      } else if (result === "no_logo") {
-        setSaveStatus("no_logo");
-        setTimeout(() => setSaveStatus("idle"), 3000);
-      } else {
-        setSaveStatus("saved");
-        setTimeout(() => setSaveStatus("idle"), 1800);
-      }
-      // Also save to Supabase (async, non-blocking)
-      if (supabaseReady) saveConfigRemote(currentConfig);
-    }, 1500);
-    return () => clearTimeout(autoSaveTimer.current);
-  }, [currentConfig]);
+  // Auto-save removed — save only on explicit button click
 
   // Persist pedidos whenever they change
   useEffect(() => { savePedidos(pedidos); }, [pedidos]);
@@ -849,24 +838,21 @@ export default function App() {
             </div>
             {/* Save indicator */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {/* Save status indicator */}
               {saveStatus === "saved" && (
-                <span className="fade-up" style={{ fontSize: 11, color: "var(--green)", fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="var(--green)" strokeWidth="1.4"/><path d="M3.5 6l1.8 1.8L8.5 4" stroke="var(--green)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                <span className="fade-up" style={{ fontSize: 11, color: "var(--green)", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="var(--green)" strokeWidth="1.4"/><path d="M3.5 6l1.8 1.8L8.5 4" stroke="var(--green)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   Guardado
                 </span>
               )}
-              {saveStatus === "no_logo" && (
-                <span className="fade-up" style={{ fontSize: 11, color: "var(--warn)", fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
-                  ⚠ Logo no guardado (imagen muy grande)
-                </span>
+              {saveStatus === "saving" && (
+                <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 600 }}>Guardando…</span>
               )}
               {saveStatus === "error" && (
-                <span className="fade-up" style={{ fontSize: 11, color: "var(--red)", fontWeight: 600 }}>
-                  ✗ Error al guardar
-                </span>
+                <span className="fade-up" style={{ fontSize: 11, color: "var(--red)", fontWeight: 600 }}>✗ Error al guardar</span>
               )}
               {saveStatus === "dirty" && (
-                <span className="blink" style={{ fontSize: 11, color: "var(--warn)", fontWeight: 600 }}>● guardando…</span>
+                <span title="Hay cambios sin guardar" style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--warn)", display: "inline-block", marginRight: 2 }} />
               )}
             </div>
           </div>
@@ -1384,7 +1370,7 @@ export default function App() {
                 {["Todos", ...ESTADOS].map(e => {
                   const count = e === "Todos" ? pedidos.length : pedidos.filter(p=>p.estado===e).length;
                   return (
-                  <button key={e} onClick={() => setPedidoTab(e)}
+                  <button key={e} onClick={() => { setPedidoTab(e); setPedidosPage(0); }}
                     style={{
                       padding: "5px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none",
                       background: pedidoTab === e ? "var(--accent)" : "var(--bg3)",
@@ -1396,16 +1382,19 @@ export default function App() {
                 )})}
               </div>
             </div>
-            {pedidos.filter(p => pedidoTab === "Todos" || p.estado === pedidoTab).length === 0 ? (
-              <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--text3)" }}>
-                <div style={{ fontSize: 36, marginBottom: 10 }}>📋</div>
-                <div style={{ fontWeight: 600, fontSize: 15 }}>Sin pedidos {pedidoTab !== "Todos" ? `en estado "${pedidoTab}"` : "registrados"}</div>
-                <div style={{ fontSize: 13, color: "var(--border2)", marginTop: 4 }}>Los pedidos guardados desde la factura aparecerán aquí</div>
-              </div>
-            ) : (
-              pedidos
-                .filter(p => pedidoTab === "Todos" || p.estado === pedidoTab)
-                .map(p => {
+            {(() => {
+              const filtered = pedidos.filter(p => pedidoTab === "Todos" || p.estado === pedidoTab);
+              const paginated = filtered.slice(pedidosPage * PEDIDOS_PER_PAGE, (pedidosPage + 1) * PEDIDOS_PER_PAGE);
+              const totalPages = Math.ceil(filtered.length / PEDIDOS_PER_PAGE);
+              if (filtered.length === 0) return (
+                <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--text3)" }}>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}>📋</div>
+                  <div style={{ fontWeight: 600, fontSize: 15 }}>Sin pedidos {pedidoTab !== "Todos" ? `en estado "${pedidoTab}"` : "registrados"}</div>
+                  <div style={{ fontSize: 13, color: "var(--border2)", marginTop: 4 }}>Los pedidos guardados desde la factura aparecerán aquí</div>
+                </div>
+              );
+              return (<>
+              {paginated.map(p => {
                   const ec = ESTADO_COLOR[p.estado] || ESTADO_COLOR.Cotizado;
                   return (
                     <div key={p.id} className="card" style={{ marginBottom: 10 }}>
@@ -1481,14 +1470,43 @@ export default function App() {
                       </div>
                     </div>
                   );
-                })
-            )}
+              })}
+              {totalPages > 1 && (
+                <div style={{ display:"flex", justifyContent:"center", alignItems:"center", gap:8, marginTop:16 }}>
+                  <button disabled={pedidosPage === 0} onClick={() => setPedidosPage(p=>p-1)}
+                    style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:8, padding:"6px 14px", fontSize:12, fontWeight:700, color:"var(--text2)", cursor:pedidosPage===0?"not-allowed":"pointer", opacity:pedidosPage===0?.4:1 }}>
+                    ← Anterior
+                  </button>
+                  <span style={{ fontSize:12, color:"var(--text3)" }}>
+                    Página {pedidosPage+1} de {totalPages} · {filtered.length} pedidos
+                  </span>
+                  <button disabled={pedidosPage >= totalPages-1} onClick={() => setPedidosPage(p=>p+1)}
+                    style={{ background:"var(--bg3)", border:"1px solid var(--border)", borderRadius:8, padding:"6px 14px", fontSize:12, fontWeight:700, color:"var(--text2)", cursor:pedidosPage>=totalPages-1?"not-allowed":"pointer", opacity:pedidosPage>=totalPages-1?.4:1 }}>
+                    Siguiente →
+                  </button>
+                </div>
+              )}
+              </>);
+            })()}
           </div>
         )}
 
         {/* ══ COTIZAR ══ */}
         {tab === "cotizar" && (
           <div className="fade-up">
+
+            {/* Unsaved changes bar */}
+            {saveStatus === "dirty" && (
+              <div className="fade-up" style={{ background:"rgba(251,191,36,.08)", border:"1px solid rgba(251,191,36,.25)", borderRadius:12, padding:"10px 16px", marginBottom:14, display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+                <span style={{ fontSize:12, color:"var(--warn)", fontWeight:600, display:"flex", alignItems:"center", gap:6 }}>
+                  <span style={{ width:6, height:6, borderRadius:"50%", background:"var(--warn)", display:"inline-block" }}/>
+                  Hay configuración sin guardar
+                </span>
+                <button onClick={handleSave} style={{ background:"var(--warn)", border:"none", borderRadius:8, padding:"6px 14px", fontSize:12, fontWeight:800, color:"#080A10", cursor:"pointer" }}>
+                  Guardar ahora
+                </button>
+              </div>
+            )}
 
             {/* ① PEDIDO */}
             <div className="card">
