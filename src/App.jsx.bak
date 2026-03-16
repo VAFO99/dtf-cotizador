@@ -187,7 +187,6 @@ export default function App() {
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | dirty | saved
   const [savedSnapshot, setSavedSnapshot] = useState(saved);
   const isFirstRender = useRef(true);
-  const isInitializing = useRef(true); // blocks auto-save during Supabase init
 
   const currentConfig = useMemo(() => ({
     margin, prendas, placements, sheets, designTypes, fixTypes, volTiers,
@@ -228,7 +227,7 @@ export default function App() {
       // Check connection
       const online = await checkConnection();
       if (cancelled) return;
-      if (!online) { setSyncStatus("offline"); isInitializing.current = false; return; }
+      if (!online) { setSyncStatus("offline"); return; }
 
       // Load remote config (overrides localStorage if newer)
       const remoteCfg = await loadConfigRemote();
@@ -282,17 +281,16 @@ export default function App() {
         savePedidos(mapped); // update localStorage too
       }
 
-      if (!cancelled) { setSyncStatus("online"); setSupabaseReady(true); isInitializing.current = false; }
+      if (!cancelled) { setSyncStatus("online"); setSupabaseReady(true); }
     };
     init();
     return () => { cancelled = true; };
   }, []); // eslint-disable-line
 
-  // Auto-save 1.5s after any config change (skip during init)
+  // Auto-save 1.5s after any config change
   const autoSaveTimer = useRef(null);
   useEffect(() => {
     if (isFirstRender.current) return;
-    if (isInitializing.current) return; // skip during Supabase init
     clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(async () => {
       const result = saveConfig(currentConfig);
@@ -442,7 +440,7 @@ export default function App() {
       const cfgLabel = [...line.placementIds.map(pid => placements.find(p => p.id === pid)?.label || "?"),
         ...line.customs.filter(c => c.w && c.h).map(c => `${c.label} ${c.w}×${c.h}`)].join(" + ");
       const tallasSummary = line.tallas?.length > 0
-        ? (line.tallas||[]).filter(x=>x.qty>0).map(x=>`${x.talla}:${x.qty}`).join(" ")
+        ? line.tallas.filter(x=>x.qty>0).map(x=>`${x.talla}:${x.qty}`).join(" ")
         : null;
       return { ...line, qty, pieces: piecesPerUnit, poli, poliCost: poli * poliRate, prendaCost, prendaLabel, cfgLabel, tallasSummary, sinCosto };
     });
@@ -1640,7 +1638,7 @@ export default function App() {
                           <input
                             type="number" min={0}
                             value={line.tallas?.some(x=>x.qty>0)
-                              ? (line.tallas || []).reduce((s,x)=>s+(x.qty||0),0)
+                              ? line.tallas.reduce((s,x)=>s+x.qty,0)
                               : (line.qty || "")}
                             readOnly={line.tallas?.some(x=>x.qty>0)}
                             placeholder="0"
@@ -1655,7 +1653,7 @@ export default function App() {
                               cursor: line.tallas?.some(x=>x.qty>0) ? "default" : "text",
                             }}
                           />
-                          {line.tallas?.some(x=>x.qty>0) && Number(line.qty) > 0 && (line.tallas||[]).reduce((s,x)=>s+(x.qty||0),0) !== Number(line.qty) && (
+                          {line.tallas?.some(x=>x.qty>0) && Number(line.qty) > 0 && line.tallas.reduce((s,x)=>s+x.qty,0) !== Number(line.qty) && (
                             <span style={{ fontSize: 9, color: "var(--warn)", fontWeight: 700 }}>≠ {line.qty}</span>
                           )}
                         </div>
@@ -1722,7 +1720,7 @@ export default function App() {
                     {/* Resumen */}
                     {(() => {
                       const counts = {};
-                      (calc.nesting?.results || []).forEach(r => { counts[r.sheet?.name || '?'] = (counts[r.sheet?.name || '?'] || 0) + 1; });
+                      calc.nesting.results.forEach(r => { counts[r.sheet.name] = (counts[r.sheet.name] || 0) + 1; });
                       return (
                         <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 10, background: "var(--bg2)", border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                           <span style={{ fontSize: 10, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".1em", fontWeight: 700 }}>Necesitas:</span>
@@ -1734,13 +1732,13 @@ export default function App() {
                         </div>
                       );
                     })()}
-                    {(calc.nesting?.results || []).map((res, ri) => {
+                    {calc.nesting.results.map((res, ri) => {
                       const { sheet, placed } = res;
-                      const maxH = placed?.length ? Math.max(...placed.map(p => (p.y || 0) + (p.h || 0))) : (sheet.h || 20);
+                      const maxH = placed.length ? Math.max(...placed.map(p => p.y + p.h)) : sheet.h;
                       const dH = Math.min(maxH + 2, sheet.h);
                       const svW = 340, sc = svW / sheet.w, svH = dH * sc, pd = 24;
                       return (
-                        <div key={ri} style={{ marginBottom: ri < (calc.nesting?.results?.length || 0) - 1 ? 20 : 0 }}>
+                        <div key={ri} style={{ marginBottom: ri < calc.nesting.results.length - 1 ? 20 : 0 }}>
                           <div className="row" style={{ justifyContent: "space-between", marginBottom: 10 }}>
                             <span style={{ fontSize: 14, fontWeight: 700 }}>{sheet.name}
                               <span style={{ color: "var(--text3)", fontWeight: 400, fontSize: 11, marginLeft: 8, fontFamily: "'JetBrains Mono'" }}>{sheet.w}″ × {sheet.h}″</span></span>
