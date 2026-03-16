@@ -64,6 +64,73 @@ const INIT_PRENDAS = [
 // Fórmula: ancho_in × alto_in × 0.0774
 const calcPoli = (w, h) => parseFloat((w * h * 0.0774).toFixed(2));
 
+// ── Pure pricing engine — reusable for both the main calc and the modal ──
+function calcPrecioSolicitud({ lines, prendas, placements, sheets, volTiers, poliRate, energyCost, margin }) {
+  if (!lines?.length) return null;
+  let pidx = 0;
+  const allPieces = [];
+  let totalQty = 0;
+
+  const lineDetails = lines.map(line => {
+    const qty = Number(line.qty) || 0;
+    totalQty += qty;
+    const piecesPerUnit = [];
+    let poli = 0;
+
+    // Try to match placements by label (client requests use labels, not IDs)
+    const posLabels = (line.cfgLabel || "").split(" + ").filter(Boolean);
+    posLabels.forEach(label => {
+      const pl = placements.find(p => p.label === label || p.label?.toLowerCase() === label?.toLowerCase());
+      if (pl) { piecesPerUnit.push({ w: pl.w, h: pl.h, label: pl.label, color: pl.color }); poli += calcPoli(pl.w, pl.h); }
+    });
+
+    // If no placements found by label, estimate from placement IDs
+    if (!piecesPerUnit.length && line.placementIds?.length) {
+      line.placementIds.forEach(pid => {
+        const pl = placements.find(p => p.id === pid);
+        if (pl) { piecesPerUnit.push({ w: pl.w, h: pl.h, label: pl.label, color: pl.color }); poli += calcPoli(pl.w, pl.h); }
+      });
+    }
+
+    const pr = prendas.find(p => p.id === line.prendaId || p.name === line.prendaLabel);
+    const prendaCost = pr ? pr.cost : 0;
+
+    for (let u = 0; u < qty; u++) {
+      piecesPerUnit.forEach(p => allPieces.push({ ...p, _idx: pidx++ }));
+    }
+
+    return { qty, prendaCost, poli, poliCost: poli * poliRate };
+  });
+
+  if (!allPieces.length || totalQty === 0) return null;
+
+  const nesting = findBestSheets(allPieces, sheets);
+  const dtfCost = nesting.totalCost;
+  const dtfPU = dtfCost / totalQty;
+
+  const tier = [...volTiers].sort((a, b) => b.minQty - a.minQty).find(t => totalQty >= t.minQty) || volTiers[0];
+  const volPct = tier?.discPct || 0;
+
+  let sub = 0;
+  lineDetails.forEach(ld => {
+    const uc = ld.prendaCost + ld.poliCost + dtfPU + energyCost;
+    const sp = Math.ceil((uc * (1 + margin / 100)) / 10) * 10;
+    sub += sp * ld.qty;
+  });
+
+  const disc = Math.round(sub * volPct / 100);
+  const total = sub - disc;
+
+  return {
+    total,
+    dtfCost,
+    disc,
+    totalQty,
+    tier: tier?.label,
+    desglose: { dtfCost: Math.round(dtfCost), poliCost: Math.round(lineDetails.reduce((s,l)=>s+l.poliCost,0)), energyCost: Math.round(energyCost * totalQty * 100) / 100 },
+  };
+}
+
 const INIT_PLACEMENTS = [
   { id: uid(), label: "Frente",       w: 10,  h: 12,  color: "#C45C3B" },
   { id: uid(), label: "Espalda",      w: 10,  h: 14,  color: "#3B7CC4" },
@@ -164,10 +231,11 @@ export default function App() {
   const [pedidos, setPedidos]         = useState(() => loadPedidos());
   const [agruparPorColor, setAgruparPorColor] = useState(saved?.agruparPorColor ?? false);
   const [pedidoTab, setPedidoTab]     = useState("Todos");
-  const [cotizandoId, setCotizandoId]   = useState(null); // ID del pedido que se está cotizando
   const [cotizModal, setCotizModal]     = useState(null); // { id, cliente, lines, ... }
   const [modalTotal, setModalTotal]     = useState("");
   const [modalNota, setModalNota]       = useState("");
+  const [modalMode, setModalMode]       = useState("auto"); // "auto" | "manual"
+  const [modalAutoResult, setModalAutoResult] = useState(null); // result from calcPrecioSolicitud
   const [pedidosPage, setPedidosPage]   = useState(0);
   const PEDIDOS_PER_PAGE = 20;
   const [syncStatus, setSyncStatus]   = useState("idle");
