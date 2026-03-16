@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { loadPedidos, savePedidos, nextQuoteNum, ESTADOS as ESTADOS_BASE, ESTADO_COLOR as ESTADO_COLOR_BASE } from "./store.js";
+import { loadPedidos, savePedidos, nextQuoteNum, ESTADOS, ESTADO_COLOR } from "./store.js";
 import { findBestSheets } from "./nesting.js";
 import PhoneInput from "./PhoneInput.jsx";
 import {
@@ -7,13 +7,6 @@ import {
   loadCotizaciones, createCotizacion, updateCotizacionEstado, deleteCotizacion,
   getNextNumero, checkConnection,
 } from "./supabase.js";
-
-// Extended estados including Pendiente (client requests)
-const ESTADOS = ["Pendiente", ...ESTADOS_BASE];
-const ESTADO_COLOR = {
-  Pendiente: { bg: "rgba(251,191,36,.12)", border: "rgba(251,191,36,.4)", text: "#FBBF24" },
-  ...ESTADO_COLOR_BASE,
-};
 
 const STORAGE_KEY = "dtf_config_v3"; // bumped: per-prenda tallas+colores, TCambio, margenMin, darkMode
 

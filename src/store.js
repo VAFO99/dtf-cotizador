@@ -19,12 +19,22 @@ export function nextQuoteNum() {
   return String(n).padStart(4, "0");
 }
 
-export const ESTADOS = ["Cotizado", "Aceptado", "En proceso", "Listo", "Entregado"];
+// Pendiente = solicitud de cliente web aún sin cotizar
+// Cotizado → Aceptado → En proceso → Listo → Entregado
+export const ESTADOS = [
+  "Pendiente",
+  "Cotizado",
+  "Aceptado",
+  "En proceso",
+  "Listo",
+  "Entregado",
+];
 
 export const ESTADO_COLOR = {
-  Cotizado:    { bg: "rgba(148,163,184,.12)", border: "rgba(148,163,184,.3)", text: "#94A3B8" },
-  Aceptado:    { bg: "rgba(34,211,238,.1)",   border: "rgba(34,211,238,.3)", text: "#22D3EE"  },
-  "En proceso":{ bg: "rgba(251,191,36,.1)",   border: "rgba(251,191,36,.3)", text: "#FBBF24"  },
-  Listo:       { bg: "rgba(52,211,153,.1)",   border: "rgba(52,211,153,.3)", text: "#34D399"  },
-  Entregado:   { bg: "rgba(100,116,139,.08)", border: "rgba(100,116,139,.2)","text": "#64748B" },
+  Pendiente:    { bg: "rgba(251,191,36,.12)",  border: "rgba(251,191,36,.4)",  text: "#FBBF24" },
+  Cotizado:     { bg: "rgba(148,163,184,.12)", border: "rgba(148,163,184,.3)", text: "#94A3B8" },
+  Aceptado:     { bg: "rgba(34,211,238,.1)",   border: "rgba(34,211,238,.3)",  text: "#22D3EE" },
+  "En proceso": { bg: "rgba(251,191,36,.1)",   border: "rgba(251,191,36,.3)",  text: "#FBBF24" },
+  Listo:        { bg: "rgba(52,211,153,.1)",   border: "rgba(52,211,153,.3)",  text: "#34D399" },
+  Entregado:    { bg: "rgba(100,116,139,.08)", border: "rgba(100,116,139,.2)", text: "#64748B" },
 };
