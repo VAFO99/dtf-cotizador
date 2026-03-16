@@ -1,6 +1,13 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { loadPedidos, savePedidos, nextQuoteNum, ESTADOS, ESTADO_COLOR } from "./store.js";
+import { loadPedidos, savePedidos, nextQuoteNum, ESTADOS as ESTADOS_BASE, ESTADO_COLOR as ESTADO_COLOR_BASE } from "./store.js";
 import { findBestSheets } from "./nesting.js";
+// Extended estados including Pendiente (client requests)
+const ESTADOS = ["Pendiente", ...ESTADOS_BASE];
+const ESTADO_COLOR = {
+  Pendiente:    { bg: "rgba(251,191,36,.12)",  border: "rgba(251,191,36,.4)",  text: "#FBBF24" },
+  ...ESTADO_COLOR_BASE,
+};
+
 import {
   loadConfigRemote, saveConfigRemote,
   loadCotizaciones, createCotizacion, updateCotizacionEstado, deleteCotizacion,
@@ -241,7 +248,12 @@ export default function App() {
         if (remoteCfg.tipoCambio)   setTipoCambio(remoteCfg.tipoCambio);
         if (remoteCfg.mostrarUSD !== undefined) setMostrarUSD(remoteCfg.mostrarUSD);
         if (remoteCfg.darkMode !== undefined) setDarkMode(remoteCfg.darkMode);
-        if (remoteCfg.whatsappBiz) setWhatsappBiz(remoteCfg.whatsappBiz);
+        if (remoteCfg.whatsappBiz)                 setWhatsappBiz(remoteCfg.whatsappBiz);
+        if (remoteCfg.darkMode      !== undefined)  setDarkMode(remoteCfg.darkMode);
+        if (remoteCfg.mostrarUSD    !== undefined)  setMostrarUSD(remoteCfg.mostrarUSD);
+        if (remoteCfg.margenMin     !== undefined)  setMargenMin(remoteCfg.margenMin);
+        if (remoteCfg.agruparPorColor !== undefined) setAgruparPorColor(remoteCfg.agruparPorColor);
+        if (remoteCfg.adminPin)                     setAdminPin(remoteCfg.adminPin);
         if (remoteCfg.prensaWatts)  setPrensaWatts(remoteCfg.prensaWatts);
         if (remoteCfg.prensaSeg)    setPrensaSeg(remoteCfg.prensaSeg);
         if (remoteCfg.tarifaKwh)    setTarifaKwh(remoteCfg.tarifaKwh);
@@ -254,14 +266,15 @@ export default function App() {
         const mapped = remoteCots.map(row => ({
           id: row.id,
           num: row.numero,
-          cliente: row.cliente,
-          email: row.email,
-          telefono: row.telefono,
-          fecha: row.created_at,
-          total: row.total,
-          estado: row.estado,
-          notas: row.notas,
-          lines: row.lines,
+          cliente: row.cliente  ?? "",
+          email: row.email      ?? "",
+          telefono: row.telefono ?? "",
+          fecha: row.created_at ?? row.fecha ?? new Date().toISOString(),
+          total: row.total      ?? 0,
+          estado: row.estado    ?? "Cotizado",
+          notas: row.notas      ?? "",
+          lines: Array.isArray(row.lines) ? row.lines : [],
+          fromWeb: row.notas?.includes("Pedido web") ?? false,
         }));
         setPedidos(mapped);
         savePedidos(mapped); // update localStorage too
@@ -351,6 +364,7 @@ export default function App() {
       cfgLabel: l.cfgLabel, tallasSummary: l.tallasSummary,
       sellPrice: l.sellPrice, lineTotal: l.lineTotal,
     }));
+    // Tag as admin-created
 
     // Save to Supabase if online
     let id = uid();
@@ -1355,17 +1369,37 @@ export default function App() {
         {/* ══ PEDIDOS ══ */}
         {tab === "pedidos" && (
           <div className="fade-up">
+            {/* Pending alert */}
+            {pedidos.filter(p => p.estado === "Pendiente").length > 0 && (
+              <div style={{ background:"rgba(251,191,36,.1)", border:"1.5px solid rgba(251,191,36,.35)", borderRadius:14, padding:"12px 16px", marginBottom:14, display:"flex", alignItems:"center", gap:10 }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <div>
+                  <span style={{ fontWeight:700, fontSize:13, color:"var(--warn)" }}>
+                    {pedidos.filter(p=>p.estado==="Pendiente").length} solicitud{pedidos.filter(p=>p.estado==="Pendiente").length>1?"es":""} pendiente{pedidos.filter(p=>p.estado==="Pendiente").length>1?"s":""} de cotizar
+                  </span>
+                  <div style={{ fontSize:11, color:"var(--text3)", marginTop:2 }}>Revisá los pedidos de clientes, ajustá el precio y aprobá para notificar por WhatsApp</div>
+                </div>
+                <button onClick={()=>setPedidoTab("Pendiente")} style={{ marginLeft:"auto", background:"var(--warn)", border:"none", borderRadius:8, padding:"6px 12px", fontSize:11, fontWeight:800, color:"#080A10", cursor:"pointer", flexShrink:0 }}>
+                  Ver ahora
+                </button>
+              </div>
+            )}
             <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>Pedidos activos</div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Solicitudes y pedidos</div>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {["Todos", ...ESTADOS].map(e => (
+                {["Todos", ...ESTADOS].map(e => {
+                  const count = e === "Todos" ? pedidos.length : pedidos.filter(p=>p.estado===e).length;
+                  return (
                   <button key={e} onClick={() => setPedidoTab(e)}
                     style={{
                       padding: "5px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none",
                       background: pedidoTab === e ? "var(--accent)" : "var(--bg3)",
                       color: pedidoTab === e ? "var(--bg)" : "var(--text2)",
-                    }}>{e}</button>
-                ))}
+                      position: "relative",
+                    }}>
+                    {e}{count>0 && ` (${count})`}
+                  </button>
+                )})}
               </div>
             </div>
             {pedidos.filter(p => pedidoTab === "Todos" || p.estado === pedidoTab).length === 0 ? (
@@ -1384,10 +1418,40 @@ export default function App() {
                       <div className="card-head" style={{ flexWrap: "wrap", gap: 8 }}>
                         <div>
                           <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, color: "var(--accent)", fontSize: 13 }}>#{p.num}</span>
-                          <span style={{ marginLeft: 10, fontWeight: 700, fontSize: 14 }}>{p.cliente}</span>
+                          {p.fromWeb && <span style={{ marginLeft:8, fontSize:9, fontWeight:800, background:"rgba(251,191,36,.15)", border:"1px solid rgba(251,191,36,.3)", color:"var(--warn)", borderRadius:6, padding:"2px 6px", letterSpacing:".05em" }}>WEB</span>}
+                          <span style={{ marginLeft: 6, fontWeight: 700, fontSize: 14 }}>{p.cliente}</span>
                         </div>
                         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                           <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 14, color: "var(--accent)" }}>L{p.total.toLocaleString()}</span>
+                          {p.estado === "Pendiente" && whatsappBiz && (
+                            <button onClick={() => {
+                              // Open WhatsApp to send quote to client
+                              const lines = p.lines?.[0];
+                              const msg = encodeURIComponent(
+                                `Hola ${p.cliente}! 👋
+
+` +
+                                `📋 *Cotización #${p.num} — ${businessName}*
+
+` +
+                                `${lines ? `👕 ${lines.prendaLabel ?? "Prenda"}${lines.color ? " — " + lines.color : ""}
+🎨 ${lines.cfgLabel ?? ""}
+📦 ${p.lines.reduce((s,l)=>s+l.qty,0)} prendas
+` : ""}` +
+                                `💰 *Total: L_____*
+
+` +
+                                `_Confirmame si estás de acuerdo y coordinamos los detalles._`
+                              );
+                              window.open(`https://wa.me/${p.telefono || p.lines?.[0]?.telefono}?text=${msg}`, "_blank");
+                              // Mark as Cotizado
+                              setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: "Cotizado" } : x));
+                              if (supabaseReady) updateCotizacionEstado(p.id, "Cotizado");
+                            }}
+                              style={{ background:"rgba(37,211,102,.15)", border:"1px solid rgba(37,211,102,.35)", borderRadius:8, padding:"5px 12px", fontSize:11, fontWeight:800, color:"#25D366", cursor:"pointer", whiteSpace:"nowrap" }}>
+                              ✓ Aprobar y cotizar
+                            </button>
+                          )}
                           <select value={p.estado} onChange={async e => {
                             const newEstado = e.target.value;
                             setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: newEstado } : x));
@@ -1404,8 +1468,10 @@ export default function App() {
                         </div>
                       </div>
                       <div className="card-body" style={{ padding: "10px 16px" }}>
-                        <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 8, fontFamily: "'JetBrains Mono'" }}>
-                          {new Date(p.fecha).toLocaleDateString("es-HN", { year:"numeric", month:"short", day:"numeric" })}
+                        <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 8, fontFamily: "'JetBrains Mono'", display:"flex", gap:12, flexWrap:"wrap" }}>
+                          <span>{new Date(p.fecha).toLocaleDateString("es-HN", { year:"numeric", month:"short", day:"numeric" })}</span>
+                          {p.telefono && <span>📱 {p.telefono}</span>}
+                          {p.notas && <span style={{ color:"var(--warn)", fontFamily:"'Sora'", fontSize:10 }}>📝 {p.notas.slice(0,60)}{p.notas.length>60?"…":""}</span>}
                         </div>
                         {p.lines.map((l, i) => (
                           <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
