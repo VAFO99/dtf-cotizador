@@ -296,6 +296,11 @@ export default function App() {
         ::selection{background:#A8D530;color:#080C09}
         scrollbar-width:thin;scrollbar-color:#1C2C1E #080C09;
 
+        /* Responsive grid */
+        @media(max-width:780px){
+          .cotizar-grid{grid-template-columns:1fr !important}
+        }
+
         /* Cards */
         .S{background:#0D1410;border-radius:14px;border:1px solid #162416;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.4)}
         .SH{padding:12px 16px;border-bottom:1px solid #162416;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#101A12}
@@ -351,7 +356,7 @@ export default function App() {
 
       {/* ── TOP BAR ── */}
       <div style={{ background: "#070E09", borderBottom: "1px solid #162416", position: "sticky", top: 0, zIndex: 100, backdropFilter: "blur(8px)" }}>
-        <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 52 }}>
+        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 20px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 52 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
             <span style={{ fontFamily: "'Outfit'", fontSize: 22, fontWeight: 900, color: "#A8D530", letterSpacing: "-0.5px" }}>{businessName}</span>
             <span style={{ fontFamily: "'JetBrains Mono'", fontSize: 10, fontWeight: 500, color: "#324835", letterSpacing: ".1em", textTransform: "uppercase" }}>DTF · Cotizador</span>
@@ -368,17 +373,17 @@ export default function App() {
             )}
           </div>
         </div>
-        <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 16px", display: "flex", borderTop: "1px solid #162416" }}>
+        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 20px", display: "flex", borderTop: "1px solid #162416" }}>
           <button className={`tb ${tab === "cotizar" ? "a" : ""}`} onClick={() => setTab("cotizar")}>Cotizar</button>
           <button className={`tb ${tab === "config" ? "a" : ""}`} onClick={() => setTab("config")}>Configuración</button>
         </div>
       </div>
 
-      <div style={{ maxWidth: 720, margin: "0 auto", padding: "16px 16px 80px" }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "16px 20px 80px" }}>
 
         {/* ═══ CONFIG ═══ */}
         {tab === "config" && (
-          <div className="fi">
+          <div className="fi" style={{ maxWidth: 900, margin: "0 auto" }}>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
               {[["negocio","Mi Negocio"],["prendas","Prendas"],["placements","Placements"],["sheets","Hojas DTF"],["poli","Poliamida"],["design","Diseño"],["fix","Corrección"],["vol","Volumen"]].map(([k,v])=>(
                 <button key={k} className="ct" onClick={() => setCfgTab(k)}
@@ -563,7 +568,9 @@ export default function App() {
 
         {/* ═══ COTIZAR ═══ */}
         {tab === "cotizar" && (
-          <div className="fi">
+          <div className="fi cotizar-grid" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12, alignItems: "start" }}>
+            {/* ── COLUMNA IZQUIERDA: inputs ── */}
+            <div>
             {/* ① PEDIDO */}
             <div className="S">
               <div className="SH">
@@ -682,7 +689,10 @@ export default function App() {
                 <button className="BA" onClick={() => setLines(p => [...p, emptyLine()])}>+ Agregar línea</button>
               </div>
             </div>
+            </div>{/* end col-left */}
 
+            {/* ── COLUMNA DERECHA: resultados ── */}
+            <div>
             {calc && (
               <>
                 {/* ③ HOJAS DTF */}
@@ -870,10 +880,11 @@ export default function App() {
             {!calc && (
               <div style={{ textAlign: "center", padding: "60px 20px", color: "#1C2C1E" }}>
                 <div style={{ fontSize: 36, marginBottom: 10 }}>🖨</div>
-                <div style={{ fontFamily: "'Outfit'", fontSize: 15, fontWeight: 600, color: "#1E3020" }}>Agregá líneas con cantidad y placements</div>
-                <div style={{ fontSize: 12, color: "#162416", marginTop: 4 }}>para calcular el costo de hojas DTF y precio de venta</div>
+                <div style={{ fontFamily: "'Outfit'", fontSize: 15, fontWeight: 600, color: "#1E3020" }}>Agregá líneas para ver resultados</div>
+                <div style={{ fontSize: 12, color: "#162416", marginTop: 4 }}>cantidad + placements → cálculo automático</div>
               </div>
             )}
+            </div>{/* end col-right */}
           </div>
         )}
       </div>
