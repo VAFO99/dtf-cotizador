@@ -1,6 +1,11 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { loadPedidos, savePedidos, nextQuoteNum, ESTADOS, ESTADO_COLOR } from "./store.js";
 import { findBestSheets } from "./nesting.js";
+import {
+  loadConfigRemote, saveConfigRemote,
+  loadCotizaciones, createCotizacion, updateCotizacionEstado, deleteCotizacion,
+  getNextNumero, checkConnection,
+} from "./supabase.js";
 
 const STORAGE_KEY = "dtf_config_v3"; // bumped: per-prenda tallas+colores, TCambio, margenMin, darkMode
 
@@ -158,6 +163,8 @@ export default function App() {
   const [pedidos, setPedidos]         = useState(() => loadPedidos());
   const [agruparPorColor, setAgruparPorColor] = useState(saved?.agruparPorColor ?? false);
   const [pedidoTab, setPedidoTab]     = useState("cotizar"); // cotizar | pedidos
+  const [syncStatus, setSyncStatus]   = useState("idle"); // idle | syncing | online | offline
+  const [supabaseReady, setSupabaseReady] = useState(false);
 
   // Save state
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | dirty | saved
@@ -184,12 +191,73 @@ export default function App() {
     }
   }, [currentConfig]);
 
+  // ── Supabase init: load remote data on first mount ──
+  useEffect(() => {
+    let cancelled = false;
+    const init = async () => {
+      setSyncStatus("syncing");
+      // Check connection
+      const online = await checkConnection();
+      if (cancelled) return;
+      if (!online) { setSyncStatus("offline"); return; }
+
+      // Load remote config (overrides localStorage if newer)
+      const remoteCfg = await loadConfigRemote();
+      if (!cancelled && remoteCfg) {
+        if (remoteCfg.prendas)      setPrendas(remoteCfg.prendas);
+        if (remoteCfg.placements)   setPlacements(remoteCfg.placements);
+        if (remoteCfg.sheets)       setSheets(remoteCfg.sheets);
+        if (remoteCfg.designTypes)  setDesignTypes(remoteCfg.designTypes);
+        if (remoteCfg.fixTypes)     setFixTypes(remoteCfg.fixTypes);
+        if (remoteCfg.volTiers)     setVolTiers(remoteCfg.volTiers);
+        if (remoteCfg.poliBolsa)    setPoliBolsa(remoteCfg.poliBolsa);
+        if (remoteCfg.poliGramos)   setPoliGramos(remoteCfg.poliGramos);
+        if (remoteCfg.businessName) setBusinessName(remoteCfg.businessName);
+        if (remoteCfg.margin)       setMargin(remoteCfg.margin);
+        if (remoteCfg.tallasCfg)    setTallasCfg(remoteCfg.tallasCfg);
+        if (remoteCfg.coloresCfg)   setColoresCfg(remoteCfg.coloresCfg);
+        if (remoteCfg.validezDias)  setValidezDias(remoteCfg.validezDias);
+        if (remoteCfg.margenMin !== undefined) setMargenMin(remoteCfg.margenMin);
+        if (remoteCfg.tipoCambio)   setTipoCambio(remoteCfg.tipoCambio);
+        if (remoteCfg.mostrarUSD !== undefined) setMostrarUSD(remoteCfg.mostrarUSD);
+        if (remoteCfg.darkMode !== undefined) setDarkMode(remoteCfg.darkMode);
+        if (remoteCfg.prensaWatts)  setPrensaWatts(remoteCfg.prensaWatts);
+        if (remoteCfg.prensaSeg)    setPrensaSeg(remoteCfg.prensaSeg);
+        if (remoteCfg.tarifaKwh)    setTarifaKwh(remoteCfg.tarifaKwh);
+      }
+
+      // Load remote cotizaciones
+      const remoteCots = await loadCotizaciones();
+      if (!cancelled && remoteCots !== null) {
+        // Map Supabase rows to app format
+        const mapped = remoteCots.map(row => ({
+          id: row.id,
+          num: row.numero,
+          cliente: row.cliente,
+          email: row.email,
+          telefono: row.telefono,
+          fecha: row.created_at,
+          total: row.total,
+          estado: row.estado,
+          notas: row.notas,
+          lines: row.lines,
+        }));
+        setPedidos(mapped);
+        savePedidos(mapped); // update localStorage too
+      }
+
+      if (!cancelled) { setSyncStatus("online"); setSupabaseReady(true); }
+    };
+    init();
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line
+
   // Auto-save 1.5s after any config change
   const autoSaveTimer = useRef(null);
   useEffect(() => {
     if (isFirstRender.current) return;
     clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(() => {
+    autoSaveTimer.current = setTimeout(async () => {
       const result = saveConfig(currentConfig);
       if (result === false) {
         setSaveStatus("error");
@@ -200,6 +268,8 @@ export default function App() {
         setSaveStatus("saved");
         setTimeout(() => setSaveStatus("idle"), 1800);
       }
+      // Also save to Supabase (async, non-blocking)
+      if (supabaseReady) saveConfigRemote(currentConfig);
     }, 1500);
     return () => clearTimeout(autoSaveTimer.current);
   }, [currentConfig]);
@@ -247,23 +317,42 @@ export default function App() {
     reader.readAsText(file);
   }, []);
 
-  // Save cotización as pedido — FIX 6: detect duplicates by invoice number
-  const savePedido = useCallback((calc, clientName, invoiceNum) => {
+  // Save cotización as pedido — with Supabase sync
+  const savePedido = useCallback(async (calc, clientName, invoiceNum, email = "", telefono = "", notas = "") => {
     if (!calc) return false;
     const exists = loadPedidos().some(p => p.num === invoiceNum);
     if (exists) return "duplicate";
+
+    const lines = calc.lp.map(l => ({
+      qty: l.qty, prendaLabel: l.prendaLabel, color: l.color,
+      cfgLabel: l.cfgLabel, tallasSummary: l.tallasSummary,
+      sellPrice: l.sellPrice, lineTotal: l.lineTotal,
+    }));
+
+    // Save to Supabase if online
+    let id = uid();
+    if (supabaseReady) {
+      const row = await createCotizacion({
+        numero: invoiceNum,
+        cliente: clientName || "Sin nombre",
+        email, telefono, notas,
+        total: calc.total,
+        estado: "Cotizado",
+        lines,
+      });
+      if (row) id = row.id;
+    }
+
     const nuevo = {
-      id: uid(),
-      num: invoiceNum,
+      id, num: invoiceNum,
       cliente: clientName || "Sin nombre",
+      email, telefono, notas,
       fecha: new Date().toISOString(),
-      total: calc.total,
-      estado: "Cotizado",
-      lines: calc.lp.map(l => ({ qty: l.qty, prendaLabel: l.prendaLabel, color: l.color, cfgLabel: l.cfgLabel, tallasSummary: l.tallasSummary, sellPrice: l.sellPrice, lineTotal: l.lineTotal })),
+      total: calc.total, estado: "Cotizado", lines,
     };
     setPedidos(prev => [nuevo, ...prev]);
     return "ok";
-  }, []);
+  }, [supabaseReady]);
 
   const poliRate = poliBolsa / poliGramos;
 
@@ -1207,11 +1296,18 @@ export default function App() {
                         </div>
                         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                           <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 14, color: "var(--accent)" }}>L{p.total.toLocaleString()}</span>
-                          <select value={p.estado} onChange={e => setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: e.target.value } : x))}
+                          <select value={p.estado} onChange={async e => {
+                            const newEstado = e.target.value;
+                            setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: newEstado } : x));
+                            if (supabaseReady) await updateCotizacionEstado(p.id, newEstado);
+                          }}
                             style={{ background: ec.bg, border: `1px solid ${ec.border}`, color: ec.text, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Sora'" }}>
                             {ESTADOS.map(es => <option key={es}>{es}</option>)}
                           </select>
-                          <button onClick={() => { if (confirm("¿Eliminar este pedido?")) setPedidos(prev => prev.filter(x => x.id !== p.id)); }}
+                          <button onClick={async () => { if (confirm("¿Eliminar este pedido?")) {
+                            setPedidos(prev => prev.filter(x => x.id !== p.id));
+                            if (supabaseReady) await deleteCotizacion(p.id);
+                          } }}
                             className="btn-del" title="Eliminar">×</button>
                         </div>
                       </div>
@@ -1683,10 +1779,14 @@ function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido }
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientPhone, setClientPhone] = useState("");
-  // FIX 7: generate invoice number ONCE per mount, stabilize with useRef
+  // FIX 7: generate invoice number ONCE per mount from Supabase (real auto-increment)
   const invoiceNumRef = useRef(null);
-  if (!invoiceNumRef.current) invoiceNumRef.current = nextQuoteNum();
-  const [invoiceNum, setInvoiceNum] = useState(invoiceNumRef.current);
+  const [invoiceNum, setInvoiceNum] = useState("....");
+  useEffect(() => {
+    if (invoiceNumRef.current) return;
+    invoiceNumRef.current = true;
+    getNextNumero().then(n => setInvoiceNum(n));
+  }, []);
   const [notes, setNotes] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
   const dateStr = today.toLocaleDateString("es-HN", { year: "numeric", month: "long", day: "numeric" });
@@ -1769,8 +1869,8 @@ ${businessName}`
         <StepBadge n={5} />
         <span style={{ fontWeight: 700, fontSize: 14 }}>Factura / Cotización</span>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={() => {
-              const result = onSavePedido(calc, clientName, invoiceNum);
+          <button onClick={async () => {
+              const result = await onSavePedido(calc, clientName, invoiceNum, clientEmail, clientPhone, notes);
               if (result === "duplicate") {
                 if (confirm("Esta cotización ya está guardada. ¿Guardar de todas formas como nueva?")) {
                   onSavePedido(calc, clientName, invoiceNum + "-bis");
