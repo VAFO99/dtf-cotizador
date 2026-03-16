@@ -422,12 +422,14 @@ export default function App() {
           poli += calcPoli(cw, ch);
         }
       });
-      // *** KEY FIX: repeat each piece qty times ***
+      // pr MUST be declared before the forEach below — avoid TDZ (Je before initialization)
+      const pr = prendas.find(p => p.id === line.prendaId);
+
+      // Repeat each piece qty times for nesting
       for (let u = 0; u < qty; u++) {
         piecesPerUnit.forEach(p => allPieces.push({ ...p, _idx: pidx++, prendaColor: line.color || "", prendaLabel: pr?.name || line.otroName || "Otro" }));
       }
 
-      const pr = prendas.find(p => p.id === line.prendaId);
       const prendaCost = line.quien === "Cliente" ? 0 : (pr ? pr.cost : Number(line.otroCost) || 0);
       const prendaLabel = pr ? pr.name : (line.otroName || "Otro");
       // FIX 9: flag when "Otro" has no cost and client isn't bringing it
