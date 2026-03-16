@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { MaxRectsPacker } from "maxrects-packer";
 
 const STORAGE_KEY = "dtf_config_v1";
 
@@ -26,16 +27,16 @@ const INIT_PRENDAS = [
 const calcPoli = (w, h) => parseFloat((w * h * 0.0774).toFixed(2));
 
 const INIT_PLACEMENTS = [
-  { id: uid(), label: "Front",    w: 10,  h: 12,  color: "#C45C3B" },
-  { id: uid(), label: "Back",     w: 10,  h: 14,  color: "#3B7CC4" },
-  { id: uid(), label: "LC",       w: 3.5, h: 3.5, color: "#8B6B3E" },
-  { id: uid(), label: "RC",       w: 3.5, h: 3.5, color: "#A68B4E" },
-  { id: uid(), label: "Manga L",  w: 3.5, h: 12,  color: "#6B8B3E" },
-  { id: uid(), label: "Manga R",  w: 3.5, h: 12,  color: "#5B7B2E" },
-  { id: uid(), label: "Nape",     w: 3.5, h: 2,   color: "#7B5EA7" },
-  { id: uid(), label: "Bolsillo", w: 3,   h: 3,   color: "#5E9EA7" },
-  { id: uid(), label: "Front OS", w: 12,  h: 16,  color: "#D46A4B" },
-  { id: uid(), label: "Back OS",  w: 14,  h: 18,  color: "#4B8AD4" },
+  { id: uid(), label: "Frente",       w: 10,  h: 12,  color: "#C45C3B" },
+  { id: uid(), label: "Espalda",      w: 10,  h: 14,  color: "#3B7CC4" },
+  { id: uid(), label: "Pecho Izq",    w: 3.5, h: 3.5, color: "#8B6B3E" },
+  { id: uid(), label: "Pecho Der",    w: 3.5, h: 3.5, color: "#A68B4E" },
+  { id: uid(), label: "Manga Izq",    w: 3.5, h: 12,  color: "#6B8B3E" },
+  { id: uid(), label: "Manga Der",    w: 3.5, h: 12,  color: "#5B7B2E" },
+  { id: uid(), label: "Cuello",       w: 3.5, h: 2,   color: "#7B5EA7" },
+  { id: uid(), label: "Bolsillo",     w: 3,   h: 3,   color: "#5E9EA7" },
+  { id: uid(), label: "Frente OS",    w: 12,  h: 16,  color: "#D46A4B" },
+  { id: uid(), label: "Espalda OS",   w: 14,  h: 18,  color: "#4B8AD4" },
 ];
 
 const INIT_SHEETS = [
@@ -79,113 +80,123 @@ const INIT_VOL = [
 const GAP = 0.25;
 const EDGE = 0.15;
 
-// ── SHELF PACKING con rotación ──
-// Cuando abre un shelf nuevo, prefiere la orientación con MENOR ALTURA
-// para maximizar el espacio vertical restante.
-function shelfPack(pieces, sw, sh) {
+// ── MAXRECTS BIN PACKING ──
+// Empaqueta las piezas en UNA SOLA hoja de tamaño sw×sh.
+// Retorna cuántas piezas caben y sus posiciones.
+// IMPORTANTE: MaxRectsPacker crea múltiples bins cuando no caben todas.
+// Solo usamos el PRIMER bin (= una hoja) para el greedy externo.
+function packOnSheet(pieces, sw, sh) {
   const uw = sw - EDGE * 2;
   const uh = sh - EDGE * 2;
   if (!pieces.length) return { fits: false, placed: [] };
 
-  // Ordenar: mayor dimensión desc, luego mayor área
-  const sorted = [...pieces].sort((a, b) => {
-    const aH = Math.max(a.w, a.h), bH = Math.max(b.w, b.h);
-    if (Math.abs(bH - aH) > 0.005) return bH - aH;
-    return b.w * b.h - a.w * a.h;
+  // Filtrar piezas que caben individualmente en esta hoja (en alguna orientación)
+  const eligible = pieces.filter(p =>
+    (p.w <= uw + 0.005 && p.h <= uh + 0.005) ||
+    (p.h <= uw + 0.005 && p.w <= uh + 0.005)
+  );
+  if (!eligible.length) return { fits: false, placed: [] };
+
+  // Ordenar de mayor a menor área (ayuda al MaxRects a empaquetar mejor)
+  const sorted = [...eligible].sort((a, b) => b.w * b.h - a.w * a.h);
+
+  const packer = new MaxRectsPacker(uw, uh, GAP, {
+    smart: false,
+    pot: false,
+    square: false,
+    allowRotation: true,
+    tag: false,
   });
 
-  // shelf = { y: posY absoluta, h: altura, nextX: cursor x absoluto }
-  const shelves = [];
-  let cursorY = 0;
-  const placed = [];
-
+  // Insertar de una en una para controlar qué va en el primer bin
   for (const p of sorted) {
-    const orients = [{ pw: p.w, ph: p.h, rot: false }];
-    if (Math.abs(p.w - p.h) > 0.005) orients.push({ pw: p.h, ph: p.w, rot: true });
-
-    let bestExisting = null; // mejor opción en shelf existente
-
-    // ─ Intentar en shelves existentes ─
-    for (let si = 0; si < shelves.length; si++) {
-      const s = shelves[si];
-      const availW = uw - s.nextX + EDGE;
-      for (const o of orients) {
-        if (o.pw > availW + 0.005) continue;
-        if (o.ph > s.h + 0.005) continue;
-        const waste = s.h - o.ph;
-        if (!bestExisting || waste < bestExisting.waste) {
-          bestExisting = { si, orient: o, px: s.nextX, py: s.y, waste, isNew: false };
-        }
-      }
-      if (bestExisting && bestExisting.waste < 0.01) break;
-    }
-
-    // ─ Calcular mejor opción en shelf nuevo ─
-    let bestNew = null;
-    const newY = cursorY + (shelves.length ? GAP : 0);
-    for (const o of orients) {
-      if (o.pw > uw + 0.005) continue;
-      if (newY + o.ph > uh + 0.005) continue;
-      // Para nuevo shelf: preferir la orientación con MENOR ALTURA
-      if (!bestNew || o.ph < bestNew.orient.ph) {
-        bestNew = { si: -1, orient: o, px: EDGE, py: EDGE + newY, waste: 0, isNew: true, newY };
-      }
-    }
-
-    // ─ Elegir: existente vs nuevo ─
-    // Preferir existente si el desperdicio es razonable (≤ 1"), si no abrir nuevo
-    let chosen = null;
-    if (bestExisting && (!bestNew || bestExisting.waste <= 1.0)) {
-      chosen = bestExisting;
-    } else if (bestNew) {
-      chosen = bestNew;
-    } else if (bestExisting) {
-      chosen = bestExisting; // último recurso
-    }
-
-    if (!chosen) continue;
-
-    const { si, orient: o, px, py, isNew, newY: ny } = chosen;
-    placed.push({ ...p, x: px, y: py, w: o.pw, h: o.ph, rotated: o.rot });
-
-    if (isNew) {
-      shelves.push({ y: EDGE + ny, h: o.ph, nextX: EDGE + o.pw + GAP });
-      cursorY = ny + o.ph;
-    } else {
-      shelves[si].nextX += o.pw + GAP;
-    }
+    packer.add(p.w, p.h, {
+      _idx: p._idx,
+      label: p.label,
+      color: p.color,
+      _origW: p.w,
+      _origH: p.h,
+    });
   }
 
-  return { fits: placed.length === pieces.length, placed };
+  // Solo el primer bin = UNA hoja
+  const firstBin = packer.bins[0];
+  if (!firstBin) return { fits: false, placed: [] };
+
+  const placed = firstBin.rects.map(r => ({
+    _idx: r.data._idx,
+    label: r.data.label,
+    color: r.data.color,
+    x: r.x + EDGE,
+    y: r.y + EDGE,
+    w: r.rot ? r.data._origH : r.data._origW,
+    h: r.rot ? r.data._origW : r.data._origH,
+    rotated: r.rot || false,
+  }));
+
+  return {
+    fits: placed.length === pieces.length,
+    placed,
+  };
 }
 
-// Greedy: empaqueta en la hoja más barata posible
+// Greedy cost-minimizer: asigna piezas a la hoja más barata posible.
+// Ordena las hojas por precio (más barata primero) y prueba cada una.
 function findBestSheets(allPieces, sheets) {
   if (!allPieces.length) return { results: [], totalCost: 0 };
+
+  // Ordenar hojas por precio ascendente
   const sortedSheets = [...sheets].sort((a, b) => a.price - b.price);
+
   let rem = [...allPieces];
   const results = [];
-  let safe = 80;
+  let safe = 100; // máximo de iteraciones (pedidos muy grandes)
+
   while (rem.length > 0 && safe-- > 0) {
-    let bestSheet = null, bestPlaced = [];
+    let bestSheet = null;
+    let bestPlaced = [];
+
     for (const sh of sortedSheets) {
-      const pk = shelfPack(rem, sh.w, sh.h);
-      if (!pk.placed.length) continue;
-      if (pk.fits) { bestSheet = sh; bestPlaced = pk.placed; break; }
-      if (pk.placed.length > bestPlaced.length ||
-         (pk.placed.length === bestPlaced.length && sh.price < (bestSheet?.price ?? Infinity))) {
-        bestSheet = sh; bestPlaced = pk.placed;
+      const pk = packOnSheet(rem, sh.w, sh.h);
+
+      // Si caben TODAS las piezas → esta es la hoja más barata que funciona, listo
+      if (pk.fits) {
+        bestSheet = sh;
+        bestPlaced = pk.placed;
+        break;
+      }
+
+      // Si no caben todas, guardar la que coloca más piezas (tie-break: menor precio)
+      if (
+        pk.placed.length > bestPlaced.length ||
+        (pk.placed.length === bestPlaced.length && pk.placed.length > 0 && sh.price < (bestSheet?.price ?? Infinity))
+      ) {
+        bestSheet = sh;
+        bestPlaced = pk.placed;
       }
     }
-    if (!bestSheet || !bestPlaced.length) break;
+
+    if (!bestSheet || !bestPlaced.length) break; // Nada más cabe
+
     results.push({ sheet: bestSheet, placed: bestPlaced });
     const usedIdx = new Set(bestPlaced.map(p => p._idx));
     rem = rem.filter(p => !usedIdx.has(p._idx));
   }
-  return { results, totalCost: results.reduce((s, r) => s + r.sheet.price, 0) };
+
+  return {
+    results,
+    totalCost: results.reduce((s, r) => s + r.sheet.price, 0),
+  };
 }
 
-const emptyLine = () => ({ id: uid(), qty: "", prendaId: "", quien: "Yo", placementIds: [], customs: [], otroName: "", otroCost: "" });
+const TALLAS_DEFAULT = ["XS","S","M","L","XL","XXL","XXXL"];
+const emptyLine = () => ({
+  id: uid(), qty: "", prendaId: "", quien: "Yo",
+  placementIds: [], customs: [], otroName: "", otroCost: "",
+  color: "",
+  tallas: [], // [{ talla: "S", qty: 1 }]
+  showTallas: false,
+});
 
 export default function App() {
   const saved = loadConfig();
@@ -291,7 +302,10 @@ export default function App() {
       const prendaLabel = pr ? pr.name : (line.otroName || "Otro");
       const cfgLabel = [...line.placementIds.map(pid => placements.find(p => p.id === pid)?.label || "?"),
         ...line.customs.filter(c => c.w && c.h).map(c => `${c.label} ${c.w}×${c.h}`)].join(" + ");
-      return { ...line, qty, pieces: piecesPerUnit, poli, poliCost: poli * poliRate, prendaCost, prendaLabel, cfgLabel };
+      const tallasSummary = line.tallas?.length > 0
+        ? line.tallas.filter(x=>x.qty>0).map(x=>`${x.talla}:${x.qty}`).join(" ")
+        : null;
+      return { ...line, qty, pieces: piecesPerUnit, poli, poliCost: poli * poliRate, prendaCost, prendaLabel, cfgLabel, tallasSummary };
     });
 
     const nesting = findBestSheets(allPieces, sheets);
@@ -681,7 +695,7 @@ export default function App() {
 
             {/* Config tab pills */}
             <div className="cfg-pills-scroll" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-              {[["negocio","Mi Negocio"],["prendas","Prendas"],["placements","Placements"],["sheets","Hojas DTF"],["poli","Poliamida"],["design","Diseño"],["fix","Corrección"],["vol","Volumen"]].map(([k,v]) => (
+              {[["negocio","Mi Negocio"],["prendas","Prendas"],["placements","Posiciones"],["sheets","Hojas DTF"],["poli","Poliamida"],["design","Diseño"],["fix","Corrección"],["vol","Volumen"]].map(([k,v]) => (
                 <button key={k} className={`cfg-pill ${cfgTab === k ? "active" : ""}`} onClick={() => setCfgTab(k)}>{v}</button>
               ))}
             </div>
@@ -730,7 +744,7 @@ export default function App() {
             {/* PLACEMENTS */}
             {cfgTab === "placements" && (
               <div className="card fade-up">
-                <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Placements</span></div>
+                <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Posiciones de Estampado</span></div>
                 <div className="card-body">
                   <div style={{ display: "grid", gridTemplateColumns: "32px 1fr 56px 56px 36px", gap: 6, fontSize: 10, fontWeight: 700, color: "var(--text3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".08em" }}>
                     <span></span><span>Nombre</span><span>W″</span><span>H″</span><span></span>
@@ -745,7 +759,7 @@ export default function App() {
                       <button className="btn-del" onClick={() => del(setPlacements)(p.id)}>×</button>
                     </div>
                   ))}
-                  <button className="btn-add" style={{ marginTop: 4 }} onClick={add(setPlacements, { label: "Nuevo", w: 5, h: 5, color: "#22D3EE" })}>+ Agregar placement</button>
+                  <button className="btn-add" style={{ marginTop: 4 }} onClick={add(setPlacements, { label: "Nuevo", w: 5, h: 5, color: "#22D3EE" })}>+ Agregar posición</button>
                 </div>
               </div>
             )}
@@ -956,6 +970,62 @@ export default function App() {
                       </select>
                       <button className="btn-del" onClick={() => setLines(p => p.length > 1 ? p.filter((_, j) => j !== i) : p)}>×</button>
                     </div>
+
+                    {/* Color de prenda */}
+                    <div style={{ marginLeft: 24, marginBottom: 8 }}>
+                      <div className="lbl">Color de prenda</div>
+                      <input className="inp inp-sm" placeholder="ej. Blanco, Negro, Rojo…" value={line.color || ""}
+                        onChange={e => updLine(i, "color", e.target.value)} style={{ maxWidth: 200 }} />
+                    </div>
+
+                    {/* Tallas */}
+                    <div style={{ marginLeft: 24, marginBottom: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <div className="lbl" style={{ margin: 0 }}>Tallas</div>
+                        <button onClick={() => updLine(i, "showTallas", !line.showTallas)}
+                          style={{ background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,.3)", borderRadius: 6, padding: "2px 10px", fontSize: 10, fontWeight: 700, color: "var(--accent)", cursor: "pointer" }}>
+                          {line.showTallas ? "Ocultar" : "Desglose por talla"}
+                        </button>
+                      </div>
+                      {line.showTallas && (
+                        <div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+                            {TALLAS_DEFAULT.map(t => {
+                              const entry = line.tallas.find(x => x.talla === t);
+                              const active = entry && Number(entry.qty) > 0;
+                              return (
+                                <div key={t} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                                  <div style={{ fontSize: 9, fontWeight: 700, color: active ? "var(--accent)" : "var(--text3)", textTransform: "uppercase", letterSpacing: ".06em" }}>{t}</div>
+                                  <input type="number" min={0}
+                                    value={entry?.qty ?? ""}
+                                    onChange={e => {
+                                      const val = e.target.value;
+                                      setLines(p => p.map((l, j) => {
+                                        if (j !== i) return l;
+                                        const existing = l.tallas.filter(x => x.talla !== t);
+                                        const newEntry = val !== "" && Number(val) > 0 ? [{ talla: t, qty: Number(val) }] : [];
+                                        const newTallas = [...existing, ...newEntry];
+                                        const totalQty = newTallas.reduce((s, x) => s + x.qty, 0);
+                                        return { ...l, tallas: newTallas, qty: totalQty || l.qty };
+                                      }));
+                                    }}
+                                    style={{ width: 40, textAlign: "center", fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 13,
+                                      background: "var(--bg)", border: `1.5px solid ${active ? "var(--accent)" : "var(--border2)"}`,
+                                      borderRadius: 6, padding: "4px 2px", color: active ? "var(--accent)" : "var(--text)", outline: "none" }}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {line.tallas.length > 0 && (
+                            <div style={{ fontSize: 11, color: "var(--text2)", fontFamily: "'JetBrains Mono'" }}>
+                              Total: <b style={{ color: "var(--accent)" }}>{line.tallas.reduce((s,x)=>s+x.qty,0)}</b> prendas
+                              {" · "}{line.tallas.filter(x=>x.qty>0).map(x=>`${x.talla}:${x.qty}`).join(" ")}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     {line.prendaId === "__otro" && (
                       <div className="row" style={{ marginBottom: 10, marginLeft: 24, gap: 6, flexWrap: "wrap" }}>
                         <input className="inp inp-sm" placeholder="Nombre (Gorra, Tote…)" style={{ flex: 1, minWidth: 120 }}
@@ -966,7 +1036,7 @@ export default function App() {
                       </div>
                     )}
                     <div style={{ marginLeft: 24 }}>
-                      <div className="lbl">Placements</div>
+                      <div className="lbl">Posiciones</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                         {placements.map(pl => {
                           const on = line.placementIds.includes(pl.id);
@@ -1089,9 +1159,15 @@ export default function App() {
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, color: "var(--accent)", fontSize: 14 }}>{l.qty}×</span>
                           <span style={{ marginLeft: 6, fontWeight: 600 }}>{l.prendaLabel}</span>
+                          {l.color && <span style={{ marginLeft: 6, fontSize: 11, color: "var(--text3)" }}>· {l.color}</span>}
                           <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{l.cfgLabel}
                             {l.quien === "Cliente" && <span className="pill" style={{ background: "rgba(251,191,36,.1)", color: "var(--warn)", marginLeft: 6 }}>cliente pone</span>}
                           </div>
+                          {l.tallasSummary && (
+                            <div style={{ fontSize: 10, color: "var(--text3)", fontFamily: "'JetBrains Mono'", marginTop: 2 }}>
+                              📏 {l.tallasSummary}
+                            </div>
+                          )}
                         </div>
                         <div style={{ textAlign: "right", flexShrink: 0 }}>
                           <div style={{ fontSize: 10, color: "var(--text3)", fontFamily: "'JetBrains Mono'" }}>L{l.sellPrice}/u</div>
@@ -1164,7 +1240,7 @@ export default function App() {
                   <div className="card-body">
                     <div id="rt" style={{ fontFamily: "'JetBrains Mono'", fontSize: 12, lineHeight: 1.8, color: "var(--text2)", background: "var(--bg)", borderRadius: 10, padding: 14, border: "1px solid var(--border)", userSelect: "all" }}>
                       <div style={{ fontWeight: 800, color: "var(--accent)", marginBottom: 4 }}>COTIZACIÓN {businessName} DTF</div>
-                      {calc.lp.map((l, i) => <div key={i}>{l.qty}× {l.prendaLabel} ({l.cfgLabel}){l.quien === "Cliente" ? " — cliente pone" : ""} — L{l.sellPrice}/u</div>)}
+                      {calc.lp.map((l, i) => <div key={i}>{l.qty}× {l.prendaLabel}{l.color ? ` (${l.color})` : ""} ({l.cfgLabel}){l.tallasSummary ? ` [${l.tallasSummary}]` : ""}{l.quien === "Cliente" ? " — cliente pone" : ""} — L{l.sellPrice}/u</div>)}
                       {calc.disc > 0 && <div style={{ color: "var(--green)" }}>Desc. {calc.volPct}%: -L{calc.disc}</div>}
                       {calc.designFee > 0 && <div>Diseño: {calc.designCharged === 0 ? "Incluido ✓" : `L${calc.designCharged}`}</div>}
                       {calc.fixFee > 0 && <div>Corrección: {calc.fixCharged === 0 ? "Incluida ✓" : `L${calc.fixCharged}`}</div>}
