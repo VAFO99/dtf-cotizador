@@ -77,11 +77,10 @@ const INIT_VOL = [
 ];
 
 const GAP = 0.25;
-const EDGE = 0.15; // margin from sheet edge
+const EDGE = 0.15;
 
 // ── SHELF PACKING ──
 function shelfPack(pieces, sw, sh) {
-  // Reduce usable area by edge margins
   const uw = sw - EDGE * 2, uh = sh - EDGE * 2;
   if (!pieces.length) return { fits: false, placed: [] };
   const sorted = [...pieces].sort((a, b) => b.h - a.h || b.w - a.w);
@@ -89,59 +88,52 @@ function shelfPack(pieces, sw, sh) {
   for (const p of sorted) {
     let did = false;
     for (const s of shelves) {
-      if (s.x + p.w + GAP <= uw + 0.01 && p.h <= s.h + 0.01) {
-        placed.push({ ...p, x: s.x + EDGE, y: s.y + EDGE }); s.x += p.w + GAP; did = true; break;
+      if (s.x + p.w <= uw + 0.01 && p.h <= s.h + 0.01) {
+        placed.push({ ...p, x: s.x + EDGE, y: s.y + EDGE });
+        s.x += p.w + GAP; did = true; break;
       }
     }
     if (!did) {
       const ny = curY + (shelves.length ? GAP : 0);
       if (ny + p.h > uh + 0.01 || p.w > uw + 0.01) continue;
       placed.push({ ...p, x: EDGE, y: ny + EDGE });
-      shelves.push({ y: ny, h: p.h, x: p.w + GAP }); curY = ny + p.h;
+      shelves.push({ y: ny, h: p.h, x: p.w + GAP });
+      curY = ny + p.h;
     }
   }
-  return { fits: placed.length === pieces.length, placed, usedH: curY + EDGE * 2 };
+  return { fits: placed.length === pieces.length, placed };
 }
 
+// Greedy: pack remaining pieces onto cheapest-possible sheets
 function findBestSheets(allPieces, sheets) {
   if (!allPieces.length) return { results: [], totalCost: 0 };
-  let rem = [...allPieces]; const results = []; let safe = 20;
+  // Sort sheets by price ascending so we always try cheapest first
+  const sortedSheets = [...sheets].sort((a, b) => a.price - b.price);
+  let rem = [...allPieces];
+  const results = [];
+  let safe = 60; // enough iterations for large orders
   while (rem.length > 0 && safe-- > 0) {
-    let best = null, bestP = [], bestC = Infinity;
-    for (const sh of sheets) {
+    let bestSheet = null, bestPlaced = [], bestRemaining = rem.length;
+    // Try each sheet: pick the cheapest that fits the most pieces
+    for (const sh of sortedSheets) {
       const pk = shelfPack(rem, sh.w, sh.h);
       if (!pk.placed.length) continue;
-      if (pk.fits && sh.price < bestC) { best = sh; bestP = pk.placed; bestC = sh.price; break; }
-      if (!best || pk.placed.length > bestP.length || (pk.placed.length === bestP.length && sh.price < bestC))
-        { best = sh; bestP = pk.placed; bestC = sh.price; }
-    }
-    if (!best || !bestP.length) break;
-    results.push({ sheet: best, placed: bestP });
-    const used = new Set(bestP.map(p => p._idx));
-    rem = rem.filter(p => !used.has(p._idx));
-  }
-  return { results, totalCost: results.reduce((s, r) => s + r.sheet.price, 0) };
-}
-
-// Try each piece on its own cheapest sheet
-function findSplitSheets(allPieces, sheets) {
-  if (!allPieces.length) return { results: [], totalCost: 0 };
-  const results = [];
-  for (const piece of allPieces) {
-    let best = null, bestP = null;
-    for (const sh of sheets) {
-      const pk = shelfPack([piece], sh.w, sh.h);
-      if (pk.fits && (!best || sh.price < best.price)) { best = sh; bestP = pk.placed; }
-    }
-    if (best && bestP) {
-      const existing = results.find(r => r.sheet.name === best.name);
-      if (existing) {
-        // Try to add to existing sheet of same type
-        const tryPack = shelfPack([...existing.placed.map(p => ({...p})), piece], best.w, best.h);
-        if (tryPack.fits) { existing.placed = tryPack.placed; continue; }
+      const remaining = rem.length - pk.placed.length;
+      // Prefer: fits everything → cheapest wins; else → most pieces placed
+      if (pk.fits) {
+        // This sheet fits all remaining — cheapest (first in sorted list) wins
+        bestSheet = sh; bestPlaced = pk.placed; bestRemaining = 0;
+        break; // sortedSheets is price-sorted, so first fit is cheapest
       }
-      results.push({ sheet: best, placed: bestP });
+      if (pk.placed.length > bestPlaced.length ||
+          (pk.placed.length === bestPlaced.length && sh.price < (bestSheet?.price ?? Infinity))) {
+        bestSheet = sh; bestPlaced = pk.placed; bestRemaining = remaining;
+      }
     }
+    if (!bestSheet || !bestPlaced.length) break;
+    results.push({ sheet: bestSheet, placed: bestPlaced });
+    const usedIdx = new Set(bestPlaced.map(p => p._idx));
+    rem = rem.filter(p => !usedIdx.has(p._idx));
   }
   return { results, totalCost: results.reduce((s, r) => s + r.sheet.price, 0) };
 }
@@ -228,30 +220,35 @@ export default function App() {
     const totalQty = active.reduce((s, l) => s + Number(l.qty), 0);
     let pidx = 0; const allPieces = [];
 
-    const lineDetails = active.map((line, li) => {
+    const lineDetails = active.map((line) => {
       const qty = Number(line.qty);
-      const pieces = []; let poli = 0;
+      const piecesPerUnit = []; let poli = 0;
       line.placementIds.forEach(pid => {
         const pl = placements.find(p => p.id === pid);
-        if (pl) { pieces.push({ w: pl.w, h: pl.h, label: pl.label, color: pl.color, _idx: pidx++ }); poli += calcPoli(pl.w, pl.h); }
+        if (pl) { piecesPerUnit.push({ w: pl.w, h: pl.h, label: pl.label, color: pl.color }); poli += calcPoli(pl.w, pl.h); }
       });
       line.customs.forEach(c => {
-        if (c.w && c.h) { const cw = Number(c.w), ch = Number(c.h); pieces.push({ w: cw, h: ch, label: c.label || "Custom", color: c.color || "#9B6B8B", _idx: pidx++ }); poli += calcPoli(cw, ch); }
+        if (c.w && c.h) {
+          const cw = Number(c.w), ch = Number(c.h);
+          piecesPerUnit.push({ w: cw, h: ch, label: c.label || "Custom", color: c.color || "#22D3EE" });
+          poli += calcPoli(cw, ch);
+        }
       });
-      pieces.forEach(p => allPieces.push(p));
+      // *** KEY FIX: repeat each piece qty times ***
+      for (let u = 0; u < qty; u++) {
+        piecesPerUnit.forEach(p => allPieces.push({ ...p, _idx: pidx++ }));
+      }
 
       const pr = prendas.find(p => p.id === line.prendaId);
       const prendaCost = line.quien === "Cliente" ? 0 : (pr ? pr.cost : Number(line.otroCost) || 0);
       const prendaLabel = pr ? pr.name : (line.otroName || "Otro");
       const cfgLabel = [...line.placementIds.map(pid => placements.find(p => p.id === pid)?.label || "?"),
         ...line.customs.filter(c => c.w && c.h).map(c => `${c.label} ${c.w}×${c.h}`)].join(" + ");
-      return { ...line, qty, pieces, poli, poliCost: poli * poliRate, prendaCost, prendaLabel, cfgLabel };
+      return { ...line, qty, pieces: piecesPerUnit, poli, poliCost: poli * poliRate, prendaCost, prendaLabel, cfgLabel };
     });
 
     const nesting = findBestSheets(allPieces, sheets);
-    const split = findSplitSheets(allPieces, sheets);
-    const bestNesting = split.totalCost < nesting.totalCost ? split : nesting;
-    const dtfCost = bestNesting.totalCost;
+    const dtfCost = nesting.totalCost;
     const dtfPU = totalQty > 0 ? dtfCost / totalQty : 0;
 
     const dType = designTypes.find(d => d.id === designId);
@@ -281,7 +278,7 @@ export default function App() {
     const totalPoliCost = lineDetails.reduce((s, l) => s + l.poliCost, 0);
     const totalEnergyCost = totalQty * energyCost;
 
-    return { lp, nesting: bestNesting, totalQty, dtfCost, designFee, fixFee, designCharged, fixCharged, volPct, disc, sub, total, cost, profit, rm, tier, dType, fType, totalPoli, totalPoliCost, totalEnergyCost };
+    return { lp, nesting, totalQty, dtfCost, designFee, fixFee, designCharged, fixCharged, volPct, disc, sub, total, cost, profit, rm, tier, dType, fType, totalPoli, totalPoliCost, totalEnergyCost };
   }, [lines, designWho, designId, fixId, margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliRate, energyCost]);
 
 
@@ -529,27 +526,27 @@ export default function App() {
         .mobile-nav-btn svg { width: 22px; height: 22px; }
 
         /* ── RESPONSIVE ── */
-        @media (max-width: 640px) {
+        @media (max-width: 599px) {
           .mobile-nav { display: block; }
           .desktop-tabs { display: none !important; }
-          .page-pad { padding-bottom: calc(70px + env(safe-area-inset-bottom)) !important; }
+          .page-pad { padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important; }
           .grid2 { grid-template-columns: 1fr; gap: 10px; }
-          .grid3 { grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
-          .card-body { padding: 14px; }
-          .card-head { padding: 12px 14px; }
-          .cfg-pills-scroll {
-            display: flex;
-            overflow-x: auto;
-            gap: 6px;
-            padding-bottom: 4px;
-            scrollbar-width: none;
-            -webkit-overflow-scrolling: touch;
-          }
+          .cfg-pills-scroll { overflow-x: auto; flex-wrap: nowrap !important; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
           .cfg-pills-scroll::-webkit-scrollbar { display: none; }
-          .cfg-pills-wrap { flex-wrap: nowrap !important; }
+          .card-body { padding: 12px; }
+          .card-head { padding: 11px 12px; }
+          .hero-total { font-size: 42px !important; }
         }
-        @media (min-width: 641px) {
+        @media (min-width: 600px) and (max-width: 959px) {
           .mobile-nav { display: none !important; }
+          .desktop-tabs { display: flex !important; }
+          .grid2 { grid-template-columns: 1fr 1fr; }
+        }
+        @media (min-width: 960px) {
+          .mobile-nav { display: none !important; }
+          .desktop-tabs { display: flex !important; }
+          .grid2 { grid-template-columns: 1fr 1fr; }
+          .card { margin-bottom: 14px; }
         }
       `}</style>
 
