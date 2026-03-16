@@ -21,17 +21,21 @@ const INIT_PRENDAS = [
   { id: uid(), name: "Hoodie", cost: 180 },
 ];
 
+// Polyamida: estándar industria DTF = 120 g/m² = 0.0774 g/in²
+// Fórmula: ancho_in × alto_in × 0.0774
+const calcPoli = (w, h) => parseFloat((w * h * 0.0774).toFixed(2));
+
 const INIT_PLACEMENTS = [
-  { id: uid(), label: "Front", w: 10, h: 12, poli: 10, color: "#C45C3B" },
-  { id: uid(), label: "Back", w: 10, h: 14, poli: 12, color: "#3B7CC4" },
-  { id: uid(), label: "LC", w: 3.5, h: 3.5, poli: 5, color: "#8B6B3E" },
-  { id: uid(), label: "RC", w: 3.5, h: 3.5, poli: 5, color: "#A68B4E" },
-  { id: uid(), label: "Manga L", w: 3.5, h: 12, poli: 4, color: "#6B8B3E" },
-  { id: uid(), label: "Manga R", w: 3.5, h: 12, poli: 4, color: "#5B7B2E" },
-  { id: uid(), label: "Nape", w: 3.5, h: 2, poli: 2, color: "#7B5EA7" },
-  { id: uid(), label: "Bolsillo", w: 3, h: 3, poli: 3, color: "#5E9EA7" },
-  { id: uid(), label: "Front OS", w: 12, h: 16, poli: 12, color: "#D46A4B" },
-  { id: uid(), label: "Back OS", w: 14, h: 18, poli: 15, color: "#4B8AD4" },
+  { id: uid(), label: "Front",    w: 10,  h: 12,  color: "#C45C3B" },
+  { id: uid(), label: "Back",     w: 10,  h: 14,  color: "#3B7CC4" },
+  { id: uid(), label: "LC",       w: 3.5, h: 3.5, color: "#8B6B3E" },
+  { id: uid(), label: "RC",       w: 3.5, h: 3.5, color: "#A68B4E" },
+  { id: uid(), label: "Manga L",  w: 3.5, h: 12,  color: "#6B8B3E" },
+  { id: uid(), label: "Manga R",  w: 3.5, h: 12,  color: "#5B7B2E" },
+  { id: uid(), label: "Nape",     w: 3.5, h: 2,   color: "#7B5EA7" },
+  { id: uid(), label: "Bolsillo", w: 3,   h: 3,   color: "#5E9EA7" },
+  { id: uid(), label: "Front OS", w: 12,  h: 16,  color: "#D46A4B" },
+  { id: uid(), label: "Back OS",  w: 14,  h: 18,  color: "#4B8AD4" },
 ];
 
 const INIT_SHEETS = [
@@ -164,7 +168,7 @@ export default function App() {
   const [poliBolsa, setPoliBolsa] = useState(saved?.poliBolsa ?? 900);
   const [poliGramos, setPoliGramos] = useState(saved?.poliGramos ?? 907);
   const [businessName, setBusinessName] = useState(saved?.businessName ?? "ARTAMPA");
-  const [energyCost, setEnergyCost] = useState(saved?.energyCost ?? 0.01);
+  const [energyCost, setEnergyCost] = useState(saved?.energyCost ?? 0.20);
 
   // Save state
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | dirty | saved
@@ -216,10 +220,10 @@ export default function App() {
       const pieces = []; let poli = 0;
       line.placementIds.forEach(pid => {
         const pl = placements.find(p => p.id === pid);
-        if (pl) { pieces.push({ w: pl.w, h: pl.h, label: pl.label, color: pl.color, _idx: pidx++ }); poli += pl.poli; }
+        if (pl) { pieces.push({ w: pl.w, h: pl.h, label: pl.label, color: pl.color, _idx: pidx++ }); poli += calcPoli(pl.w, pl.h); }
       });
       line.customs.forEach(c => {
-        if (c.w && c.h) { const cw = Number(c.w), ch = Number(c.h); pieces.push({ w: cw, h: ch, label: c.label || "Custom", color: c.color || "#9B6B8B", _idx: pidx++ }); poli += Math.max(Math.round((cw * ch) / 12), 3); }
+        if (c.w && c.h) { const cw = Number(c.w), ch = Number(c.h); pieces.push({ w: cw, h: ch, label: c.label || "Custom", color: c.color || "#9B6B8B", _idx: pidx++ }); poli += calcPoli(cw, ch); }
       });
       pieces.forEach(p => allPieces.push(p));
 
@@ -233,8 +237,7 @@ export default function App() {
 
     const nesting = findBestSheets(allPieces, sheets);
     const split = findSplitSheets(allPieces, sheets);
-    const splitIsCheaper = split.totalCost < nesting.totalCost;
-    const bestNesting = splitIsCheaper ? split : nesting;
+    const bestNesting = split.totalCost < nesting.totalCost ? split : nesting;
     const dtfCost = bestNesting.totalCost;
     const dtfPU = totalQty > 0 ? dtfCost / totalQty : 0;
 
@@ -265,7 +268,7 @@ export default function App() {
     const totalPoliCost = lineDetails.reduce((s, l) => s + l.poliCost, 0);
     const totalEnergyCost = totalQty * energyCost;
 
-    return { lp, nesting: bestNesting, nestingAll: nesting, nestingSplit: split, splitIsCheaper, totalQty, dtfCost, designFee, fixFee, designCharged, fixCharged, volPct, disc, sub, total, cost, profit, rm, tier, dType, fType, totalPoli, totalPoliCost, totalEnergyCost };
+    return { lp, nesting: bestNesting, totalQty, dtfCost, designFee, fixFee, designCharged, fixCharged, volPct, disc, sub, total, cost, profit, rm, tier, dType, fType, totalPoli, totalPoliCost, totalEnergyCost };
   }, [lines, designWho, designId, fixId, margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliRate, energyCost]);
 
   // ── RENDER ──
@@ -351,7 +354,9 @@ export default function App() {
                   <div className="L">Costo energía por prensado (L/prenda)</div>
                   <div className="R"><span style={{ color: "#A09080", fontSize: 11 }}>L</span>
                     <input type="number" className="I" value={energyCost} onChange={e => setEnergyCost(Number(e.target.value) || 0)} step={0.01} style={{ width: 100 }} /></div>
-                  <div style={{ fontSize: 10, color: "#A09080", fontStyle: "italic", marginTop: 4 }}>Estos costos son internos, el cliente no los ve.</div>
+                  <div style={{ fontSize: 10, color: "#A09080", fontStyle: "italic", marginTop: 4 }}>
+                    Base: ENEE L4.62/kWh (2026) · Prensa 1800W×20s + Impresora + Secador ≈ L0.15–0.25/prenda
+                  </div>
                 </div>
               </div>
             )}
@@ -612,33 +617,25 @@ export default function App() {
                   <div className="SH" style={{ background: "#2C2420", borderColor: "#2C2420" }}>
                     <Num n={3} /><span style={{ fontSize: 13, fontWeight: 700, color: "white" }}>Hojas DTF</span>
                     <span style={{ marginLeft: "auto", fontFamily: "'JetBrains Mono'", fontSize: 14, fontWeight: 700, color: "#C45C3B" }}>
-                      {calc.nesting.results.length} hoja{calc.nesting.results.length !== 1 ? "s" : ""} — L{calc.dtfCost}
+                      L{calc.dtfCost}
                     </span>
                   </div>
                   <div style={{ padding: 14, background: "#1E1A16" }}>
-                    {/* Comparison banner */}
-                    {calc.nestingAll.totalCost !== calc.nestingSplit.totalCost && (
-                      <div style={{ marginBottom: 14, padding: 10, borderRadius: 8, border: "1px solid #4A4035", background: "#2A2520" }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "#A09080", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>Comparación de opciones</div>
-                        <div className="R" style={{ justifyContent: "space-between", padding: "4px 0" }}>
-                          <span style={{ fontSize: 12, color: calc.splitIsCheaper ? "#8C7E70" : "#4ACA6A" }}>
-                            {calc.splitIsCheaper ? "" : "✅ "} Todo junto ({calc.nestingAll.results.length} hoja{calc.nestingAll.results.length !== 1 ? "s" : ""}: {calc.nestingAll.results.map(r => r.sheet.name).join(" + ")})
-                          </span>
-                          <span style={{ fontFamily: "'JetBrains Mono'", fontSize: 13, fontWeight: 700, color: calc.splitIsCheaper ? "#8C7E70" : "#4ACA6A" }}>L{calc.nestingAll.totalCost}</span>
+                    {/* Resumen de hojas necesarias */}
+                    {(() => {
+                      const counts = {};
+                      calc.nesting.results.forEach(r => { counts[r.sheet.name] = (counts[r.sheet.name] || 0) + 1; });
+                      return (
+                        <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 8, background: "#2A2520", border: "1px solid #4A4035", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 10, color: "#8C7E70", textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700 }}>Necesitas:</span>
+                          {Object.entries(counts).map(([name, qty]) => (
+                            <span key={name} style={{ fontFamily: "'JetBrains Mono'", fontSize: 13, fontWeight: 700, color: "#E8DDD0", background: "#3A3028", borderRadius: 6, padding: "3px 10px" }}>
+                              {qty > 1 ? `${qty}×` : ""}{name}
+                            </span>
+                          ))}
                         </div>
-                        <div className="R" style={{ justifyContent: "space-between", padding: "4px 0" }}>
-                          <span style={{ fontSize: 12, color: calc.splitIsCheaper ? "#4ACA6A" : "#8C7E70" }}>
-                            {calc.splitIsCheaper ? "✅ " : ""} Separadas ({calc.nestingSplit.results.length} hoja{calc.nestingSplit.results.length !== 1 ? "s" : ""}: {calc.nestingSplit.results.map(r => r.sheet.name).join(" + ")})
-                          </span>
-                          <span style={{ fontFamily: "'JetBrains Mono'", fontSize: 13, fontWeight: 700, color: calc.splitIsCheaper ? "#4ACA6A" : "#8C7E70" }}>L{calc.nestingSplit.totalCost}</span>
-                        </div>
-                        {calc.splitIsCheaper && (
-                          <div style={{ fontSize: 10, color: "#4ACA6A", marginTop: 4, fontWeight: 600 }}>
-                            💡 Hojas separadas ahorra L{calc.nestingAll.totalCost - calc.nestingSplit.totalCost}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                      );
+                    })()}
                     {calc.nesting.results.map((res, ri) => {
                       const { sheet, placed } = res;
                       const maxH = placed.length ? Math.max(...placed.map(p => p.y + p.h)) : sheet.h;
