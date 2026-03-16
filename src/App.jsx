@@ -144,8 +144,8 @@ export default function App() {
   const [poliBolsa, setPoliBolsa] = useState(saved?.poliBolsa ?? 900);
   const [poliGramos, setPoliGramos] = useState(saved?.poliGramos ?? 907);
   const [businessName, setBusinessName] = useState(saved?.businessName ?? "ARTAMPA");
-  const [prensaWatts, setPrensaWatts]   = useState(saved?.prensaWatts   ?? 1800);
-  const [prensaSeg, setPrensaSeg]       = useState(saved?.prensaSeg     ?? 20);
+  const [prensaWatts, setPrensaWatts]   = useState(saved?.prensaWatts   ?? 1000);
+  const [prensaSeg, setPrensaSeg]       = useState(saved?.prensaSeg     ?? 15);
   const [tarifaKwh, setTarifaKwh]       = useState(saved?.tarifaKwh     ?? 4.62);
   // energyCost calculado: (W/1000) * (s/3600) * L/kWh
   const energyCost = parseFloat(((prensaWatts / 1000) * (prensaSeg / 3600) * tarifaKwh).toFixed(4));
@@ -170,6 +170,7 @@ export default function App() {
   const [pinInput, setPinInput]       = useState("");
   const [pinError, setPinError]       = useState(false);
   const [adminPin, setAdminPin]       = useState(saved?.adminPin ?? "1234");
+  const [whatsappBiz, setWhatsappBiz] = useState(saved?.whatsappBiz ?? "");
   // BCH exchange rate (auto-fetched)
   const [bchRate, setBchRate]         = useState(saved?.tipoCambio ?? 25.5);
   const [bchUpdated, setBchUpdated]   = useState(null);
@@ -182,8 +183,8 @@ export default function App() {
   const currentConfig = useMemo(() => ({
     margin, prendas, placements, sheets, designTypes, fixTypes, volTiers,
     poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias,
-    darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, adminPin
-  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias, darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, adminPin]);
+    darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, adminPin, whatsappBiz
+  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias, darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, adminPin, whatsappBiz]);
 
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
@@ -240,6 +241,7 @@ export default function App() {
         if (remoteCfg.tipoCambio)   setTipoCambio(remoteCfg.tipoCambio);
         if (remoteCfg.mostrarUSD !== undefined) setMostrarUSD(remoteCfg.mostrarUSD);
         if (remoteCfg.darkMode !== undefined) setDarkMode(remoteCfg.darkMode);
+        if (remoteCfg.whatsappBiz) setWhatsappBiz(remoteCfg.whatsappBiz);
         if (remoteCfg.prensaWatts)  setPrensaWatts(remoteCfg.prensaWatts);
         if (remoteCfg.prensaSeg)    setPrensaSeg(remoteCfg.prensaSeg);
         if (remoteCfg.tarifaKwh)    setTarifaKwh(remoteCfg.tarifaKwh);
@@ -331,6 +333,7 @@ export default function App() {
         if (cfg.margenMin !== undefined) setMargenMin(cfg.margenMin);
         if (cfg.agruparPorColor !== undefined) setAgruparPorColor(cfg.agruparPorColor);
         if (cfg.adminPin) setAdminPin(cfg.adminPin);
+        if (cfg.whatsappBiz) setWhatsappBiz(cfg.whatsappBiz);
         alert("✅ Configuración importada correctamente");
       } catch { alert("❌ Archivo inválido"); }
     };
@@ -705,6 +708,7 @@ export default function App() {
           display: inline-flex; align-items: center; gap: 4px;
           padding: 6px 11px;
           border-radius: 8px; border: 1.5px solid var(--border2);
+          background: var(--bg3);
           font-size: 11px; font-weight: 600;
           cursor: pointer;
           transition: all .15s;
@@ -713,8 +717,8 @@ export default function App() {
           min-height: 34px;
           -webkit-tap-highlight-color: transparent;
         }
-        .pl-chip:hover { border-color: var(--text2); }
-        .pl-chip.on { color: #fff; border-color: transparent; }
+        .pl-chip:hover { border-color: var(--text2); color: var(--text); }
+        .pl-chip.on { color: #fff; border-color: transparent; font-weight: 700; }
 
         /* ── LINE CARD ── */
         .line-card {
@@ -913,6 +917,15 @@ export default function App() {
                   <div style={{ marginBottom: 14 }}>
                     <div className="lbl">Nombre del negocio</div>
                     <input className="inp" value={businessName} onChange={e => setBusinessName(e.target.value)} style={{ fontWeight: 700, fontSize: 16 }} />
+                  </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <div className="lbl">WhatsApp del negocio (con código de país)</div>
+                    <div className="row" style={{ gap: 6 }}>
+                      <input className="inp" placeholder="ej. 50498765432" value={whatsappBiz}
+                        onChange={e => setWhatsappBiz(e.target.value.replace(/\D/g,""))}
+                        style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>Honduras: 504 + tu número de 8 dígitos · Se usa en el cotizador de clientes</div>
                   </div>
                   <div>
                     <div className="lbl">Energía — cálculo automático</div>
@@ -1805,7 +1818,7 @@ export default function App() {
                 </div>
 
                 {/* ⑤ FACTURA */}
-                <Factura calc={calc} businessName={businessName} logoB64={logoB64} validezDias={validezDias} onSavePedido={savePedido} />
+                <Factura calc={calc} businessName={businessName} logoB64={logoB64} validezDias={validezDias} onSavePedido={savePedido} whatsappBiz={whatsappBiz} />
               </>
             )}
             {!calc && (
@@ -1853,7 +1866,7 @@ export default function App() {
   );
 }
 
-function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido }) {
+function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido, whatsappBiz }) {
   const today = new Date();
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
@@ -1961,6 +1974,14 @@ ${businessName}`
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
             Guardar pedido
           </button>
+          {whatsappBiz && (
+            <button onClick={() => {
+              const msg = encodeURIComponent(`Factura #${invoiceNum} — ${clientName || "Cliente"}\nTotal: L${calc.total.toLocaleString()}\nFecha: ${dateStr}`);
+              window.open(`https://wa.me/${whatsappBiz}?text=${msg}`, "_blank");
+            }} style={{ background: "rgba(37,211,102,.1)", border: "1px solid rgba(37,211,102,.3)", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 700, color: "#25D366", cursor: "pointer", minHeight: 36, display: "flex", alignItems: "center", gap: 6 }}>
+              WhatsApp
+            </button>
+          )}
           <button onClick={handleEmail} style={{ background: "transparent", border: "1px solid var(--border2)", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 700, color: "var(--text2)", cursor: "pointer", minHeight: 36, display: "flex", alignItems: "center", gap: 6 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
             Correo
