@@ -956,10 +956,9 @@ export default function App() {
               <div className="card-body">
                 {lines.map((line, i) => (
                   <div key={line.id} className="line-card">
-                    <div className="row" style={{ marginBottom: 10, flexWrap: "wrap", gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 800, color: "var(--text3)", width: 18, textAlign: "center", flexShrink: 0, fontFamily: "'JetBrains Mono'" }}>{i + 1}</span>
-                      <input type="number" min={0} className="inp inp-sm" style={{ width: 60, textAlign: "center", fontWeight: 800, flexShrink: 0, fontFamily: "'JetBrains Mono'", fontSize: 16, color: "var(--accent)" }}
-                        placeholder="0" value={line.qty} onChange={e => updLine(i, "qty", e.target.value)} />
+                    {/* Header de línea: prenda + quien + eliminar */}
+                    <div className="row" style={{ marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: "var(--text3)", width: 18, textAlign: "center", flexShrink: 0, fontFamily: "'JetBrains Mono'" }}>{i + 1}</span>
                       <select className="sel sel-sm" value={line.prendaId} onChange={e => updLine(i, "prendaId", e.target.value)} style={{ flex: 1, minWidth: 120 }}>
                         <option value="">— Prenda —</option>
                         {prendas.map(p => <option key={p.id} value={p.id}>{p.name} (L{p.cost})</option>)}
@@ -971,60 +970,74 @@ export default function App() {
                       <button className="btn-del" onClick={() => setLines(p => p.length > 1 ? p.filter((_, j) => j !== i) : p)}>×</button>
                     </div>
 
-                    {/* Color de prenda */}
-                    <div style={{ marginLeft: 24, marginBottom: 8 }}>
+                    {/* Color */}
+                    <div style={{ marginLeft: 24, marginBottom: 10 }}>
                       <div className="lbl">Color de prenda</div>
                       <input className="inp inp-sm" placeholder="ej. Blanco, Negro, Rojo…" value={line.color || ""}
-                        onChange={e => updLine(i, "color", e.target.value)} style={{ maxWidth: 200 }} />
+                        onChange={e => updLine(i, "color", e.target.value)} style={{ maxWidth: 220 }} />
                     </div>
 
-                    {/* Tallas */}
-                    <div style={{ marginLeft: 24, marginBottom: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                        <div className="lbl" style={{ margin: 0 }}>Tallas</div>
-                        <button onClick={() => updLine(i, "showTallas", !line.showTallas)}
-                          style={{ background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,.3)", borderRadius: 6, padding: "2px 10px", fontSize: 10, fontWeight: 700, color: "var(--accent)", cursor: "pointer" }}>
-                          {line.showTallas ? "Ocultar" : "Desglose por talla"}
-                        </button>
-                      </div>
-                      {line.showTallas && (
-                        <div>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
-                            {TALLAS_DEFAULT.map(t => {
-                              const entry = line.tallas.find(x => x.talla === t);
-                              const active = entry && Number(entry.qty) > 0;
-                              return (
-                                <div key={t} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                                  <div style={{ fontSize: 9, fontWeight: 700, color: active ? "var(--accent)" : "var(--text3)", textTransform: "uppercase", letterSpacing: ".06em" }}>{t}</div>
-                                  <input type="number" min={0}
-                                    value={entry?.qty ?? ""}
-                                    onChange={e => {
-                                      const val = e.target.value;
-                                      setLines(p => p.map((l, j) => {
-                                        if (j !== i) return l;
-                                        const existing = l.tallas.filter(x => x.talla !== t);
-                                        const newEntry = val !== "" && Number(val) > 0 ? [{ talla: t, qty: Number(val) }] : [];
-                                        const newTallas = [...existing, ...newEntry];
-                                        const totalQty = newTallas.reduce((s, x) => s + x.qty, 0);
-                                        return { ...l, tallas: newTallas, qty: totalQty || l.qty };
-                                      }));
-                                    }}
-                                    style={{ width: 40, textAlign: "center", fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 13,
-                                      background: "var(--bg)", border: `1.5px solid ${active ? "var(--accent)" : "var(--border2)"}`,
-                                      borderRadius: 6, padding: "4px 2px", color: active ? "var(--accent)" : "var(--text)", outline: "none" }}
-                                  />
-                                </div>
-                              );
-                            })}
-                          </div>
-                          {line.tallas.length > 0 && (
-                            <div style={{ fontSize: 11, color: "var(--text2)", fontFamily: "'JetBrains Mono'" }}>
-                              Total: <b style={{ color: "var(--accent)" }}>{line.tallas.reduce((s,x)=>s+x.qty,0)}</b> prendas
-                              {" · "}{line.tallas.filter(x=>x.qty>0).map(x=>`${x.talla}:${x.qty}`).join(" ")}
+                    {/* Tallas + cantidad — siempre visible */}
+                    <div style={{ marginLeft: 24, marginBottom: 10 }}>
+                      <div className="lbl">Cantidad por talla</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
+                        {TALLAS_DEFAULT.map(t => {
+                          const entry = (line.tallas || []).find(x => x.talla === t);
+                          const val = entry?.qty ?? "";
+                          const active = Number(val) > 0;
+                          return (
+                            <div key={t} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                              <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: ".08em", color: active ? "var(--accent)" : "var(--text3)", textTransform: "uppercase" }}>{t}</span>
+                              <input
+                                type="number" min={0}
+                                value={val}
+                                placeholder="0"
+                                onChange={e => {
+                                  const v = e.target.value;
+                                  setLines(prev => prev.map((l, j) => {
+                                    if (j !== i) return l;
+                                    const rest = (l.tallas || []).filter(x => x.talla !== t);
+                                    const newEntry = v !== "" && Number(v) > 0 ? [{ talla: t, qty: Number(v) }] : [];
+                                    const newTallas = [...rest, ...newEntry].sort((a,b) => TALLAS_DEFAULT.indexOf(a.talla) - TALLAS_DEFAULT.indexOf(b.talla));
+                                    const total = newTallas.reduce((s, x) => s + x.qty, 0);
+                                    return { ...l, tallas: newTallas, qty: total > 0 ? total : l.qty };
+                                  }));
+                                }}
+                                style={{
+                                  width: 44, height: 40, textAlign: "center",
+                                  fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 15,
+                                  background: active ? "var(--accent-dim)" : "var(--bg)",
+                                  border: `2px solid ${active ? "var(--accent)" : "var(--border2)"}`,
+                                  borderRadius: 8, padding: "0 2px",
+                                  color: active ? "var(--accent)" : "var(--text2)",
+                                  outline: "none", transition: "all .15s",
+                                }}
+                              />
                             </div>
-                          )}
+                          );
+                        })}
+                        {/* Total manual si no hay tallas */}
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginLeft: 4, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: ".08em", color: "var(--text3)", textTransform: "uppercase" }}>Total</span>
+                          <input
+                            type="number" min={0}
+                            value={line.tallas?.reduce((s,x)=>s+x.qty,0) || line.qty || ""}
+                            readOnly={line.tallas?.some(x=>x.qty>0)}
+                            placeholder="0"
+                            onChange={e => { if(!line.tallas?.some(x=>x.qty>0)) updLine(i, "qty", e.target.value); }}
+                            style={{
+                              width: 52, height: 40, textAlign: "center",
+                              fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 16,
+                              background: "var(--bg2)",
+                              border: "2px solid var(--accent)",
+                              borderRadius: 8, padding: "0 2px",
+                              color: "var(--accent)", outline: "none",
+                              opacity: line.tallas?.some(x=>x.qty>0) ? 0.7 : 1,
+                              cursor: line.tallas?.some(x=>x.qty>0) ? "default" : "text",
+                            }}
+                          />
                         </div>
-                      )}
+                      </div>
                     </div>
                     {line.prendaId === "__otro" && (
                       <div className="row" style={{ marginBottom: 10, marginLeft: 24, gap: 6, flexWrap: "wrap" }}>
@@ -1227,27 +1240,8 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* ⑤ WHATSAPP */}
-                <div className="card fade-up">
-                  <div className="card-head">
-                    <StepBadge n={5} />
-                    <span style={{ fontWeight: 700, fontSize: 14 }}>Resumen WhatsApp</span>
-                    <button onClick={() => { const e = document.getElementById("rt"); if (e) navigator.clipboard.writeText(e.innerText).catch(() => {}); }}
-                      style={{ marginLeft: "auto", background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,.3)", borderRadius: 8, padding: "7px 16px", fontSize: 12, fontWeight: 700, color: "var(--accent)", cursor: "pointer", minHeight: 36, transition: "all .15s" }}>
-                      Copiar
-                    </button>
-                  </div>
-                  <div className="card-body">
-                    <div id="rt" style={{ fontFamily: "'JetBrains Mono'", fontSize: 12, lineHeight: 1.8, color: "var(--text2)", background: "var(--bg)", borderRadius: 10, padding: 14, border: "1px solid var(--border)", userSelect: "all" }}>
-                      <div style={{ fontWeight: 800, color: "var(--accent)", marginBottom: 4 }}>COTIZACIÓN {businessName} DTF</div>
-                      {calc.lp.map((l, i) => <div key={i}>{l.qty}× {l.prendaLabel}{l.color ? ` (${l.color})` : ""} ({l.cfgLabel}){l.tallasSummary ? ` [${l.tallasSummary}]` : ""}{l.quien === "Cliente" ? " — cliente pone" : ""} — L{l.sellPrice}/u</div>)}
-                      {calc.disc > 0 && <div style={{ color: "var(--green)" }}>Desc. {calc.volPct}%: -L{calc.disc}</div>}
-                      {calc.designFee > 0 && <div>Diseño: {calc.designCharged === 0 ? "Incluido ✓" : `L${calc.designCharged}`}</div>}
-                      {calc.fixFee > 0 && <div>Corrección: {calc.fixCharged === 0 ? "Incluida ✓" : `L${calc.fixCharged}`}</div>}
-                      <div style={{ fontWeight: 800, color: "var(--accent)", fontSize: 15, marginTop: 6 }}>TOTAL: L{calc.total.toLocaleString()}</div>
-                    </div>
-                  </div>
-                </div>
+                {/* ⑤ FACTURA */}
+                <Factura calc={calc} businessName={businessName} />
               </>
             )}
             {!calc && (
@@ -1285,6 +1279,227 @@ export default function App() {
     </div>
   );
 }
+
+function Factura({ calc, businessName }) {
+  const today = new Date();
+  const [clientName, setClientName] = useState("");
+  const [clientEmail, setClientEmail] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [invoiceNum, setInvoiceNum] = useState(() => {
+    const n = parseInt(localStorage.getItem("dtf_invoice_num") || "0") + 1;
+    localStorage.setItem("dtf_invoice_num", n);
+    return String(n).padStart(4, "0");
+  });
+  const [notes, setNotes] = useState("");
+  const dateStr = today.toLocaleDateString("es-HN", { year: "numeric", month: "long", day: "numeric" });
+
+  const handlePrint = () => {
+    const printContent = document.getElementById("factura-print");
+    const w = window.open("", "_blank");
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Factura ${invoiceNum} — ${businessName}</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Sora',sans-serif;background:#fff;color:#111;padding:32px;max-width:780px;margin:0 auto}
+  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #111}
+  .biz-name{font-size:28px;font-weight:800;letter-spacing:-1px}
+  .biz-tag{font-size:11px;color:#666;letter-spacing:.1em;text-transform:uppercase;margin-top:2px}
+  .inv-info{text-align:right}
+  .inv-num{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700}
+  .inv-date{font-size:12px;color:#666;margin-top:4px}
+  .section{margin-bottom:24px}
+  .section-title{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#999;font-weight:700;margin-bottom:8px}
+  .client-name{font-size:18px;font-weight:700}
+  .client-detail{font-size:13px;color:#555;margin-top:3px}
+  table{width:100%;border-collapse:collapse;margin-bottom:20px}
+  th{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#999;font-weight:700;padding:8px 10px;text-align:left;border-bottom:2px solid #eee}
+  th.r,td.r{text-align:right}
+  td{padding:10px 10px;font-size:13px;border-bottom:1px solid #f0f0f0;vertical-align:top}
+  td.mono{font-family:'JetBrains Mono',monospace;font-weight:700}
+  .tallas-row{font-size:10px;color:#888;font-family:'JetBrains Mono',monospace;margin-top:3px}
+  .subtotals{width:280px;margin-left:auto}
+  .subtotals tr td{font-size:13px;padding:5px 10px;border:none}
+  .subtotals .disc{color:#16a34a}
+  .total-row td{font-size:17px;font-weight:800;padding:10px;border-top:2px solid #111!important;border-bottom:none!important}
+  .notes-box{background:#f8f8f8;border-radius:8px;padding:14px;font-size:12px;color:#555;margin-top:16px}
+  .footer{margin-top:40px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#aaa;text-align:center}
+  @media print{body{padding:16px}@page{margin:1cm}}
+</style></head><body>${printContent.innerHTML}
+<script>window.onload=()=>{window.print();}<\/script></body></html>`);
+    w.document.close();
+  };
+
+  const handleEmail = () => {
+    const lines = calc.lp.map(l =>
+      `${l.qty}× ${l.prendaLabel}${l.color ? ` (${l.color})` : ""}${l.tallasSummary ? ` [${l.tallasSummary}]` : ""} — L${l.sellPrice}/u = L${l.lineTotal}`
+    ).join("\n");
+    const body = encodeURIComponent(
+`Estimado/a ${clientName || "cliente"},
+
+Adjunto la cotización #${invoiceNum} de ${businessName} DTF:
+
+${lines}
+${calc.disc > 0 ? `\nDescuento ${calc.volPct}%: -L${calc.disc}` : ""}${calc.designFee > 0 ? `\nDiseño: ${calc.designCharged === 0 ? "Incluido" : `L${calc.designCharged}`}` : ""}${calc.fixFee > 0 ? `\nCorrección: ${calc.fixCharged === 0 ? "Incluida" : `L${calc.fixCharged}`}` : ""}
+
+TOTAL: L${calc.total.toLocaleString()}
+
+Fecha: ${dateStr}
+Cotización válida por 15 días.
+
+${notes ? `Notas: ${notes}\n` : ""}Gracias por preferirnos.
+${businessName}`
+    );
+    window.location.href = `mailto:${clientEmail}?subject=Cotizaci%C3%B3n%20%23${invoiceNum}%20-%20${encodeURIComponent(businessName)}%20DTF&body=${body}`;
+  };
+
+  return (
+    <div className="card fade-up">
+      <style>{`
+        @media print { .no-print { display: none !important; } }
+      `}</style>
+      <div className="card-head">
+        <StepBadge n={5} />
+        <span style={{ fontWeight: 700, fontSize: 14 }}>Factura / Cotización</span>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          <button onClick={handleEmail} style={{ background: "transparent", border: "1px solid var(--border2)", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 700, color: "var(--text2)", cursor: "pointer", minHeight: 36, display: "flex", alignItems: "center", gap: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
+            Correo
+          </button>
+          <button onClick={handlePrint} style={{ background: "var(--accent)", border: "none", borderRadius: 8, padding: "7px 16px", fontSize: 12, fontWeight: 700, color: "var(--bg)", cursor: "pointer", minHeight: 36, display: "flex", alignItems: "center", gap: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+            Descargar PDF
+          </button>
+        </div>
+      </div>
+      <div className="card-body">
+        {/* Datos del cliente */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+          <div style={{ gridColumn: "1/-1" }}>
+            <div className="lbl">Nombre del cliente</div>
+            <input className="inp" placeholder="Juan Pérez / Empresa S.A." value={clientName} onChange={e => setClientName(e.target.value)} />
+          </div>
+          <div>
+            <div className="lbl">Correo electrónico</div>
+            <input className="inp inp-sm" type="email" placeholder="cliente@email.com" value={clientEmail} onChange={e => setClientEmail(e.target.value)} />
+          </div>
+          <div>
+            <div className="lbl">Teléfono</div>
+            <input className="inp inp-sm" type="tel" placeholder="+504 9999-9999" value={clientPhone} onChange={e => setClientPhone(e.target.value)} />
+          </div>
+          <div>
+            <div className="lbl">Nº de cotización</div>
+            <input className="inp inp-sm" value={invoiceNum} onChange={e => setInvoiceNum(e.target.value)} style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
+          </div>
+          <div>
+            <div className="lbl">Fecha</div>
+            <div className="inp inp-sm" style={{ color: "var(--text2)", background: "var(--bg3)" }}>{dateStr}</div>
+          </div>
+          <div style={{ gridColumn: "1/-1" }}>
+            <div className="lbl">Notas adicionales</div>
+            <textarea className="inp inp-sm" rows={2} placeholder="Tiempo de entrega, condiciones de pago, etc…" value={notes} onChange={e => setNotes(e.target.value)} style={{ resize: "vertical", minHeight: 60 }} />
+          </div>
+        </div>
+
+        {/* Preview de factura */}
+        <div id="factura-print" style={{ background: "white", borderRadius: 12, padding: "28px 28px 20px", border: "1px solid var(--border)", color: "#111" }}>
+          {/* Header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28, paddingBottom: 18, borderBottom: "2px solid #111" }}>
+            <div>
+              <div style={{ fontFamily: "'Sora'", fontSize: 26, fontWeight: 800, letterSpacing: "-1px", color: "#111" }}>{businessName}</div>
+              <div style={{ fontSize: 10, color: "#999", letterSpacing: ".1em", textTransform: "uppercase", marginTop: 2 }}>DTF · Estampado Digital</div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 11, color: "#999", textTransform: "uppercase", letterSpacing: ".1em" }}>Cotización</div>
+              <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 22, fontWeight: 800, color: "#111" }}>#{invoiceNum}</div>
+              <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>{dateStr}</div>
+              <div style={{ fontSize: 11, color: "#999", marginTop: 1 }}>Válida 15 días</div>
+            </div>
+          </div>
+
+          {/* Cliente */}
+          {clientName && (
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".1em", color: "#999", fontWeight: 700, marginBottom: 6 }}>Cotización para</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: "#111" }}>{clientName}</div>
+              {clientEmail && <div style={{ fontSize: 12, color: "#555", marginTop: 3 }}>{clientEmail}</div>}
+              {clientPhone && <div style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{clientPhone}</div>}
+            </div>
+          )}
+
+          {/* Tabla de líneas */}
+          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
+            <thead>
+              <tr>
+                <th style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "#999", fontWeight: 700, padding: "8px 10px", textAlign: "left", borderBottom: "2px solid #eee" }}>Descripción</th>
+                <th style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "#999", fontWeight: 700, padding: "8px 10px", textAlign: "center", borderBottom: "2px solid #eee", width: 60 }}>Cant.</th>
+                <th style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "#999", fontWeight: 700, padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #eee", width: 90 }}>P/u</th>
+                <th style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "#999", fontWeight: 700, padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #eee", width: 100 }}>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {calc.lp.map((l, i) => (
+                <tr key={i}>
+                  <td style={{ padding: "10px", fontSize: 13, borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>
+                    <div style={{ fontWeight: 600, color: "#111" }}>{l.prendaLabel}{l.color ? <span style={{ fontWeight: 400, color: "#666" }}> — {l.color}</span> : ""}</div>
+                    <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>Pos: {l.cfgLabel}</div>
+                    {l.tallasSummary && <div style={{ fontSize: 10, color: "#aaa", fontFamily: "'JetBrains Mono'", marginTop: 2 }}>Tallas: {l.tallasSummary}</div>}
+                    {l.quien === "Cliente" && <div style={{ fontSize: 10, color: "#d97706", marginTop: 2 }}>⚠ Cliente provee prenda</div>}
+                  </td>
+                  <td style={{ padding: "10px", textAlign: "center", fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 14, color: "#111", borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>{l.qty}</td>
+                  <td style={{ padding: "10px", textAlign: "right", fontFamily: "'JetBrains Mono'", fontSize: 13, color: "#555", borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>L{l.sellPrice}</td>
+                  <td style={{ padding: "10px", textAlign: "right", fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 14, color: "#111", borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>L{l.lineTotal}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Totales */}
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <div style={{ width: 300 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 10px", fontSize: 13, color: "#555" }}>
+                <span>Subtotal</span><span style={{ fontFamily: "'JetBrains Mono'" }}>L{calc.sub}</span>
+              </div>
+              {calc.disc > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 10px", fontSize: 13, color: "#16a34a" }}>
+                  <span>Descuento {calc.volPct}%</span><span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>-L{calc.disc}</span>
+                </div>
+              )}
+              {calc.designFee > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 10px", fontSize: 13, color: calc.designCharged === 0 ? "#16a34a" : "#555" }}>
+                  <span>Diseño ({calc.dType?.label})</span>
+                  <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>{calc.designCharged === 0 ? "Incluido" : `L${calc.designCharged}`}</span>
+                </div>
+              )}
+              {calc.fixFee > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 10px", fontSize: 13, color: calc.fixCharged === 0 ? "#16a34a" : "#555" }}>
+                  <span>Corrección de arte</span>
+                  <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>{calc.fixCharged === 0 ? "Incluida" : `L${calc.fixCharged}`}</span>
+                </div>
+              )}
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 10px", fontSize: 18, fontWeight: 800, borderTop: "2px solid #111", marginTop: 6, color: "#111" }}>
+                <span>TOTAL</span><span style={{ fontFamily: "'JetBrains Mono'" }}>L{calc.total.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Notas */}
+          {notes && (
+            <div style={{ marginTop: 20, background: "#f8f8f8", borderRadius: 8, padding: "12px 16px", fontSize: 12, color: "#555" }}>
+              <div style={{ fontWeight: 700, marginBottom: 4, fontSize: 11, textTransform: "uppercase", letterSpacing: ".08em", color: "#999" }}>Notas</div>
+              {notes}
+            </div>
+          )}
+
+          {/* Footer */}
+          <div style={{ marginTop: 32, paddingTop: 14, borderTop: "1px solid #eee", fontSize: 11, color: "#aaa", textAlign: "center" }}>
+            Cotización generada por {businessName} · {dateStr} · Válida por 15 días
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 function StepBadge({ n }) {
   return (
