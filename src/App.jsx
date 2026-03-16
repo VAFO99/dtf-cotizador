@@ -64,7 +64,7 @@ const INIT_PRENDAS = [
 // Fórmula: ancho_in × alto_in × 0.0774
 const calcPoli = (w, h) => parseFloat((w * h * 0.0774).toFixed(2));
 
-// ── Pure pricing engine — reusable for both the main calc and the modal ──
+// ── Pure pricing engine — returns full calc-compatible object for Factura ──
 function calcPrecioSolicitud({ lines, prendas, placements, sheets, volTiers, poliRate, energyCost, margin }) {
   if (!lines?.length) return null;
   let pidx = 0;
@@ -77,57 +77,100 @@ function calcPrecioSolicitud({ lines, prendas, placements, sheets, volTiers, pol
     const piecesPerUnit = [];
     let poli = 0;
 
-    // Try to match placements by label (client requests use labels, not IDs)
+    // Match placements by label from cfgLabel
     const posLabels = (line.cfgLabel || "").split(" + ").filter(Boolean);
     posLabels.forEach(label => {
-      const pl = placements.find(p => p.label === label || p.label?.toLowerCase() === label?.toLowerCase());
-      if (pl) { piecesPerUnit.push({ w: pl.w, h: pl.h, label: pl.label, color: pl.color }); poli += calcPoli(pl.w, pl.h); }
+      const pl = placements.find(p =>
+        p.label === label || p.label?.toLowerCase() === label?.toLowerCase()
+      );
+      if (pl) {
+        piecesPerUnit.push({ w: pl.w, h: pl.h, label: pl.label, color: pl.color });
+        poli += calcPoli(pl.w, pl.h);
+      }
     });
 
-    // If no placements found by label, estimate from placement IDs
+    // Fallback: match by placementIds
     if (!piecesPerUnit.length && line.placementIds?.length) {
       line.placementIds.forEach(pid => {
         const pl = placements.find(p => p.id === pid);
-        if (pl) { piecesPerUnit.push({ w: pl.w, h: pl.h, label: pl.label, color: pl.color }); poli += calcPoli(pl.w, pl.h); }
+        if (pl) {
+          piecesPerUnit.push({ w: pl.w, h: pl.h, label: pl.label, color: pl.color });
+          poli += calcPoli(pl.w, pl.h);
+        }
       });
     }
 
     const pr = prendas.find(p => p.id === line.prendaId || p.name === line.prendaLabel);
     const prendaCost = pr ? pr.cost : 0;
+    const prendaLabel = pr ? pr.name : (line.prendaLabel || "Prenda");
 
     for (let u = 0; u < qty; u++) {
       piecesPerUnit.forEach(p => allPieces.push({ ...p, _idx: pidx++ }));
     }
 
-    return { qty, prendaCost, poli, poliCost: poli * poliRate };
+    return {
+      qty, prendaCost, poli, poliCost: poli * poliRate,
+      prendaLabel, color: line.color || "",
+      cfgLabel: posLabels.join(" + ") || line.cfgLabel || "",
+      tallasSummary: line.tallasSummary || null,
+      quien: "Yo",
+    };
   });
 
-  if (!allPieces.length || totalQty === 0) return null;
+  if (totalQty === 0) return null;
 
-  const nesting = findBestSheets(allPieces, sheets);
+  // Run nesting only if we have pieces
+  const nesting = allPieces.length
+    ? findBestSheets(allPieces, sheets)
+    : { results: [], totalCost: 0 };
+
   const dtfCost = nesting.totalCost;
-  const dtfPU = dtfCost / totalQty;
+  const dtfPU = totalQty > 0 ? dtfCost / totalQty : 0;
 
   const tier = [...volTiers].sort((a, b) => b.minQty - a.minQty).find(t => totalQty >= t.minQty) || volTiers[0];
   const volPct = tier?.discPct || 0;
 
-  let sub = 0;
-  lineDetails.forEach(ld => {
+  // Build lp — same structure Factura expects
+  const lp = lineDetails.map(ld => {
     const uc = ld.prendaCost + ld.poliCost + dtfPU + energyCost;
-    const sp = Math.ceil((uc * (1 + margin / 100)) / 10) * 10;
-    sub += sp * ld.qty;
+    const sellPrice = Math.ceil((uc * (1 + margin / 100)) / 10) * 10;
+    const lineTotal = sellPrice * ld.qty;
+    return {
+      ...ld,
+      unitCost: uc,
+      sellPrice,
+      lineTotal,
+      costTotal: uc * ld.qty,
+    };
   });
 
+  const sub = lp.reduce((s, l) => s + l.lineTotal, 0);
   const disc = Math.round(sub * volPct / 100);
   const total = sub - disc;
+  const cost = lp.reduce((s, l) => s + l.costTotal, 0);
+  const profit = total - cost;
+  const rm = total > 0 ? (profit / total) * 100 : 0;
 
+  const totalPoli = lineDetails.reduce((s, l) => s + l.poli, 0);
+  const totalPoliCost = lineDetails.reduce((s, l) => s + l.poliCost, 0);
+  const totalEnergyCost = totalQty * energyCost;
+
+  // Return full calc-compatible object
   return {
-    total,
-    dtfCost,
-    disc,
-    totalQty,
-    tier: tier?.label,
-    desglose: { dtfCost: Math.round(dtfCost), poliCost: Math.round(lineDetails.reduce((s,l)=>s+l.poliCost,0)), energyCost: Math.round(energyCost * totalQty * 100) / 100 },
+    lp, nesting, totalQty, dtfCost,
+    sub, disc, total, cost, profit, rm,
+    volPct, tier,
+    totalPoli, totalPoliCost, totalEnergyCost,
+    // No design/fix fees for client solicitudes
+    designFee: 0, designCharged: 0, fixFee: 0, fixCharged: 0,
+    dType: null, fType: null,
+    // Helpers for breakdown display
+    warmUpTotal: 0,
+    desglose: {
+      dtfCost: Math.round(dtfCost),
+      poliCost: Math.round(totalPoliCost),
+      energyCost: parseFloat(totalEnergyCost.toFixed(2)),
+    },
   };
 }
 
@@ -235,7 +278,8 @@ export default function App() {
   const [modalTotal, setModalTotal]     = useState("");
   const [modalNota, setModalNota]       = useState("");
   const [modalMode, setModalMode]       = useState("auto"); // "auto" | "manual"
-  const [modalAutoResult, setModalAutoResult] = useState(null); // result from calcPrecioSolicitud
+  const [modalAutoResult, setModalAutoResult] = useState(null); // full calc object
+  const [modalStep, setModalStep]         = useState("review"); // "review" | "factura"
   const [pedidosPage, setPedidosPage]   = useState(0);
   const PEDIDOS_PER_PAGE = 20;
   const [syncStatus, setSyncStatus]   = useState("idle");
@@ -2098,19 +2142,22 @@ export default function App() {
   );
 }
 
-function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido, whatsappBiz }) {
+function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido, whatsappBiz,
+  prefillCliente = "", prefillPhone = "", prefillEmail = "", prefillNum = null }) {
   const today = new Date();
-  const [clientName, setClientName] = useState("");
-  const [clientEmail, setClientEmail] = useState("");
-  const [clientPhone, setClientPhone] = useState("");
+  const [clientName, setClientName] = useState(prefillCliente);
+  const [clientEmail, setClientEmail] = useState(prefillEmail);
+  const [clientPhone, setClientPhone] = useState(prefillPhone);
   // FIX 7: generate invoice number ONCE per mount from Supabase (real auto-increment)
   const invoiceNumRef = useRef(null);
-  const [invoiceNum, setInvoiceNum] = useState("....");
+  // If we have a pre-existing number (from solicitud), use it; otherwise generate new
+  const [invoiceNum, setInvoiceNum] = useState(prefillNum || "....");
   useEffect(() => {
+    if (prefillNum) return; // use existing number from solicitud
     if (invoiceNumRef.current) return;
     invoiceNumRef.current = true;
     getNextNumero().then(n => setInvoiceNum(n));
-  }, []);
+  }, [prefillNum]);
   const [notes, setNotes] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
   const dateStr = today.toLocaleDateString("es-HN", { year: "numeric", month: "long", day: "numeric" });
