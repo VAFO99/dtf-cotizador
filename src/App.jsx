@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { MaxRectsPacker } from "maxrects-packer";
+import { loadPedidos, savePedidos, nextQuoteNum, ESTADOS, ESTADO_COLOR } from "./store.js";
 
-const STORAGE_KEY = "dtf_config_v2"; // bumped: placements en español + tallas/colores config
+const STORAGE_KEY = "dtf_config_v3"; // bumped: per-prenda tallas+colores, TCambio, margenMin, darkMode
 
 // Mapa de migración de nombres en inglés → español
 const PLACEMENT_ES = {
@@ -36,8 +37,8 @@ function saveConfig(cfg) {
 const uid = () => Math.random().toString(36).slice(2, 8);
 
 const INIT_PRENDAS = [
-  { id: uid(), name: "Camisa", cost: 60 },
-  { id: uid(), name: "Hoodie", cost: 180 },
+  { id: uid(), name: "Camisa",  cost: 60,  tallas: ["XS","S","M","L","XL","XXL","XXXL"], colores: ["Blanco","Negro","Gris","Azul marino"] },
+  { id: uid(), name: "Hoodie",  cost: 180, tallas: ["S","M","L","XL","XXL"],             colores: ["Blanco","Negro","Gris","Café"] },
 ];
 
 // Polyamida: estándar industria DTF = 120 g/m² = 0.0774 g/in²
@@ -243,6 +244,13 @@ export default function App() {
   const [coloresCfg, setColoresCfg] = useState(saved?.coloresCfg ?? ["Blanco","Negro","Gris","Rojo","Azul marino","Azul cielo","Verde","Amarillo","Naranja","Rosado","Morado","Café"]);
   const [newTalla, setNewTalla] = useState("");
   const [newColor, setNewColor] = useState("");
+  // NEW features
+  const [darkMode, setDarkMode]       = useState(saved?.darkMode ?? true);
+  const [tipoCambio, setTipoCambio]   = useState(saved?.tipoCambio ?? 25.5);
+  const [mostrarUSD, setMostrarUSD]   = useState(saved?.mostrarUSD ?? false);
+  const [margenMin, setMargenMin]     = useState(saved?.margenMin ?? 30);
+  const [pedidos, setPedidos]         = useState(() => loadPedidos());
+  const [pedidoTab, setPedidoTab]     = useState("cotizar"); // cotizar | pedidos
 
   // Save state
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | dirty | saved
@@ -251,8 +259,9 @@ export default function App() {
 
   const currentConfig = useMemo(() => ({
     margin, prendas, placements, sheets, designTypes, fixTypes, volTiers,
-    poliBolsa, poliGramos, businessName, energyCost, tallasCfg, coloresCfg, logoB64, validezDias
-  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, energyCost, tallasCfg, coloresCfg, logoB64, validezDias]);
+    poliBolsa, poliGramos, businessName, energyCost, tallasCfg, coloresCfg, logoB64, validezDias,
+    darkMode, tipoCambio, mostrarUSD, margenMin
+  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, energyCost, tallasCfg, coloresCfg, logoB64, validezDias, darkMode, tipoCambio, mostrarUSD, margenMin]);
 
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
@@ -280,6 +289,61 @@ export default function App() {
     }, 1500);
     return () => clearTimeout(autoSaveTimer.current);
   }, [currentConfig]);
+
+  // Persist pedidos whenever they change
+  useEffect(() => { savePedidos(pedidos); }, [pedidos]);
+
+  // Export config as JSON
+  const exportConfig = useCallback(() => {
+    const blob = new Blob([JSON.stringify(currentConfig, null, 2)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = `dtf-config-${new Date().toISOString().slice(0,10)}.json`; a.click();
+  }, [currentConfig]);
+
+  // Import config from JSON
+  const importConfig = useCallback((file) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const cfg = JSON.parse(e.target.result);
+        if (cfg.prendas) setPrendas(cfg.prendas);
+        if (cfg.placements) setPlacements(cfg.placements);
+        if (cfg.sheets) setSheets(cfg.sheets);
+        if (cfg.designTypes) setDesignTypes(cfg.designTypes);
+        if (cfg.fixTypes) setFixTypes(cfg.fixTypes);
+        if (cfg.volTiers) setVolTiers(cfg.volTiers);
+        if (cfg.poliBolsa) setPoliBolsa(cfg.poliBolsa);
+        if (cfg.poliGramos) setPoliGramos(cfg.poliGramos);
+        if (cfg.businessName) setBusinessName(cfg.businessName);
+        if (cfg.energyCost !== undefined) setEnergyCost(cfg.energyCost);
+        if (cfg.tallasCfg) setTallasCfg(cfg.tallasCfg);
+        if (cfg.coloresCfg) setColoresCfg(cfg.coloresCfg);
+        if (cfg.logoB64) setLogoB64(cfg.logoB64);
+        if (cfg.validezDias) setValidezDias(cfg.validezDias);
+        if (cfg.margin) setMargin(cfg.margin);
+        if (cfg.tipoCambio) setTipoCambio(cfg.tipoCambio);
+        if (cfg.mostrarUSD !== undefined) setMostrarUSD(cfg.mostrarUSD);
+        if (cfg.margenMin !== undefined) setMargenMin(cfg.margenMin);
+        alert("✅ Configuración importada correctamente");
+      } catch { alert("❌ Archivo inválido"); }
+    };
+    reader.readAsText(file);
+  }, []);
+
+  // Save cotización as pedido
+  const savePedido = useCallback((calc, clientName, invoiceNum) => {
+    if (!calc) return;
+    const nuevo = {
+      id: uid(),
+      num: invoiceNum,
+      cliente: clientName || "Sin nombre",
+      fecha: new Date().toISOString(),
+      total: calc.total,
+      estado: "Cotizado",
+      lines: calc.lp.map(l => ({ qty: l.qty, prendaLabel: l.prendaLabel, color: l.color, cfgLabel: l.cfgLabel, tallasSummary: l.tallasSummary, sellPrice: l.sellPrice })),
+    };
+    setPedidos(prev => [nuevo, ...prev]);
+  }, []);
 
   const poliRate = poliBolsa / poliGramos;
 
@@ -369,27 +433,34 @@ export default function App() {
 
   // ── RENDER ──
   return (
-    <div style={{ background: "var(--bg)", color: "var(--text)", fontFamily: "'Sora',sans-serif", minHeight: "100dvh", minHeight: "100vh" }}>
+    <div className={darkMode ? "dark-theme" : "light-theme"} style={{ background: "var(--bg)", color: "var(--text)", fontFamily: "'Sora',sans-serif", minHeight: "100dvh", minHeight: "100vh" }}>
       <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet" />
       <style>{`
         :root {
-          --bg: #080A10;
-          --bg2: #0D1018;
-          --bg3: #131720;
-          --border: #1E2535;
-          --border2: #252D3F;
           --accent: #22D3EE;
           --accent-dim: rgba(34,211,238,.12);
           --accent-glow: rgba(34,211,238,.25);
-          --text: #E2E8F4;
-          --text2: #94A3B8;
-          --text3: #4A5568;
           --green: #34D399;
           --red: #F87171;
           --warn: #FBBF24;
           --radius: 14px;
           --radius-sm: 8px;
         }
+        .dark-theme {
+          --bg: #080A10; --bg2: #0D1018; --bg3: #131720;
+          --border: #1E2535; --border2: #252D3F;
+          --text: #E2E8F4; --text2: #94A3B8; --text3: #4A5568;
+          --shadow: rgba(0,0,0,.5);
+        }
+        .light-theme {
+          --bg: #F8FAFC; --bg2: #FFFFFF; --bg3: #F1F5F9;
+          --border: #E2E8F0; --border2: #CBD5E1;
+          --text: #0F172A; --text2: #475569; --text3: #94A3B8;
+          --shadow: rgba(0,0,0,.08);
+        }
+        .light-theme .card { box-shadow: 0 1px 8px var(--shadow); }
+        .light-theme .line-card { background: #F8FAFC; }
+        .light-theme header { background: rgba(255,255,255,.92); }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { -webkit-text-size-adjust: 100%; font-size: 16px; }
         body { background: var(--bg); overscroll-behavior-y: none; }
@@ -678,12 +749,15 @@ export default function App() {
           </div>
           {/* Desktop tabs */}
           <div className="desktop-tabs" style={{ display: "flex", borderTop: "1px solid var(--border)", overflowX: "auto" }}>
-            <button className={`tab-btn ${tab === "cotizar" ? "active" : ""}`} onClick={() => setTab("cotizar")}>
-              Cotizar
+            <button className={`tab-btn ${tab === "cotizar" ? "active" : ""}`} onClick={() => setTab("cotizar")}>Cotizar</button>
+            <button className={`tab-btn ${tab === "pedidos" ? "active" : ""}`} onClick={() => setTab("pedidos")}>
+              Pedidos {pedidos.filter(p => p.estado !== "Entregado").length > 0 && (
+                <span style={{ marginLeft: 6, background: "var(--accent)", color: "var(--bg)", borderRadius: 10, padding: "1px 6px", fontSize: 10, fontWeight: 800 }}>
+                  {pedidos.filter(p => p.estado !== "Entregado").length}
+                </span>
+              )}
             </button>
-            <button className={`tab-btn ${tab === "config" ? "active" : ""}`} onClick={() => setTab("config")}>
-              Configuración
-            </button>
+            <button className={`tab-btn ${tab === "config" ? "active" : ""}`} onClick={() => setTab("config")}>Configuración</button>
           </div>
         </div>
       </header>
@@ -755,6 +829,53 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* Margen mínimo */}
+                  <div style={{ marginTop: 14 }}>
+                    <div className="lbl">Margen mínimo aceptable (%)</div>
+                    <div className="row" style={{ gap: 8 }}>
+                      <input type="number" min={0} max={100} className="inp" value={margenMin}
+                        onChange={e => setMargenMin(Number(e.target.value) || 0)}
+                        style={{ maxWidth: 100, fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
+                      <span style={{ fontSize: 12, color: "var(--text3)" }}>% · alerta roja cuando el margen sea menor</span>
+                    </div>
+                  </div>
+
+                  {/* Tipo de cambio */}
+                  <div style={{ marginTop: 14 }}>
+                    <div className="lbl">Tipo de cambio (L por $1 USD)</div>
+                    <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                      <input type="number" min={1} step={0.1} className="inp" value={tipoCambio}
+                        onChange={e => setTipoCambio(Number(e.target.value) || 25.5)}
+                        style={{ maxWidth: 110, fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, color: "var(--text2)" }}>
+                        <input type="checkbox" checked={mostrarUSD} onChange={e => setMostrarUSD(e.target.checked)} style={{ width: 16, height: 16 }} />
+                        Mostrar total en USD
+                      </label>
+                    </div>
+                    {mostrarUSD && <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4, fontFamily: "'JetBrains Mono'" }}>
+                      Ejemplo: L1,000 = ${(1000/tipoCambio).toFixed(2)} USD
+                    </div>}
+                  </div>
+
+                  {/* Exportar / Importar config */}
+                  <div style={{ marginTop: 20, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+                    <div className="lbl">Respaldo de configuración</div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button onClick={exportConfig}
+                        style={{ background: "var(--bg3)", border: "1px solid var(--border2)", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 700, color: "var(--text)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                        Exportar config
+                      </button>
+                      <label style={{ background: "var(--bg3)", border: "1px solid var(--border2)", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 700, color: "var(--text)", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                        Importar config
+                        <input type="file" accept=".json" style={{ display: "none" }}
+                          onChange={e => { if (e.target.files?.[0]) importConfig(e.target.files[0]); }} />
+                      </label>
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6 }}>El exportado incluye prendas, posiciones, hojas, tarifas, logo y todas las configuraciones.</div>
+                  </div>
+
                   {/* Logo */}
                   <div style={{ marginTop: 14 }}>
                     <div className="lbl">Logo del negocio</div>
@@ -787,19 +908,72 @@ export default function App() {
 
             {/* PRENDAS */}
             {cfgTab === "prendas" && (
-              <div className="card fade-up">
-                <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Costos de Prendas</span></div>
-                <div className="card-body">
-                  {prendas.map(p => (
-                    <div key={p.id} className="row" style={{ marginBottom: 8 }}>
-                      <input className="inp inp-sm" value={p.name} onChange={e => upd(setPrendas)(p.id, "name", e.target.value)} style={{ flex: 1 }} />
-                      <span style={{ color: "var(--text3)", fontSize: 12, fontFamily: "'JetBrains Mono'" }}>L</span>
-                      <input type="number" className="inp inp-sm" value={p.cost} onChange={e => upd(setPrendas)(p.id, "cost", e.target.value)} style={{ width: 84, fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
-                      <button className="btn-del" onClick={() => del(setPrendas)(p.id)}>×</button>
+              <div className="fade-up">
+                {prendas.map(p => (
+                  <div key={p.id} className="card" style={{ marginBottom: 10 }}>
+                    <div className="card-head">
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>{p.name || "Nueva prenda"}</span>
+                      <button className="btn-del" style={{ marginLeft: "auto" }} onClick={() => del(setPrendas)(p.id)}>×</button>
                     </div>
-                  ))}
-                  <button className="btn-add" style={{ marginTop: 4 }} onClick={add(setPrendas, { name: "Nueva prenda", cost: 0 })}>+ Agregar prenda</button>
-                </div>
+                    <div className="card-body">
+                      <div className="grid2" style={{ marginBottom: 12 }}>
+                        <div>
+                          <div className="lbl">Nombre</div>
+                          <input className="inp inp-sm" value={p.name} onChange={e => upd(setPrendas)(p.id, "name", e.target.value)} />
+                        </div>
+                        <div>
+                          <div className="lbl">Costo (L)</div>
+                          <input type="number" className="inp inp-sm" value={p.cost} onChange={e => upd(setPrendas)(p.id, "cost", e.target.value)} style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
+                        </div>
+                      </div>
+                      {/* Tallas por prenda */}
+                      <div style={{ marginBottom: 10 }}>
+                        <div className="lbl">Tallas disponibles para esta prenda</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+                          {(p.tallas || tallasCfg).map(t => (
+                            <div key={t} style={{ display: "flex", alignItems: "center", gap: 3, background: "var(--bg)", border: "1.5px solid var(--accent)", borderRadius: 7, padding: "3px 8px" }}>
+                              <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 12, color: "var(--accent)" }}>{t}</span>
+                              <button onClick={() => setPrendas(prev => prev.map(x => x.id === p.id ? { ...x, tallas: (x.tallas || tallasCfg).filter(tl => tl !== t) } : x))}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 12, lineHeight: 1, padding: "0 0 0 2px" }}>×</button>
+                            </div>
+                          ))}
+                          <select className="sel sel-sm" style={{ width: "auto", minWidth: 100 }}
+                            onChange={e => {
+                              const t = e.target.value; if (!t) return;
+                              setPrendas(prev => prev.map(x => x.id === p.id ? { ...x, tallas: [...new Set([...(x.tallas || tallasCfg), t])] } : x));
+                              e.target.value = "";
+                            }}>
+                            <option value="">+ Talla</option>
+                            {tallasCfg.filter(t => !(p.tallas || tallasCfg).includes(t)).map(t => <option key={t}>{t}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                      {/* Colores por prenda */}
+                      <div>
+                        <div className="lbl">Colores disponibles para esta prenda</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
+                          {(p.colores || coloresCfg).map(c => (
+                            <div key={c} style={{ display: "flex", alignItems: "center", gap: 3, background: "var(--bg)", border: "1.5px solid var(--border2)", borderRadius: 7, padding: "3px 10px" }}>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{c}</span>
+                              <button onClick={() => setPrendas(prev => prev.map(x => x.id === p.id ? { ...x, colores: (x.colores || coloresCfg).filter(cl => cl !== c) } : x))}
+                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 12, lineHeight: 1, padding: "0 0 0 2px" }}>×</button>
+                            </div>
+                          ))}
+                          <select className="sel sel-sm" style={{ width: "auto", minWidth: 120 }}
+                            onChange={e => {
+                              const c = e.target.value; if (!c) return;
+                              setPrendas(prev => prev.map(x => x.id === p.id ? { ...x, colores: [...new Set([...(x.colores || coloresCfg), c])] } : x));
+                              e.target.value = "";
+                            }}>
+                            <option value="">+ Color</option>
+                            {coloresCfg.filter(c => !(p.colores || coloresCfg).includes(c)).map(c => <option key={c}>{c}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <button className="btn-add" onClick={add(setPrendas, { name: "Nueva prenda", cost: 0, tallas: [...tallasCfg], colores: [...coloresCfg] })}>+ Agregar prenda</button>
               </div>
             )}
 
@@ -1027,6 +1201,73 @@ export default function App() {
           </div>
         )}
 
+        {/* ══ PEDIDOS ══ */}
+        {tab === "pedidos" && (
+          <div className="fade-up">
+            <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Pedidos activos</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {["Todos", ...ESTADOS].map(e => (
+                  <button key={e} onClick={() => setPedidoTab(e)}
+                    style={{
+                      padding: "5px 12px", borderRadius: 20, fontSize: 11, fontWeight: 700, cursor: "pointer", border: "none",
+                      background: pedidoTab === e ? "var(--accent)" : "var(--bg3)",
+                      color: pedidoTab === e ? "var(--bg)" : "var(--text2)",
+                    }}>{e}</button>
+                ))}
+              </div>
+            </div>
+            {pedidos.filter(p => pedidoTab === "Todos" || p.estado === pedidoTab).length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--text3)" }}>
+                <div style={{ fontSize: 36, marginBottom: 10 }}>📋</div>
+                <div style={{ fontWeight: 600, fontSize: 15 }}>Sin pedidos {pedidoTab !== "Todos" ? `en estado "${pedidoTab}"` : "registrados"}</div>
+                <div style={{ fontSize: 13, color: "var(--border2)", marginTop: 4 }}>Los pedidos guardados desde la factura aparecerán aquí</div>
+              </div>
+            ) : (
+              pedidos
+                .filter(p => pedidoTab === "Todos" || p.estado === pedidoTab)
+                .map(p => {
+                  const ec = ESTADO_COLOR[p.estado] || ESTADO_COLOR.Cotizado;
+                  return (
+                    <div key={p.id} className="card" style={{ marginBottom: 10 }}>
+                      <div className="card-head" style={{ flexWrap: "wrap", gap: 8 }}>
+                        <div>
+                          <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, color: "var(--accent)", fontSize: 13 }}>#{p.num}</span>
+                          <span style={{ marginLeft: 10, fontWeight: 700, fontSize: 14 }}>{p.cliente}</span>
+                        </div>
+                        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 14, color: "var(--accent)" }}>L{p.total.toLocaleString()}</span>
+                          <select value={p.estado} onChange={e => setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: e.target.value } : x))}
+                            style={{ background: ec.bg, border: `1px solid ${ec.border}`, color: ec.text, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Sora'" }}>
+                            {ESTADOS.map(es => <option key={es}>{es}</option>)}
+                          </select>
+                          <button onClick={() => { if (confirm("¿Eliminar este pedido?")) setPedidos(prev => prev.filter(x => x.id !== p.id)); }}
+                            className="btn-del" title="Eliminar">×</button>
+                        </div>
+                      </div>
+                      <div className="card-body" style={{ padding: "10px 16px" }}>
+                        <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 8, fontFamily: "'JetBrains Mono'" }}>
+                          {new Date(p.fecha).toLocaleDateString("es-HN", { year:"numeric", month:"short", day:"numeric" })}
+                        </div>
+                        {p.lines.map((l, i) => (
+                          <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
+                            <span>
+                              <b style={{ color: "var(--accent)", fontFamily: "'JetBrains Mono'" }}>{l.qty}×</b>
+                              <span style={{ marginLeft: 6 }}>{l.prendaLabel}{l.color ? ` (${l.color})` : ""}</span>
+                              <span style={{ color: "var(--text3)", fontSize: 11, marginLeft: 6 }}>{l.cfgLabel}</span>
+                              {l.tallasSummary && <span style={{ color: "var(--text3)", fontSize: 10, fontFamily: "'JetBrains Mono'", marginLeft: 6 }}>[{l.tallasSummary}]</span>}
+                            </span>
+                            <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>L{l.lineTotal ?? (l.qty * l.sellPrice)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+            )}
+          </div>
+        )}
+
         {/* ══ COTIZAR ══ */}
         {tab === "cotizar" && (
           <div className="fade-up">
@@ -1106,11 +1347,11 @@ export default function App() {
                       <button className="btn-del" onClick={() => setLines(p => p.length > 1 ? p.filter((_, j) => j !== i) : p)}>×</button>
                     </div>
 
-                    {/* Color con sugerencias */}
+                    {/* Color con sugerencias per-prenda */}
                     <div style={{ marginLeft: 24, marginBottom: 10 }}>
                       <div className="lbl">Color de prenda</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 6 }}>
-                        {coloresCfg.map(c => (
+                        {(prendas.find(p => p.id === line.prendaId)?.colores || coloresCfg).map(c => (
                           <button key={c} onClick={() => updLine(i, "color", c)}
                             style={{
                               padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer",
@@ -1129,7 +1370,7 @@ export default function App() {
                     <div style={{ marginLeft: 24, marginBottom: 10 }}>
                       <div className="lbl">Cantidad por talla</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
-                        {tallasCfg.map(t => {
+                        {(prendas.find(p => p.id === line.prendaId)?.tallas || tallasCfg).map(t => {
                           const entry = (line.tallas || []).find(x => x.talla === t);
                           const val = entry?.qty ?? "";
                           const active = Number(val) > 0;
@@ -1373,23 +1614,35 @@ export default function App() {
                       </div>}
                     </div>
 
+                    {/* Margen alert */}
+                    {calc.rm < margenMin && (
+                      <div className="fade-up" style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(248,113,113,.1)", border: "1px solid rgba(248,113,113,.3)", display: "flex", alignItems: "center", gap: 8 }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--red)" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        <span style={{ fontSize: 12, color: "var(--red)", fontWeight: 600 }}>Margen {calc.rm.toFixed(1)}% está por debajo del mínimo aceptable ({margenMin}%). Considera subir el precio.</span>
+                      </div>
+                    )}
                     {/* Total box */}
-                    <div style={{ marginTop: 16, borderRadius: 14, overflow: "hidden", border: "1px solid rgba(34,211,238,.25)" }}>
+                    <div style={{ marginTop: 16, borderRadius: 14, overflow: "hidden", border: `1px solid ${calc.rm < margenMin ? "rgba(248,113,113,.4)" : "rgba(34,211,238,.25)"}` }}>
                       <div style={{ background: "linear-gradient(135deg, rgba(34,211,238,.08), rgba(34,211,238,.03))", padding: "22px 20px 16px", textAlign: "center" }}>
                         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".18em", color: "var(--text3)", marginBottom: 6 }}>Cobrar al cliente</div>
                         <div style={{ fontFamily: "'Sora'", fontSize: 48, fontWeight: 800, color: "var(--accent)", letterSpacing: "-2px", lineHeight: 1 }}>L{calc.total.toLocaleString()}</div>
+                        {mostrarUSD && tipoCambio > 0 && (
+                          <div style={{ fontSize: 18, fontWeight: 600, color: "var(--text2)", marginTop: 4, fontFamily: "'JetBrains Mono'" }}>
+                            ≈ ${(calc.total / tipoCambio).toFixed(2)} USD
+                          </div>
+                        )}
                       </div>
                       <div className="grid3" style={{ borderTop: "1px solid rgba(34,211,238,.15)" }}>
                         <StatBox label="Mi costo" val={`L${Math.round(calc.cost)}`} />
                         <StatBox label="Ganancia" val={`L${Math.round(calc.profit)}`} color="var(--green)" />
-                        <StatBox label="Margen" val={`${calc.rm.toFixed(1)}%`} color={calc.rm >= 30 ? "var(--green)" : "var(--red)"} />
+                        <StatBox label="Margen" val={`${calc.rm.toFixed(1)}%`} color={calc.rm >= margenMin ? "var(--green)" : "var(--red)"} />
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* ⑤ FACTURA */}
-                <Factura calc={calc} businessName={businessName} logoB64={logoB64} validezDias={validezDias} />
+                <Factura calc={calc} businessName={businessName} logoB64={logoB64} validezDias={validezDias} onSavePedido={savePedido} />
               </>
             )}
             {!calc && (
@@ -1416,6 +1669,15 @@ export default function App() {
             </svg>
             Cotizar
           </button>
+          <button className={`mobile-nav-btn ${tab === "pedidos" ? "active" : ""}`} onClick={() => setTab("pedidos")} style={{ position: "relative" }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+            </svg>
+            Pedidos
+            {pedidos.filter(p => p.estado !== "Entregado").length > 0 && (
+              <span style={{ position: "absolute", top: 6, right: 10, width: 8, height: 8, borderRadius: "50%", background: "var(--accent)" }}/>
+            )}
+          </button>
           <button className={`mobile-nav-btn ${tab === "config" ? "active" : ""}`} onClick={() => setTab("config")}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
@@ -1428,16 +1690,12 @@ export default function App() {
   );
 }
 
-function Factura({ calc, businessName, logoB64, validezDias = 15 }) {
+function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido }) {
   const today = new Date();
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientPhone, setClientPhone] = useState("");
-  const [invoiceNum, setInvoiceNum] = useState(() => {
-    const n = parseInt(localStorage.getItem("dtf_invoice_num") || "0") + 1;
-    localStorage.setItem("dtf_invoice_num", n);
-    return String(n).padStart(4, "0");
-  });
+  const [invoiceNum, setInvoiceNum] = useState(() => nextQuoteNum());
   const [notes, setNotes] = useState("");
   const dateStr = today.toLocaleDateString("es-HN", { year: "numeric", month: "long", day: "numeric" });
 
@@ -1508,14 +1766,19 @@ ${businessName}`
       <div className="card-head">
         <StepBadge n={5} />
         <span style={{ fontWeight: 700, fontSize: 14 }}>Factura / Cotización</span>
-        <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={() => { onSavePedido(invoiceNum, clientName); alert("✅ Pedido guardado en la lista"); }}
+            style={{ background: "rgba(52,211,153,.1)", border: "1px solid rgba(52,211,153,.3)", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 700, color: "var(--green)", cursor: "pointer", minHeight: 36, display: "flex", alignItems: "center", gap: 6 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+            Guardar pedido
+          </button>
           <button onClick={handleEmail} style={{ background: "transparent", border: "1px solid var(--border2)", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 700, color: "var(--text2)", cursor: "pointer", minHeight: 36, display: "flex", alignItems: "center", gap: 6 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
             Correo
           </button>
           <button onClick={handlePrint} style={{ background: "var(--accent)", border: "none", borderRadius: 8, padding: "7px 16px", fontSize: 12, fontWeight: 700, color: "var(--bg)", cursor: "pointer", minHeight: 36, display: "flex", alignItems: "center", gap: 6 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-            Descargar PDF
+            PDF
           </button>
         </div>
       </div>
