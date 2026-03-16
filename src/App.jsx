@@ -163,8 +163,16 @@ export default function App() {
   const [pedidos, setPedidos]         = useState(() => loadPedidos());
   const [agruparPorColor, setAgruparPorColor] = useState(saved?.agruparPorColor ?? false);
   const [pedidoTab, setPedidoTab]     = useState("cotizar"); // cotizar | pedidos
-  const [syncStatus, setSyncStatus]   = useState("idle"); // idle | syncing | online | offline
+  const [syncStatus, setSyncStatus]   = useState("idle");
   const [supabaseReady, setSupabaseReady] = useState(false);
+  // PIN gate
+  const [pinUnlocked, setPinUnlocked] = useState(() => sessionStorage.getItem("dtf_pin_ok") === "1");
+  const [pinInput, setPinInput]       = useState("");
+  const [pinError, setPinError]       = useState(false);
+  const [adminPin, setAdminPin]       = useState(saved?.adminPin ?? "1234");
+  // BCH exchange rate (auto-fetched)
+  const [bchRate, setBchRate]         = useState(saved?.tipoCambio ?? 25.5);
+  const [bchUpdated, setBchUpdated]   = useState(null);
 
   // Save state
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | dirty | saved
@@ -174,8 +182,8 @@ export default function App() {
   const currentConfig = useMemo(() => ({
     margin, prendas, placements, sheets, designTypes, fixTypes, volTiers,
     poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias,
-    darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor
-  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias, darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor]);
+    darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, adminPin
+  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias, darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, adminPin]);
 
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
@@ -194,6 +202,17 @@ export default function App() {
   // ── Supabase init: load remote data on first mount ──
   useEffect(() => {
     let cancelled = false;
+    // Fetch BCH/exchange rate on mount
+    fetch("https://open.er-api.com/v6/latest/USD")
+      .then(r => r.json())
+      .then(d => {
+        if (!cancelled && d?.rates?.HNL) {
+          const rate = parseFloat(d.rates.HNL.toFixed(4));
+          setBchRate(rate);
+          setTipoCambio(rate); // sync to config too
+          setBchUpdated(new Date(d.time_last_update_utc).toLocaleDateString("es-HN", { month:"short", day:"numeric" }));
+        }
+      }).catch(() => {});
     const init = async () => {
       setSyncStatus("syncing");
       // Check connection
@@ -311,6 +330,7 @@ export default function App() {
         if (cfg.mostrarUSD !== undefined) setMostrarUSD(cfg.mostrarUSD);
         if (cfg.margenMin !== undefined) setMargenMin(cfg.margenMin);
         if (cfg.agruparPorColor !== undefined) setAgruparPorColor(cfg.agruparPorColor);
+        if (cfg.adminPin) setAdminPin(cfg.adminPin);
         alert("✅ Configuración importada correctamente");
       } catch { alert("❌ Archivo inválido"); }
     };
@@ -462,8 +482,13 @@ export default function App() {
     const totalPoli = lineDetails.reduce((s, l) => s + l.poli, 0);
     const totalPoliCost = lineDetails.reduce((s, l) => s + l.poliCost, 0);
     const totalEnergyCost = totalQty * energyCost;
+    // Warm-up cost: 1000W press from 25°C→165°C ≈ 6 min, split across all prendas
+    const warmUpMinutes = Math.round(((165 - 25) * 3.5 * 900) / (prensaWatts * 60) * 1.4 * 10) / 10; // thermal model
+    const warmUpKwh = (prensaWatts / 1000) * (warmUpMinutes / 60);
+    const warmUpTotal = warmUpKwh * tarifaKwh;
+    const warmUpPerPrenda = totalQty > 0 ? parseFloat((warmUpTotal / totalQty).toFixed(4)) : 0;
 
-    return { lp, nesting, totalQty, dtfCost, designFee, fixFee, designCharged, fixCharged, volPct, disc, sub, total, cost, profit, rm, tier, dType, fType, totalPoli, totalPoliCost, totalEnergyCost };
+    return { lp, nesting, totalQty, dtfCost, designFee, fixFee, designCharged, fixCharged, volPct, disc, sub, total, cost, profit, rm, tier, dType, fType, totalPoli, totalPoliCost, totalEnergyCost, warmUpPerPrenda, warmUpMinutes, warmUpTotal };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines, designWho, designId, fixId, margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliRate, energyCost]);
   // Note: energyCost is derived from prensaWatts/prensaSeg/tarifaKwh which ARE in currentConfig
@@ -472,6 +497,40 @@ export default function App() {
   // ── RENDER ──
   return (
     <div className={darkMode ? "dark-theme" : "light-theme"} style={{ background: "var(--bg)", color: "var(--text)", fontFamily: "'Sora',sans-serif", minHeight: "100dvh", minHeight: "100vh" }}>
+      {/* PIN Gate */}
+      {!pinUnlocked && (
+        <div style={{ position: "fixed", inset: 0, background: "#080A10", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
+          <div style={{ textAlign: "center", marginBottom: 8 }}>
+            <div style={{ fontFamily: "'Sora'", fontWeight: 800, fontSize: 28, color: "#22D3EE", letterSpacing: "-1px" }}>ARTAMPA</div>
+            <div style={{ fontSize: 12, color: "#4A5568", letterSpacing: ".15em", textTransform: "uppercase", marginTop: 4 }}>Panel interno · Acceso restringido</div>
+          </div>
+          <div style={{ background: "#0D1018", border: "1px solid #1E2535", borderRadius: 16, padding: "28px 32px", width: 280, textAlign: "center" }}>
+            <div style={{ fontSize: 13, color: "#94A3B8", marginBottom: 16, fontWeight: 600 }}>Ingresa el PIN de acceso</div>
+            <input
+              type="password" inputMode="numeric" maxLength={8}
+              value={pinInput} onChange={e => { setPinInput(e.target.value); setPinError(false); }}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  if (pinInput === adminPin) { sessionStorage.setItem("dtf_pin_ok", "1"); setPinUnlocked(true); }
+                  else { setPinError(true); setPinInput(""); }
+                }
+              }}
+              placeholder="••••"
+              style={{ width: "100%", textAlign: "center", fontSize: 28, letterSpacing: 8, fontFamily: "'JetBrains Mono'", fontWeight: 700,
+                background: "#080A10", border: `2px solid ${pinError ? "#F87171" : "#252D3F"}`, borderRadius: 10, padding: "12px", color: "#E2E8F4", outline: "none" }}
+              autoFocus
+            />
+            {pinError && <div style={{ color: "#F87171", fontSize: 12, marginTop: 8, fontWeight: 600 }}>PIN incorrecto</div>}
+            <button onClick={() => {
+              if (pinInput === adminPin) { sessionStorage.setItem("dtf_pin_ok", "1"); setPinUnlocked(true); }
+              else { setPinError(true); setPinInput(""); }
+            }} style={{ marginTop: 16, width: "100%", background: "#22D3EE", border: "none", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 800, color: "#080A10", cursor: "pointer" }}>
+              Entrar
+            </button>
+          </div>
+          <a href="/" style={{ fontSize: 12, color: "#4A5568", textDecoration: "none" }}>← Volver al cotizador público</a>
+        </div>
+      )}
       <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet" />
       <style>{`
         :root {
@@ -871,9 +930,17 @@ export default function App() {
                         <input type="number" className="inp inp-sm" value={tarifaKwh} step={0.01} onChange={e => setTarifaKwh(Number(e.target.value) || 4.62)} style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
                       </div>
                     </div>
-                    <div style={{ background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,.2)", borderRadius: 8, padding: "8px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 16, color: "var(--accent)" }}>L{energyCost}</span>
-                      <span style={{ fontSize: 11, color: "var(--text2)" }}>por prensada · ({prensaWatts}W × {prensaSeg}s ÷ 3,600 × L{tarifaKwh}/kWh)</span>
+                    <div style={{ background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,.2)", borderRadius: 8, padding: "8px 12px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+                        <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 16, color: "var(--accent)" }}>L{energyCost}</span>
+                        <span style={{ fontSize: 11, color: "var(--text2)" }}>por prensada · ({prensaWatts}W × {prensaSeg}s ÷ 3,600 × L{tarifaKwh}/kWh)</span>
+                      </div>
+                      <div style={{ borderTop: "1px solid rgba(34,211,238,.15)", paddingTop: 6, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 11 }}>
+                        <div><span style={{ color: "var(--text3)" }}>Calentamiento estimado:</span> <b style={{ color: "var(--warn)", fontFamily: "'JetBrains Mono'" }}>{Math.round(((165-25)*3.5*900)/(prensaWatts*60)*1.4*10)/10} min</b></div>
+                        <div><span style={{ color: "var(--text3)" }}>Energía calentamiento:</span> <b style={{ fontFamily: "'JetBrains Mono'", color: "var(--accent)" }}>L{((prensaWatts/1000)*(Math.round(((165-25)*3.5*900)/(prensaWatts*60)*1.4*10)/10/60)*tarifaKwh).toFixed(3)}/sesión</b></div>
+                        <div><span style={{ color: "var(--text3)" }}>Temp. óptima DTF:</span> <b style={{ color: "var(--green)", fontFamily: "'JetBrains Mono'" }}>160–165°C</b></div>
+                        <div><span style={{ color: "var(--text3)" }}>Poliéster:</span> <b style={{ color: "var(--warn)", fontFamily: "'JetBrains Mono'" }}>150–155°C · 10-12s</b></div>
+                      </div>
                     </div>
                   </div>
 
@@ -914,6 +981,18 @@ export default function App() {
                     {mostrarUSD && <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4, fontFamily: "'JetBrains Mono'" }}>
                       Ejemplo: L1,000 = ${(1000/tipoCambio).toFixed(2)} USD
                     </div>}
+                  </div>
+
+                  {/* PIN de acceso */}
+                  <div style={{ marginTop: 14 }}>
+                    <div className="lbl">PIN de acceso al panel interno</div>
+                    <div className="row" style={{ gap: 8 }}>
+                      <input type="password" inputMode="numeric" maxLength={8} className="inp" value={adminPin}
+                        onChange={e => setAdminPin(e.target.value)}
+                        style={{ maxWidth: 120, fontFamily: "'JetBrains Mono'", fontWeight: 700, letterSpacing: 4, fontSize: 18 }} />
+                      <span style={{ fontSize: 12, color: "var(--text3)" }}>Numérico, 4-8 dígitos</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>Cambia el PIN y guardá. Se pide al entrar a /admin</div>
                   </div>
 
                   {/* Exportar / Importar config */}
