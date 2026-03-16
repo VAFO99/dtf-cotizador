@@ -238,6 +238,8 @@ export default function App() {
   const [businessName, setBusinessName] = useState(saved?.businessName ?? "ARTAMPA");
   const [energyCost, setEnergyCost] = useState(saved?.energyCost ?? 0.20);
   const [tallasCfg, setTallasCfg] = useState(saved?.tallasCfg ?? ["XS","S","M","L","XL","XXL","XXXL"]);
+  const [logoB64, setLogoB64] = useState(saved?.logoB64 ?? null);
+  const [validezDias, setValidezDias] = useState(saved?.validezDias ?? 15);
   const [coloresCfg, setColoresCfg] = useState(saved?.coloresCfg ?? ["Blanco","Negro","Gris","Rojo","Azul marino","Azul cielo","Verde","Amarillo","Naranja","Rosado","Morado","Café"]);
   const [newTalla, setNewTalla] = useState("");
   const [newColor, setNewColor] = useState("");
@@ -249,8 +251,8 @@ export default function App() {
 
   const currentConfig = useMemo(() => ({
     margin, prendas, placements, sheets, designTypes, fixTypes, volTiers,
-    poliBolsa, poliGramos, businessName, energyCost, tallasCfg, coloresCfg
-  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, energyCost, tallasCfg, coloresCfg]);
+    poliBolsa, poliGramos, businessName, energyCost, tallasCfg, coloresCfg, logoB64, validezDias
+  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, energyCost, tallasCfg, coloresCfg, logoB64, validezDias]);
 
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
@@ -739,6 +741,44 @@ export default function App() {
                     </div>
                     <div style={{ marginTop: 8, fontSize: 11, color: "var(--text3)", background: "var(--bg)", borderRadius: 8, padding: "8px 12px", border: "1px solid var(--border)", fontFamily: "'JetBrains Mono'" }}>
                       ENEE L4.62/kWh (2026) · Prensa 1800W×20s ≈ L0.15–0.25/prenda
+                    </div>
+                  </div>
+
+                  {/* Validez cotización */}
+                  <div style={{ marginTop: 14 }}>
+                    <div className="lbl">Días de validez de cotización</div>
+                    <div className="row" style={{ gap: 8 }}>
+                      <input type="number" min={1} max={365} className="inp" value={validezDias}
+                        onChange={e => setValidezDias(Number(e.target.value) || 15)}
+                        style={{ maxWidth: 100, fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
+                      <span style={{ fontSize: 12, color: "var(--text3)" }}>días · aparece en la factura</span>
+                    </div>
+                  </div>
+
+                  {/* Logo */}
+                  <div style={{ marginTop: 14 }}>
+                    <div className="lbl">Logo del negocio</div>
+                    <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 8 }}>PNG, JPG o SVG · Se muestra en la factura. Recomendado: fondo transparente.</div>
+                    <div style={{ display: "flex", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+                      {logoB64 && (
+                        <div style={{ position: "relative" }}>
+                          <img src={logoB64} alt="Logo" style={{ height: 72, maxWidth: 200, objectFit: "contain", background: "white", borderRadius: 8, padding: 8, border: "1px solid var(--border)" }} />
+                          <button onClick={() => setLogoB64(null)}
+                            style={{ position: "absolute", top: -8, right: -8, width: 22, height: 22, borderRadius: "50%", background: "var(--red)", border: "none", color: "white", cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>×</button>
+                        </div>
+                      )}
+                      <label style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "var(--accent-dim)", border: "1.5px dashed rgba(34,211,238,.4)", borderRadius: 10, padding: "10px 18px", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>
+                        {logoB64 ? "Cambiar logo" : "Subir logo"}
+                        <input type="file" accept=".png,.jpg,.jpeg,.svg,image/png,image/jpeg,image/svg+xml" style={{ display: "none" }}
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = ev => setLogoB64(ev.target.result);
+                            reader.readAsDataURL(file);
+                          }} />
+                      </label>
                     </div>
                   </div>
                 </div>
@@ -1349,7 +1389,7 @@ export default function App() {
                 </div>
 
                 {/* ⑤ FACTURA */}
-                <Factura calc={calc} businessName={businessName} />
+                <Factura calc={calc} businessName={businessName} logoB64={logoB64} validezDias={validezDias} />
               </>
             )}
             {!calc && (
@@ -1388,7 +1428,7 @@ export default function App() {
   );
 }
 
-function Factura({ calc, businessName }) {
+function Factura({ calc, businessName, logoB64, validezDias = 15 }) {
   const today = new Date();
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
@@ -1452,7 +1492,7 @@ ${calc.disc > 0 ? `\nDescuento ${calc.volPct}%: -L${calc.disc}` : ""}${calc.desi
 TOTAL: L${calc.total.toLocaleString()}
 
 Fecha: ${dateStr}
-Cotización válida por 15 días.
+Cotización válida por ${validezDias} días.
 
 ${notes ? `Notas: ${notes}\n` : ""}Gracias por preferirnos.
 ${businessName}`
@@ -1512,15 +1552,18 @@ ${businessName}`
         <div id="factura-print" style={{ background: "white", borderRadius: 12, padding: "28px 28px 20px", border: "1px solid var(--border)", color: "#111" }}>
           {/* Header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28, paddingBottom: 18, borderBottom: "2px solid #111" }}>
-            <div>
-              <div style={{ fontFamily: "'Sora'", fontSize: 26, fontWeight: 800, letterSpacing: "-1px", color: "#111" }}>{businessName}</div>
-              <div style={{ fontSize: 10, color: "#999", letterSpacing: ".1em", textTransform: "uppercase", marginTop: 2 }}>DTF · Estampado Digital</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              {logoB64 && <img src={logoB64} alt="Logo" style={{ height: 56, maxWidth: 120, objectFit: "contain" }} />}
+              <div>
+                <div style={{ fontFamily: "'Sora'", fontSize: 26, fontWeight: 800, letterSpacing: "-1px", color: "#111" }}>{businessName}</div>
+                <div style={{ fontSize: 10, color: "#999", letterSpacing: ".1em", textTransform: "uppercase", marginTop: 2 }}>DTF · Estampado Digital</div>
+              </div>
             </div>
             <div style={{ textAlign: "right" }}>
               <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 11, color: "#999", textTransform: "uppercase", letterSpacing: ".1em" }}>Cotización</div>
               <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 22, fontWeight: 800, color: "#111" }}>#{invoiceNum}</div>
               <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>{dateStr}</div>
-              <div style={{ fontSize: 11, color: "#999", marginTop: 1 }}>Válida 15 días</div>
+              <div style={{ fontSize: 11, color: "#999", marginTop: 1 }}>Válida {validezDias} días</div>
             </div>
           </div>
 
@@ -1600,7 +1643,7 @@ ${businessName}`
 
           {/* Footer */}
           <div style={{ marginTop: 32, paddingTop: 14, borderTop: "1px solid #eee", fontSize: 11, color: "#aaa", textAlign: "center" }}>
-            Cotización generada por {businessName} · {dateStr} · Válida por 15 días
+            Cotización generada por {businessName} · {dateStr} · Válida por {validezDias} días
           </div>
         </div>
       </div>
