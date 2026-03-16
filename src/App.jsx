@@ -79,55 +79,84 @@ const INIT_VOL = [
 const GAP = 0.25;
 const EDGE = 0.15;
 
-// ── SHELF PACKING ──
+// ── SHELF PACKING con rotación ──
 function shelfPack(pieces, sw, sh) {
   const uw = sw - EDGE * 2, uh = sh - EDGE * 2;
   if (!pieces.length) return { fits: false, placed: [] };
-  const sorted = [...pieces].sort((a, b) => b.h - a.h || b.w - a.w);
-  const shelves = []; let curY = 0; const placed = [];
+
+  // Ordenar piezas: más altas primero, mayor área como tiebreak
+  const sorted = [...pieces].sort((a, b) => {
+    const aMax = Math.max(a.w, a.h), bMax = Math.max(b.w, b.h);
+    if (Math.abs(bMax - aMax) > 0.01) return bMax - aMax;
+    return (b.w * b.h) - (a.w * a.h);
+  });
+
+  const shelves = []; // { y, h, x }
+  let curY = 0;
+  const placed = [];
+
   for (const p of sorted) {
-    let did = false;
-    for (const s of shelves) {
-      if (s.x + p.w <= uw + 0.01 && p.h <= s.h + 0.01) {
-        placed.push({ ...p, x: s.x + EDGE, y: s.y + EDGE });
-        s.x += p.w + GAP; did = true; break;
+    // Probar las dos orientaciones
+    const orients = [{ w: p.w, h: p.h, rot: false }];
+    if (Math.abs(p.w - p.h) > 0.01) orients.push({ w: p.h, h: p.w, rot: true });
+
+    let best = null; // { shelfIdx, orient, x, y, waste }
+
+    // Intentar colocar en shelf existente
+    for (let si = 0; si < shelves.length; si++) {
+      const s = shelves[si];
+      const avail = uw - s.x;
+      for (const o of orients) {
+        if (o.w > avail + 0.01 || o.h > s.h + 0.01) continue;
+        const waste = s.h - o.h;
+        if (!best || waste < best.waste) {
+          best = { shelfIdx: si, orient: o, x: s.x + EDGE, y: s.y + EDGE, waste, isNew: false };
+        }
       }
     }
-    if (!did) {
+
+    // Si no cabe en shelf existente, abrir uno nuevo
+    if (!best) {
       const ny = curY + (shelves.length ? GAP : 0);
-      if (ny + p.h > uh + 0.01 || p.w > uw + 0.01) continue;
-      placed.push({ ...p, x: EDGE, y: ny + EDGE });
-      shelves.push({ y: ny, h: p.h, x: p.w + GAP });
-      curY = ny + p.h;
+      for (const o of orients) {
+        if (ny + o.h > uh + 0.01 || o.w > uw + 0.01) continue;
+        best = { shelfIdx: -1, orient: o, x: EDGE, y: ny + EDGE, waste: 0, isNew: true, ny };
+        break;
+      }
+    }
+
+    if (!best) continue; // No encaja en ninguna orientación
+
+    const { orient: o, x, y, isNew, ny, shelfIdx } = best;
+    placed.push({ ...p, x, y, w: o.w, h: o.h, rotated: o.rot });
+
+    if (isNew) {
+      shelves.push({ y: ny, h: o.h, x: o.w + GAP });
+      curY = ny + o.h;
+    } else {
+      shelves[shelfIdx].x += o.w + GAP;
     }
   }
+
   return { fits: placed.length === pieces.length, placed };
 }
 
-// Greedy: pack remaining pieces onto cheapest-possible sheets
+// Greedy: packs remaining pieces onto the cheapest possible sheets
 function findBestSheets(allPieces, sheets) {
   if (!allPieces.length) return { results: [], totalCost: 0 };
-  // Sort sheets by price ascending so we always try cheapest first
   const sortedSheets = [...sheets].sort((a, b) => a.price - b.price);
   let rem = [...allPieces];
   const results = [];
-  let safe = 60; // enough iterations for large orders
+  let safe = 60;
   while (rem.length > 0 && safe-- > 0) {
-    let bestSheet = null, bestPlaced = [], bestRemaining = rem.length;
-    // Try each sheet: pick the cheapest that fits the most pieces
+    let bestSheet = null, bestPlaced = [];
     for (const sh of sortedSheets) {
       const pk = shelfPack(rem, sh.w, sh.h);
       if (!pk.placed.length) continue;
-      const remaining = rem.length - pk.placed.length;
-      // Prefer: fits everything → cheapest wins; else → most pieces placed
-      if (pk.fits) {
-        // This sheet fits all remaining — cheapest (first in sorted list) wins
-        bestSheet = sh; bestPlaced = pk.placed; bestRemaining = 0;
-        break; // sortedSheets is price-sorted, so first fit is cheapest
-      }
+      if (pk.fits) { bestSheet = sh; bestPlaced = pk.placed; break; }
       if (pk.placed.length > bestPlaced.length ||
-          (pk.placed.length === bestPlaced.length && sh.price < (bestSheet?.price ?? Infinity))) {
-        bestSheet = sh; bestPlaced = pk.placed; bestRemaining = remaining;
+         (pk.placed.length === bestPlaced.length && sh.price < (bestSheet?.price ?? Infinity))) {
+        bestSheet = sh; bestPlaced = pk.placed;
       }
     }
     if (!bestSheet || !bestPlaced.length) break;
