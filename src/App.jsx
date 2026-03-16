@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
-import { MaxRectsPacker } from "maxrects-packer";
 import { loadPedidos, savePedidos, nextQuoteNum, ESTADOS, ESTADO_COLOR } from "./store.js";
+import { findBestSheets } from "./nesting.js";
 
 const STORAGE_KEY = "dtf_config_v3"; // bumped: per-prenda tallas+colores, TCambio, margenMin, darkMode
 
@@ -30,11 +30,24 @@ function loadConfig() {
 }
 
 function saveConfig(cfg) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); return true; }
-  catch { return false; }
+  try {
+    const json = JSON.stringify(cfg);
+    // FIX 12: check if data is too large before saving (localStorage limit ~5MB)
+    if (json.length > 4_500_000) {
+      // Logo is likely bloated — save without logo as fallback
+      const stripped = { ...cfg, logoB64: null };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(stripped));
+      return "no_logo";
+    }
+    localStorage.setItem(STORAGE_KEY, json);
+    return true;
+  } catch (err) {
+    console.error("saveConfig failed:", err);
+    return false;
+  }
 }
 
-const uid = () => Math.random().toString(36).slice(2, 8);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
 const INIT_PRENDAS = [
   { id: uid(), name: "Camisa",  cost: 60,  tallas: ["XS","S","M","L","XL","XXL","XXXL"], colores: ["Blanco","Negro","Gris","Azul marino"] },
@@ -96,117 +109,6 @@ const INIT_VOL = [
   { id: uid(), minQty: 20, maxQty: 9999, label: "20+", desc: "Todo INCLUIDO + 10% descuento", discPct: 10, designDisc: 100, fixFree: true },
 ];
 
-const GAP = 0.25;
-const EDGE = 0.15;
-
-// ── MAXRECTS BIN PACKING ──
-// Empaqueta las piezas en UNA SOLA hoja de tamaño sw×sh.
-// Retorna cuántas piezas caben y sus posiciones.
-// IMPORTANTE: MaxRectsPacker crea múltiples bins cuando no caben todas.
-// Solo usamos el PRIMER bin (= una hoja) para el greedy externo.
-function packOnSheet(pieces, sw, sh) {
-  const uw = sw - EDGE * 2;
-  const uh = sh - EDGE * 2;
-  if (!pieces.length) return { fits: false, placed: [] };
-
-  // Filtrar piezas que caben individualmente en esta hoja (en alguna orientación)
-  const eligible = pieces.filter(p =>
-    (p.w <= uw + 0.005 && p.h <= uh + 0.005) ||
-    (p.h <= uw + 0.005 && p.w <= uh + 0.005)
-  );
-  if (!eligible.length) return { fits: false, placed: [] };
-
-  // Ordenar de mayor a menor área (ayuda al MaxRects a empaquetar mejor)
-  const sorted = [...eligible].sort((a, b) => b.w * b.h - a.w * a.h);
-
-  const packer = new MaxRectsPacker(uw, uh, GAP, {
-    smart: false,
-    pot: false,
-    square: false,
-    allowRotation: true,
-    tag: false,
-  });
-
-  // Insertar de una en una para controlar qué va en el primer bin
-  for (const p of sorted) {
-    packer.add(p.w, p.h, {
-      _idx: p._idx,
-      label: p.label,
-      color: p.color,
-      _origW: p.w,
-      _origH: p.h,
-    });
-  }
-
-  // Solo el primer bin = UNA hoja
-  const firstBin = packer.bins[0];
-  if (!firstBin) return { fits: false, placed: [] };
-
-  const placed = firstBin.rects.map(r => ({
-    _idx: r.data._idx,
-    label: r.data.label,
-    color: r.data.color,
-    x: r.x + EDGE,
-    y: r.y + EDGE,
-    w: r.rot ? r.data._origH : r.data._origW,
-    h: r.rot ? r.data._origW : r.data._origH,
-    rotated: r.rot || false,
-  }));
-
-  return {
-    fits: placed.length === pieces.length,
-    placed,
-  };
-}
-
-// Greedy cost-minimizer: asigna piezas a la hoja más barata posible.
-// Ordena las hojas por precio (más barata primero) y prueba cada una.
-function findBestSheets(allPieces, sheets) {
-  if (!allPieces.length) return { results: [], totalCost: 0 };
-
-  // Ordenar hojas por precio ascendente
-  const sortedSheets = [...sheets].sort((a, b) => a.price - b.price);
-
-  let rem = [...allPieces];
-  const results = [];
-  let safe = 100; // máximo de iteraciones (pedidos muy grandes)
-
-  while (rem.length > 0 && safe-- > 0) {
-    let bestSheet = null;
-    let bestPlaced = [];
-
-    for (const sh of sortedSheets) {
-      const pk = packOnSheet(rem, sh.w, sh.h);
-
-      // Si caben TODAS las piezas → esta es la hoja más barata que funciona, listo
-      if (pk.fits) {
-        bestSheet = sh;
-        bestPlaced = pk.placed;
-        break;
-      }
-
-      // Si no caben todas, guardar la que coloca más piezas (tie-break: menor precio)
-      if (
-        pk.placed.length > bestPlaced.length ||
-        (pk.placed.length === bestPlaced.length && pk.placed.length > 0 && sh.price < (bestSheet?.price ?? Infinity))
-      ) {
-        bestSheet = sh;
-        bestPlaced = pk.placed;
-      }
-    }
-
-    if (!bestSheet || !bestPlaced.length) break; // Nada más cabe
-
-    results.push({ sheet: bestSheet, placed: bestPlaced });
-    const usedIdx = new Set(bestPlaced.map(p => p._idx));
-    rem = rem.filter(p => !usedIdx.has(p._idx));
-  }
-
-  return {
-    results,
-    totalCost: results.reduce((s, r) => s + r.sheet.price, 0),
-  };
-}
 
 const TALLAS_DEFAULT = ["XS","S","M","L","XL","XXL","XXXL"];
 const emptyLine = () => ({
@@ -237,7 +139,11 @@ export default function App() {
   const [poliBolsa, setPoliBolsa] = useState(saved?.poliBolsa ?? 900);
   const [poliGramos, setPoliGramos] = useState(saved?.poliGramos ?? 907);
   const [businessName, setBusinessName] = useState(saved?.businessName ?? "ARTAMPA");
-  const [energyCost, setEnergyCost] = useState(saved?.energyCost ?? 0.20);
+  const [prensaWatts, setPrensaWatts]   = useState(saved?.prensaWatts   ?? 1800);
+  const [prensaSeg, setPrensaSeg]       = useState(saved?.prensaSeg     ?? 20);
+  const [tarifaKwh, setTarifaKwh]       = useState(saved?.tarifaKwh     ?? 4.62);
+  // energyCost calculado: (W/1000) * (s/3600) * L/kWh
+  const energyCost = parseFloat(((prensaWatts / 1000) * (prensaSeg / 3600) * tarifaKwh).toFixed(4));
   const [tallasCfg, setTallasCfg] = useState(saved?.tallasCfg ?? ["XS","S","M","L","XL","XXL","XXXL"]);
   const [logoB64, setLogoB64] = useState(saved?.logoB64 ?? null);
   const [validezDias, setValidezDias] = useState(saved?.validezDias ?? 15);
@@ -250,6 +156,7 @@ export default function App() {
   const [mostrarUSD, setMostrarUSD]   = useState(saved?.mostrarUSD ?? false);
   const [margenMin, setMargenMin]     = useState(saved?.margenMin ?? 30);
   const [pedidos, setPedidos]         = useState(() => loadPedidos());
+  const [agruparPorColor, setAgruparPorColor] = useState(saved?.agruparPorColor ?? false);
   const [pedidoTab, setPedidoTab]     = useState("cotizar"); // cotizar | pedidos
 
   // Save state
@@ -259,9 +166,9 @@ export default function App() {
 
   const currentConfig = useMemo(() => ({
     margin, prendas, placements, sheets, designTypes, fixTypes, volTiers,
-    poliBolsa, poliGramos, businessName, energyCost, tallasCfg, coloresCfg, logoB64, validezDias,
-    darkMode, tipoCambio, mostrarUSD, margenMin
-  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, energyCost, tallasCfg, coloresCfg, logoB64, validezDias, darkMode, tipoCambio, mostrarUSD, margenMin]);
+    poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias,
+    darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor
+  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias, darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor]);
 
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
@@ -283,9 +190,16 @@ export default function App() {
     if (isFirstRender.current) return;
     clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
-      saveConfig(currentConfig);
-      setSaveStatus("saved");
-      setTimeout(() => setSaveStatus("idle"), 1800);
+      const result = saveConfig(currentConfig);
+      if (result === false) {
+        setSaveStatus("error");
+      } else if (result === "no_logo") {
+        setSaveStatus("no_logo");
+        setTimeout(() => setSaveStatus("idle"), 3000);
+      } else {
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus("idle"), 1800);
+      }
     }, 1500);
     return () => clearTimeout(autoSaveTimer.current);
   }, [currentConfig]);
@@ -315,7 +229,9 @@ export default function App() {
         if (cfg.poliBolsa) setPoliBolsa(cfg.poliBolsa);
         if (cfg.poliGramos) setPoliGramos(cfg.poliGramos);
         if (cfg.businessName) setBusinessName(cfg.businessName);
-        if (cfg.energyCost !== undefined) setEnergyCost(cfg.energyCost);
+        if (cfg.prensaWatts  !== undefined) setPrensaWatts(cfg.prensaWatts);
+        if (cfg.prensaSeg    !== undefined) setPrensaSeg(cfg.prensaSeg);
+        if (cfg.tarifaKwh    !== undefined) setTarifaKwh(cfg.tarifaKwh);
         if (cfg.tallasCfg) setTallasCfg(cfg.tallasCfg);
         if (cfg.coloresCfg) setColoresCfg(cfg.coloresCfg);
         if (cfg.logoB64) setLogoB64(cfg.logoB64);
@@ -324,15 +240,18 @@ export default function App() {
         if (cfg.tipoCambio) setTipoCambio(cfg.tipoCambio);
         if (cfg.mostrarUSD !== undefined) setMostrarUSD(cfg.mostrarUSD);
         if (cfg.margenMin !== undefined) setMargenMin(cfg.margenMin);
+        if (cfg.agruparPorColor !== undefined) setAgruparPorColor(cfg.agruparPorColor);
         alert("✅ Configuración importada correctamente");
       } catch { alert("❌ Archivo inválido"); }
     };
     reader.readAsText(file);
   }, []);
 
-  // Save cotización as pedido
+  // Save cotización as pedido — FIX 6: detect duplicates by invoice number
   const savePedido = useCallback((calc, clientName, invoiceNum) => {
-    if (!calc) return;
+    if (!calc) return false;
+    const exists = loadPedidos().some(p => p.num === invoiceNum);
+    if (exists) return "duplicate";
     const nuevo = {
       id: uid(),
       num: invoiceNum,
@@ -340,9 +259,10 @@ export default function App() {
       fecha: new Date().toISOString(),
       total: calc.total,
       estado: "Cotizado",
-      lines: calc.lp.map(l => ({ qty: l.qty, prendaLabel: l.prendaLabel, color: l.color, cfgLabel: l.cfgLabel, tallasSummary: l.tallasSummary, sellPrice: l.sellPrice })),
+      lines: calc.lp.map(l => ({ qty: l.qty, prendaLabel: l.prendaLabel, color: l.color, cfgLabel: l.cfgLabel, tallasSummary: l.tallasSummary, sellPrice: l.sellPrice, lineTotal: l.lineTotal })),
     };
     setPedidos(prev => [nuevo, ...prev]);
+    return "ok";
   }, []);
 
   const poliRate = poliBolsa / poliGramos;
@@ -382,21 +302,43 @@ export default function App() {
       });
       // *** KEY FIX: repeat each piece qty times ***
       for (let u = 0; u < qty; u++) {
-        piecesPerUnit.forEach(p => allPieces.push({ ...p, _idx: pidx++ }));
+        piecesPerUnit.forEach(p => allPieces.push({ ...p, _idx: pidx++, prendaColor: line.color || "", prendaLabel: pr?.name || line.otroName || "Otro" }));
       }
 
       const pr = prendas.find(p => p.id === line.prendaId);
       const prendaCost = line.quien === "Cliente" ? 0 : (pr ? pr.cost : Number(line.otroCost) || 0);
       const prendaLabel = pr ? pr.name : (line.otroName || "Otro");
+      // FIX 9: flag when "Otro" has no cost and client isn't bringing it
+      const sinCosto = line.quien !== "Cliente" && line.prendaId === "__otro" && !Number(line.otroCost);
       const cfgLabel = [...line.placementIds.map(pid => placements.find(p => p.id === pid)?.label || "?"),
         ...line.customs.filter(c => c.w && c.h).map(c => `${c.label} ${c.w}×${c.h}`)].join(" + ");
       const tallasSummary = line.tallas?.length > 0
         ? line.tallas.filter(x=>x.qty>0).map(x=>`${x.talla}:${x.qty}`).join(" ")
         : null;
-      return { ...line, qty, pieces: piecesPerUnit, poli, poliCost: poli * poliRate, prendaCost, prendaLabel, cfgLabel, tallasSummary };
+      return { ...line, qty, pieces: piecesPerUnit, poli, poliCost: poli * poliRate, prendaCost, prendaLabel, cfgLabel, tallasSummary, sinCosto };
     });
 
-    const nesting = findBestSheets(allPieces, sheets);
+    // FIX 13: Group by color — run nesting separately per color+prenda group
+    let nesting;
+    if (agruparPorColor) {
+      // Group allPieces by (prendaLabel + color) combination
+      const groups = {};
+      allPieces.forEach(p => {
+        const key = (p.prendaColor || "sin-color") + "|" + (p.prendaLabel || "?");
+        if (!groups[key]) groups[key] = { key, pieces: [] };
+        groups[key].pieces.push(p);
+      });
+      const allResults = [];
+      let totalCostG = 0;
+      Object.values(groups).forEach(g => {
+        const r = findBestSheets(g.pieces, sheets);
+        allResults.push(...r.results.map(sh => ({ ...sh, groupKey: g.key })));
+        totalCostG += r.totalCost;
+      });
+      nesting = { results: allResults, totalCost: totalCostG };
+    } else {
+      nesting = findBestSheets(allPieces, sheets);
+    }
     const dtfCost = nesting.totalCost;
     const dtfPU = totalQty > 0 ? dtfCost / totalQty : 0;
 
@@ -412,8 +354,13 @@ export default function App() {
 
     const lp = lineDetails.map(ld => {
       const uc = ld.prendaCost + ld.poliCost + dtfPU + energyCost;
-      const sp = Math.ceil((uc * (1 + margin / 100)) / 10) * 10;
-      return { ...ld, unitCost: uc, sellPrice: sp, lineTotal: sp * ld.qty, costTotal: uc * ld.qty };
+      // FIX 4: Si cliente pone prenda, base de precio = solo costos DTF (sin prenda)
+      // El margen aplica sobre lo que YO cobro, no sobre costo de prenda del cliente
+      const myBase = ld.poliCost + dtfPU + energyCost; // costos DTF propios
+      const spBase = ld.quien === "Cliente"
+        ? Math.ceil((myBase * (1 + margin / 100)) / 10) * 10
+        : Math.ceil((uc     * (1 + margin / 100)) / 10) * 10;
+      return { ...ld, unitCost: uc, sellPrice: spBase, lineTotal: spBase * ld.qty, costTotal: uc * ld.qty };
     });
 
     const sub = lp.reduce((s, l) => s + l.lineTotal, 0);
@@ -428,7 +375,9 @@ export default function App() {
     const totalEnergyCost = totalQty * energyCost;
 
     return { lp, nesting, totalQty, dtfCost, designFee, fixFee, designCharged, fixCharged, volPct, disc, sub, total, cost, profit, rm, tier, dType, fType, totalPoli, totalPoliCost, totalEnergyCost };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lines, designWho, designId, fixId, margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliRate, energyCost]);
+  // Note: energyCost is derived from prensaWatts/prensaSeg/tarifaKwh which ARE in currentConfig
 
 
   // ── RENDER ──
@@ -742,6 +691,16 @@ export default function App() {
                   Guardado
                 </span>
               )}
+              {saveStatus === "no_logo" && (
+                <span className="fade-up" style={{ fontSize: 11, color: "var(--warn)", fontWeight: 600, display: "flex", alignItems: "center", gap: 5 }}>
+                  ⚠ Logo no guardado (imagen muy grande)
+                </span>
+              )}
+              {saveStatus === "error" && (
+                <span className="fade-up" style={{ fontSize: 11, color: "var(--red)", fontWeight: 600 }}>
+                  ✗ Error al guardar
+                </span>
+              )}
               {saveStatus === "dirty" && (
                 <span className="blink" style={{ fontSize: 11, color: "var(--warn)", fontWeight: 600 }}>● guardando…</span>
               )}
@@ -808,13 +767,24 @@ export default function App() {
                     <input className="inp" value={businessName} onChange={e => setBusinessName(e.target.value)} style={{ fontWeight: 700, fontSize: 16 }} />
                   </div>
                   <div>
-                    <div className="lbl">Costo energía por prensado (L/prenda)</div>
-                    <div className="row" style={{ gap: 6 }}>
-                      <span style={{ color: "var(--text3)", fontFamily: "'JetBrains Mono'", fontSize: 13 }}>L</span>
-                      <input type="number" className="inp" value={energyCost} onChange={e => setEnergyCost(Number(e.target.value) || 0)} step={0.01} style={{ maxWidth: 120, fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
+                    <div className="lbl">Energía — cálculo automático</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }}>
+                      <div>
+                        <div style={{ fontSize: 9, color: "var(--text3)", marginBottom: 3, textTransform: "uppercase", letterSpacing: ".08em" }}>Potencia prensa (W)</div>
+                        <input type="number" className="inp inp-sm" value={prensaWatts} onChange={e => setPrensaWatts(Number(e.target.value) || 1800)} style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 9, color: "var(--text3)", marginBottom: 3, textTransform: "uppercase", letterSpacing: ".08em" }}>Tiempo prensado (s)</div>
+                        <input type="number" className="inp inp-sm" value={prensaSeg} onChange={e => setPrensaSeg(Number(e.target.value) || 20)} style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 9, color: "var(--text3)", marginBottom: 3, textTransform: "uppercase", letterSpacing: ".08em" }}>Tarifa ENEE (L/kWh)</div>
+                        <input type="number" className="inp inp-sm" value={tarifaKwh} step={0.01} onChange={e => setTarifaKwh(Number(e.target.value) || 4.62)} style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
+                      </div>
                     </div>
-                    <div style={{ marginTop: 8, fontSize: 11, color: "var(--text3)", background: "var(--bg)", borderRadius: 8, padding: "8px 12px", border: "1px solid var(--border)", fontFamily: "'JetBrains Mono'" }}>
-                      ENEE L4.62/kWh (2026) · Prensa 1800W×20s ≈ L0.15–0.25/prenda
+                    <div style={{ background: "var(--accent-dim)", border: "1px solid rgba(34,211,238,.2)", borderRadius: 8, padding: "8px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 16, color: "var(--accent)" }}>L{energyCost}</span>
+                      <span style={{ fontSize: 11, color: "var(--text2)" }}>por prensada · ({prensaWatts}W × {prensaSeg}s ÷ 3,600 × L{tarifaKwh}/kWh)</span>
                     </div>
                   </div>
 
@@ -1324,6 +1294,10 @@ export default function App() {
               <div className="card-head">
                 <StepBadge n={2} />
                 <span style={{ fontWeight: 700, fontSize: 14 }}>Líneas</span>
+                <label style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 11, color: agruparPorColor ? "var(--accent)" : "var(--text3)", fontWeight: 600 }} title="Cuando está activo, cada color/prenda ocupa sus propias hojas (no se mezclan en prensado)">
+                  <input type="checkbox" checked={agruparPorColor} onChange={e => setAgruparPorColor(e.target.checked)} style={{ width: 14, height: 14 }} />
+                  Hojas por color
+                </label>
                 {calc && (
                   <span style={{ marginLeft: "auto", fontFamily: "'JetBrains Mono'", fontSize: 13, color: "var(--accent)", fontWeight: 700 }}>
                     {calc.totalQty}u · {calc.tier.label}
@@ -1405,36 +1379,50 @@ export default function App() {
                             </div>
                           );
                         })}
-                        {/* Total manual si no hay tallas */}
+                        {/* Total — FIX 8: clear indicator, auto vs manual */}
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginLeft: 4, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
-                          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: ".08em", color: "var(--text3)", textTransform: "uppercase" }}>Total</span>
+                          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: ".08em", color: "var(--text3)", textTransform: "uppercase" }}>
+                            {line.tallas?.some(x=>x.qty>0) ? "Auto ✓" : "Manual"}
+                          </span>
                           <input
                             type="number" min={0}
-                            value={line.tallas?.reduce((s,x)=>s+x.qty,0) || line.qty || ""}
+                            value={line.tallas?.some(x=>x.qty>0)
+                              ? line.tallas.reduce((s,x)=>s+x.qty,0)
+                              : (line.qty || "")}
                             readOnly={line.tallas?.some(x=>x.qty>0)}
                             placeholder="0"
                             onChange={e => { if(!line.tallas?.some(x=>x.qty>0)) updLine(i, "qty", e.target.value); }}
                             style={{
                               width: 52, height: 40, textAlign: "center",
                               fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 16,
-                              background: "var(--bg2)",
-                              border: "2px solid var(--accent)",
+                              background: line.tallas?.some(x=>x.qty>0) ? "var(--accent-dim)" : "var(--bg2)",
+                              border: `2px solid var(--accent)`,
                               borderRadius: 8, padding: "0 2px",
                               color: "var(--accent)", outline: "none",
-                              opacity: line.tallas?.some(x=>x.qty>0) ? 0.7 : 1,
                               cursor: line.tallas?.some(x=>x.qty>0) ? "default" : "text",
                             }}
                           />
+                          {line.tallas?.some(x=>x.qty>0) && Number(line.qty) > 0 && line.tallas.reduce((s,x)=>s+x.qty,0) !== Number(line.qty) && (
+                            <span style={{ fontSize: 9, color: "var(--warn)", fontWeight: 700 }}>≠ {line.qty}</span>
+                          )}
                         </div>
                       </div>
                     </div>
                     {line.prendaId === "__otro" && (
-                      <div className="row" style={{ marginBottom: 10, marginLeft: 24, gap: 6, flexWrap: "wrap" }}>
-                        <input className="inp inp-sm" placeholder="Nombre (Gorra, Tote…)" style={{ flex: 1, minWidth: 120 }}
-                          value={line.otroName} onChange={e => updLine(i, "otroName", e.target.value)} />
-                        <span style={{ color: "var(--text3)", fontSize: 12, fontFamily: "'JetBrains Mono'" }}>L</span>
-                        <input type="number" className="inp inp-sm" placeholder="Costo" style={{ width: 80, fontFamily: "'JetBrains Mono'" }}
-                          value={line.otroCost} onChange={e => updLine(i, "otroCost", e.target.value)} />
+                      <div style={{ marginBottom: 10, marginLeft: 24 }}>
+                        <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                          <input className="inp inp-sm" placeholder="Nombre (Gorra, Tote…)" style={{ flex: 1, minWidth: 120 }}
+                            value={line.otroName} onChange={e => updLine(i, "otroName", e.target.value)} />
+                          <span style={{ color: "var(--text3)", fontSize: 12, fontFamily: "'JetBrains Mono'" }}>L</span>
+                          <input type="number" className="inp inp-sm" placeholder="Costo *" style={{ width: 80, fontFamily: "'JetBrains Mono'", borderColor: (!Number(line.otroCost) && line.quien !== "Cliente") ? "var(--warn)" : undefined }}
+                            value={line.otroCost} onChange={e => updLine(i, "otroCost", e.target.value)} />
+                        </div>
+                        {!Number(line.otroCost) && line.quien !== "Cliente" && (
+                          <div style={{ fontSize: 11, color: "var(--warn)", marginTop: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                            Ingresá el costo de la prenda para calcular correctamente
+                          </div>
+                        )}
                       </div>
                     )}
                     <div style={{ marginLeft: 24 }}>
@@ -1695,44 +1683,58 @@ function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido }
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
   const [clientPhone, setClientPhone] = useState("");
-  const [invoiceNum, setInvoiceNum] = useState(() => nextQuoteNum());
+  // FIX 7: generate invoice number ONCE per mount, stabilize with useRef
+  const invoiceNumRef = useRef(null);
+  if (!invoiceNumRef.current) invoiceNumRef.current = nextQuoteNum();
+  const [invoiceNum, setInvoiceNum] = useState(invoiceNumRef.current);
   const [notes, setNotes] = useState("");
+  const [pdfLoading, setPdfLoading] = useState(false);
   const dateStr = today.toLocaleDateString("es-HN", { year: "numeric", month: "long", day: "numeric" });
 
-  const handlePrint = () => {
-    const printContent = document.getElementById("factura-print");
-    const w = window.open("", "_blank");
-    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Factura ${invoiceNum} — ${businessName}</title>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:'Sora',sans-serif;background:#fff;color:#111;padding:32px;max-width:780px;margin:0 auto}
-  .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px;padding-bottom:20px;border-bottom:2px solid #111}
-  .biz-name{font-size:28px;font-weight:800;letter-spacing:-1px}
-  .biz-tag{font-size:11px;color:#666;letter-spacing:.1em;text-transform:uppercase;margin-top:2px}
-  .inv-info{text-align:right}
-  .inv-num{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700}
-  .inv-date{font-size:12px;color:#666;margin-top:4px}
-  .section{margin-bottom:24px}
-  .section-title{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#999;font-weight:700;margin-bottom:8px}
-  .client-name{font-size:18px;font-weight:700}
-  .client-detail{font-size:13px;color:#555;margin-top:3px}
-  table{width:100%;border-collapse:collapse;margin-bottom:20px}
-  th{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:#999;font-weight:700;padding:8px 10px;text-align:left;border-bottom:2px solid #eee}
-  th.r,td.r{text-align:right}
-  td{padding:10px 10px;font-size:13px;border-bottom:1px solid #f0f0f0;vertical-align:top}
-  td.mono{font-family:'JetBrains Mono',monospace;font-weight:700}
-  .tallas-row{font-size:10px;color:#888;font-family:'JetBrains Mono',monospace;margin-top:3px}
-  .subtotals{width:280px;margin-left:auto}
-  .subtotals tr td{font-size:13px;padding:5px 10px;border:none}
-  .subtotals .disc{color:#16a34a}
-  .total-row td{font-size:17px;font-weight:800;padding:10px;border-top:2px solid #111!important;border-bottom:none!important}
-  .notes-box{background:#f8f8f8;border-radius:8px;padding:14px;font-size:12px;color:#555;margin-top:16px}
-  .footer{margin-top:40px;padding-top:16px;border-top:1px solid #eee;font-size:11px;color:#aaa;text-align:center}
-  @media print{body{padding:16px}@page{margin:1cm}}
-</style></head><body>${printContent.innerHTML}
-<script>window.onload=()=>{window.print();}<\/script></body></html>`);
-    w.document.close();
+  // FIX 10: Real PDF via html2canvas + jsPDF (no window.print())
+  const handlePrint = async () => {
+    setPdfLoading(true);
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const { jsPDF } = await import("jspdf");
+      const el = document.getElementById("factura-print");
+      if (!el) { setPdfLoading(false); return; }
+
+      const canvas = await html2canvas(el, {
+        scale: 2, useCORS: true, backgroundColor: "#ffffff",
+        logging: false, letterRendering: true,
+      });
+      const imgData = canvas.toDataURL("image/png");
+      const pdfW = 210; // A4 mm
+      const pdfH = (canvas.height * pdfW) / canvas.width;
+      const pdf = new jsPDF({ orientation: pdfH > 297 ? "p" : "p", unit: "mm", format: "a4" });
+
+      let yPos = 0;
+      const pageH = 297; // A4 height in mm
+      if (pdfH <= pageH) {
+        pdf.addImage(imgData, "PNG", 0, 0, pdfW, pdfH);
+      } else {
+        // Multi-page: slice image
+        let remainH = pdfH;
+        while (remainH > 0) {
+          const sliceH = Math.min(pageH, remainH);
+          const sliceCanvas = document.createElement("canvas");
+          sliceCanvas.width = canvas.width;
+          sliceCanvas.height = (sliceH / pdfH) * canvas.height;
+          const ctx = sliceCanvas.getContext("2d");
+          ctx.drawImage(canvas, 0, yPos * canvas.height / pdfH, canvas.width, sliceCanvas.height, 0, 0, canvas.width, sliceCanvas.height);
+          if (yPos > 0) pdf.addPage();
+          pdf.addImage(sliceCanvas.toDataURL("image/png"), "PNG", 0, 0, pdfW, sliceH);
+          yPos += sliceH;
+          remainH -= sliceH;
+        }
+      }
+      pdf.save(`Cotizacion-${invoiceNum}-${businessName.replace(/\s+/g,"-")}.pdf`);
+    } catch (err) {
+      console.error("PDF error:", err);
+      alert("Error generando PDF. Intenta de nuevo.");
+    }
+    setPdfLoading(false);
   };
 
   const handleEmail = () => {
@@ -1767,7 +1769,15 @@ ${businessName}`
         <StepBadge n={5} />
         <span style={{ fontWeight: 700, fontSize: 14 }}>Factura / Cotización</span>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <button onClick={() => { onSavePedido(invoiceNum, clientName); alert("✅ Pedido guardado en la lista"); }}
+          <button onClick={() => {
+              const result = onSavePedido(calc, clientName, invoiceNum);
+              if (result === "duplicate") {
+                if (confirm("Esta cotización ya está guardada. ¿Guardar de todas formas como nueva?")) {
+                  onSavePedido(calc, clientName, invoiceNum + "-bis");
+                  alert("✅ Pedido guardado");
+                }
+              } else { alert("✅ Pedido guardado en la lista"); }
+            }}
             style={{ background: "rgba(52,211,153,.1)", border: "1px solid rgba(52,211,153,.3)", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 700, color: "var(--green)", cursor: "pointer", minHeight: 36, display: "flex", alignItems: "center", gap: 6 }}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
             Guardar pedido
@@ -1776,9 +1786,11 @@ ${businessName}`
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
             Correo
           </button>
-          <button onClick={handlePrint} style={{ background: "var(--accent)", border: "none", borderRadius: 8, padding: "7px 16px", fontSize: 12, fontWeight: 700, color: "var(--bg)", cursor: "pointer", minHeight: 36, display: "flex", alignItems: "center", gap: 6 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-            PDF
+          <button onClick={handlePrint} disabled={pdfLoading} style={{ background: "var(--accent)", border: "none", borderRadius: 8, padding: "7px 16px", fontSize: 12, fontWeight: 700, color: "var(--bg)", cursor: pdfLoading ? "wait" : "pointer", minHeight: 36, display: "flex", alignItems: "center", gap: 6, opacity: pdfLoading ? 0.7 : 1 }}>
+            {pdfLoading
+              ? <span className="blink">Generando…</span>
+              : <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg> PDF</>
+            }
           </button>
         </div>
       </div>
