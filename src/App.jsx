@@ -190,8 +190,21 @@ export default function App() {
     if (ok) {
       setSavedSnapshot(currentConfig);
       setSaveStatus("saved");
-      setTimeout(() => setSaveStatus("idle"), 2500);
+      setTimeout(() => setSaveStatus("idle"), 2000);
     }
+  }, [currentConfig]);
+
+  // Auto-save 1.5s after any config change
+  const autoSaveTimer = useRef(null);
+  useEffect(() => {
+    if (isFirstRender.current) return;
+    clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      saveConfig(currentConfig);
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 1800);
+    }, 1500);
+    return () => clearTimeout(autoSaveTimer.current);
   }, [currentConfig]);
 
   const poliRate = poliBolsa / poliGramos;
@@ -273,233 +286,270 @@ export default function App() {
 
   // ── RENDER ──
   return (
-    <div style={{ background: "#F6F1EB", color: "#2C2420", fontFamily: "'Libre Franklin',sans-serif", minHeight: "100vh" }}>
-      <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+    <div style={{ background: "#0E0C0A", color: "#F0EBE3", fontFamily: "'DM Sans',sans-serif", minHeight: "100vh" }}>
+      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800;900&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700;800&display=swap" rel="stylesheet" />
       <style>{`
-        *{box-sizing:border-box;margin:0;padding:0}input,select{font-family:inherit}
-        input[type=number]{-moz-appearance:textfield}input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none}
-        ::selection{background:#C45C3B;color:white}
-        .S{background:white;border-radius:12px;border:1px solid #E8E0D6;margin-bottom:14px;overflow:hidden}
-        .SH{padding:10px 14px;border-bottom:1px solid #E8E0D6;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-        .SB{padding:14px}
-        .I{background:#FAF7F4;border:1.5px solid #E0D8CE;border-radius:7px;padding:5px 9px;font-size:13px;color:#2C2420;width:100%;transition:border-color .2s}
-        .I:focus{outline:none;border-color:#C45C3B}.Is{font-size:11px;padding:4px 7px}
-        .SL{appearance:none;background:#FAF7F4 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23999' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 7px center;background-size:10px;border:1.5px solid #E0D8CE;border-radius:7px;padding:5px 24px 5px 9px;font-size:13px;color:#2C2420;width:100%;cursor:pointer}
-        .SL:focus{outline:none;border-color:#C45C3B}.SLs{font-size:11px;padding:4px 22px 4px 6px}
-        .BA{width:100%;padding:8px;border-radius:7px;border:1.5px dashed #D4CBC0;background:transparent;color:#A09080;font-size:12px;cursor:pointer;font-weight:600;transition:all .15s}
-        .BA:hover{border-color:#C45C3B;color:#C45C3B}
+        *{box-sizing:border-box;margin:0;padding:0}
+        input,select{font-family:inherit}
+        input[type=number]{-moz-appearance:textfield}
+        input::-webkit-outer-spin-button,input::-webkit-inner-spin-button{-webkit-appearance:none}
+        ::selection{background:#D4732A;color:#0E0C0A}
+        scrollbar-width:thin;scrollbar-color:#2E2620 #0E0C0A;
+
+        /* Cards */
+        .S{background:#1A1610;border-radius:14px;border:1px solid #2A2218;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 16px rgba(0,0,0,.4)}
+        .SH{padding:12px 16px;border-bottom:1px solid #2A2218;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#1E1A14}
+        .SB{padding:16px}
+
+        /* Inputs */
+        .I{background:#12100E;border:1.5px solid #2E2620;border-radius:8px;padding:7px 10px;font-size:13px;color:#F0EBE3;width:100%;transition:border-color .2s,box-shadow .2s}
+        .I:focus{outline:none;border-color:#D4732A;box-shadow:0 0 0 3px rgba(212,115,42,.15)}
+        .Is{font-size:11px;padding:5px 8px}
+        .SL{appearance:none;background:#12100E url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%23665A4A' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 8px center;background-size:10px;border:1.5px solid #2E2620;border-radius:8px;padding:7px 26px 7px 10px;font-size:13px;color:#F0EBE3;width:100%;cursor:pointer;transition:border-color .2s}
+        .SL:focus{outline:none;border-color:#D4732A}
+        .SLs{font-size:11px;padding:5px 22px 5px 8px}
+
+        /* Buttons */
+        .BA{width:100%;padding:9px;border-radius:8px;border:1.5px dashed #2E2620;background:transparent;color:#5A4E40;font-size:12px;cursor:pointer;font-weight:600;transition:all .15s}
+        .BA:hover{border-color:#D4732A;color:#D4732A}
+        .DB{width:22px;height:22px;border-radius:6px;border:none;background:transparent;color:#4A3E30;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+        .DB:hover{background:#2E1E14;color:#D4732A}
+
+        /* Labels */
         .T{display:inline-block;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600}
-        .L{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:#8C7E70;font-weight:600;margin-bottom:3px}
+        .L{font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#5A4E40;font-weight:600;margin-bottom:4px}
+
+        /* Layout helpers */
         .R{display:flex;gap:6px;align-items:center}
-        .G2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+        .G2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
         .G3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-        .tb{padding:6px 16px;border:none;background:transparent;font-size:12px;font-weight:600;color:#A09080;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
-        .tb.a{color:#C45C3B;border-bottom-color:#C45C3B}.tb:hover{color:#2C2420}
-        .DB{width:20px;height:20px;border-radius:5px;border:none;background:transparent;color:#C4A08B;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-        .DB:hover{background:#F0D0C0;color:#C45C3B}
-        .PC{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;border:1.5px solid transparent;transition:all .12s;user-select:none}
-        .PC.off{background:#F5F0EB;color:#A09080;border-color:#E0D8CE}.PC.off:hover{border-color:#C4A08B}
-        .PC.on{color:white}
-        .ct{padding:5px 12px;border:none;border-radius:5px;font-size:10px;font-weight:600;cursor:pointer;transition:all .15s}
-        @keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}.fi{animation:fi .25s ease-out}
+
+        /* Tabs */
+        .tb{padding:8px 20px;border:none;background:transparent;font-size:13px;font-weight:600;color:#5A4E40;cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;font-family:inherit}
+        .tb.a{color:#D4732A;border-bottom-color:#D4732A}
+        .tb:hover:not(.a){color:#C4A880}
+
+        /* Config pills */
+        .ct{padding:6px 14px;border:1.5px solid #2A2218;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit}
+        .ct:hover{border-color:#D4732A;color:#D4732A}
+
+        /* Placement chips */
+        .PC{display:inline-flex;align-items:center;gap:3px;padding:4px 10px;border-radius:6px;font-size:10px;font-weight:600;cursor:pointer;border:1.5px solid #2A2218;transition:all .12s;user-select:none;color:#7A6A5A}
+        .PC:hover{border-color:#4A4030}
+        .PC.on{color:white;border-color:transparent}
+
+        /* Line items */
+        .line-card{background:#120F0C;border:1px solid #2A2218;border-radius:10px;padding:12px;margin-bottom:8px;transition:border-color .15s}
+        .line-card:hover{border-color:#3A3028}
+
+        /* Animations */
+        @keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+        .fi{animation:fi .3s ease-out}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+        .pulse{animation:pulse 1.5s infinite}
       `}</style>
 
-      <div style={{ maxWidth: 700, margin: "0 auto", padding: "10px 10px 80px" }}>
-        <div style={{ textAlign: "center", padding: "16px 0 10px" }}>
-          <span style={{ fontFamily: "'JetBrains Mono'", fontSize: 26, fontWeight: 800, color: "#C45C3B", letterSpacing: -1 }}>{businessName}</span>
-          <span style={{ fontSize: 13, fontWeight: 600, color: "#A09080", marginLeft: 8 }}>DTF Cotizador</span>
+      {/* ── TOP BAR ── */}
+      <div style={{ background: "#12100E", borderBottom: "1px solid #2A2218", position: "sticky", top: 0, zIndex: 100, backdropFilter: "blur(8px)" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 52 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span style={{ fontFamily: "'Outfit'", fontSize: 22, fontWeight: 900, color: "#D4732A", letterSpacing: "-0.5px" }}>{businessName}</span>
+            <span style={{ fontFamily: "'JetBrains Mono'", fontSize: 10, fontWeight: 500, color: "#4A3E30", letterSpacing: ".1em", textTransform: "uppercase" }}>DTF · Cotizador</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            {saveStatus === "saved" && (
+              <span className="fi" style={{ fontSize: 10, color: "#4CAF78", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="6" cy="6" r="5" fill="none" stroke="#4CAF78" strokeWidth="1.5"/><path d="M3.5 6l1.8 1.8L8.5 4.5" stroke="#4CAF78" strokeWidth="1.5" fill="none" strokeLinecap="round"/></svg>
+                Auto-guardado
+              </span>
+            )}
+            {saveStatus === "dirty" && (
+              <span style={{ fontSize: 10, color: "#D4732A", fontWeight: 600 }} className="pulse">● Guardando...</span>
+            )}
+          </div>
         </div>
-
-        <div style={{ display: "flex", justifyContent: "center", borderBottom: "1px solid #E0D8CE", marginBottom: 14 }}>
+        <div style={{ maxWidth: 720, margin: "0 auto", padding: "0 16px", display: "flex", borderTop: "1px solid #2A2218" }}>
           <button className={`tb ${tab === "cotizar" ? "a" : ""}`} onClick={() => setTab("cotizar")}>Cotizar</button>
-          <button className={`tb ${tab === "config" ? "a" : ""}`} onClick={() => setTab("config")}>⚙ Configuración</button>
+          <button className={`tb ${tab === "config" ? "a" : ""}`} onClick={() => setTab("config")}>Configuración</button>
         </div>
+      </div>
+
+      <div style={{ maxWidth: 720, margin: "0 auto", padding: "16px 16px 80px" }}>
 
         {/* ═══ CONFIG ═══ */}
         {tab === "config" && (
           <div className="fi">
-            {/* SAVE BAR */}
-            <div style={{
-              position: "sticky", top: 0, zIndex: 50, marginBottom: 12,
-              background: saveStatus === "dirty" ? "#FFF8F0" : saveStatus === "saved" ? "#F0FAF0" : "#FAF7F4",
-              border: `1.5px solid ${saveStatus === "dirty" ? "#F0C080" : saveStatus === "saved" ? "#80C880" : "#E0D8CE"}`,
-              borderRadius: 10, padding: "8px 14px", display: "flex", alignItems: "center", justifyContent: "space-between",
-              transition: "all .3s"
-            }}>
-              <span style={{ fontSize: 12, color: saveStatus === "dirty" ? "#C47A30" : saveStatus === "saved" ? "#2A7A2A" : "#A09080", fontWeight: 600 }}>
-                {saveStatus === "dirty" ? "⚠ Cambios sin guardar" : saveStatus === "saved" ? "✅ Guardado — cambios aplicados" : "Configuración"}
-              </span>
-              <button onClick={handleSave} style={{
-                padding: "5px 18px", borderRadius: 7, border: "none", fontWeight: 700, fontSize: 12, cursor: "pointer",
-                background: saveStatus === "saved" ? "#4A9A4A" : saveStatus === "dirty" ? "#C45C3B" : "#8C7E70",
-                color: "white", transition: "all .3s"
-              }}>
-                {saveStatus === "saved" ? "✓ Guardado" : "Guardar"}
-              </button>
-            </div>
-
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
               {[["negocio","Mi Negocio"],["prendas","Prendas"],["placements","Placements"],["sheets","Hojas DTF"],["poli","Poliamida"],["design","Diseño"],["fix","Corrección"],["vol","Volumen"]].map(([k,v])=>(
                 <button key={k} className="ct" onClick={() => setCfgTab(k)}
-                  style={{ background: cfgTab === k ? "#2C2420" : "#F0EBE4", color: cfgTab === k ? "#F6F1EB" : "#8C7E70" }}>{v}</button>
+                  style={{ background: cfgTab === k ? "#D4732A" : "transparent", color: cfgTab === k ? "#0E0C0A" : "#7A6A5A", borderColor: cfgTab === k ? "#D4732A" : "#2A2218", fontFamily: "inherit" }}>{v}</button>
               ))}
             </div>
 
-            {/* NEGOCIO */}
             {cfgTab === "negocio" && (
-              <div className="S"><div className="SH"><b style={{ fontSize: 13 }}>Mi Negocio</b></div>
+              <div className="S fi">
+                <div className="SH"><span style={{ fontFamily: "'Outfit'", fontSize: 14, fontWeight: 700, color: "#E8DDD0" }}>Mi Negocio</span></div>
                 <div className="SB">
                   <div className="L">Nombre del negocio</div>
-                  <input className="I" value={businessName} onChange={e => setBusinessName(e.target.value)} style={{ marginBottom: 10, fontWeight: 700 }} />
+                  <input className="I" value={businessName} onChange={e => setBusinessName(e.target.value)} style={{ marginBottom: 14, fontFamily: "'Outfit'", fontWeight: 700, fontSize: 16 }} />
                   <div className="L">Costo energía por prensado (L/prenda)</div>
-                  <div className="R"><span style={{ color: "#A09080", fontSize: 11 }}>L</span>
-                    <input type="number" className="I" value={energyCost} onChange={e => setEnergyCost(Number(e.target.value) || 0)} step={0.01} style={{ width: 100 }} /></div>
-                  <div style={{ fontSize: 10, color: "#A09080", fontStyle: "italic", marginTop: 4 }}>
-                    Base: ENEE L4.62/kWh (2026) · Prensa 1800W×20s + Impresora + Secador ≈ L0.15–0.25/prenda
+                  <div className="R" style={{ marginBottom: 6 }}>
+                    <span style={{ color: "#5A4E40", fontSize: 12, fontFamily: "'JetBrains Mono'" }}>L</span>
+                    <input type="number" className="I" value={energyCost} onChange={e => setEnergyCost(Number(e.target.value) || 0)} step={0.01} style={{ width: 100, fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
+                  </div>
+                  <div style={{ fontSize: 10, color: "#4A3E30", fontStyle: "italic", background: "#12100E", borderRadius: 6, padding: "6px 10px", border: "1px solid #2A2218" }}>
+                    ENEE L4.62/kWh (2026) · Prensa 1800W×20s + Impresora + Secador ≈ L0.15–0.25/prenda
                   </div>
                 </div>
               </div>
             )}
 
-            {/* PRENDAS */}
             {cfgTab === "prendas" && (
-              <div className="S"><div className="SH"><b style={{ fontSize: 13 }}>Costos de Prendas</b></div>
+              <div className="S fi">
+                <div className="SH"><span style={{ fontFamily: "'Outfit'", fontSize: 14, fontWeight: 700, color: "#E8DDD0" }}>Costos de Prendas</span></div>
                 <div className="SB">
                   {prendas.map(p => (
-                    <div key={p.id} className="R" style={{ marginBottom: 4 }}>
+                    <div key={p.id} className="R" style={{ marginBottom: 6 }}>
                       <input className="I Is" value={p.name} onChange={e => upd(setPrendas)(p.id, "name", e.target.value)} style={{ flex: 1 }} />
-                      <span style={{ color: "#A09080", fontSize: 11 }}>L</span>
-                      <input type="number" className="I Is" value={p.cost} onChange={e => upd(setPrendas)(p.id, "cost", e.target.value)} style={{ width: 70 }} />
+                      <span style={{ color: "#5A4E40", fontSize: 11, fontFamily: "'JetBrains Mono'" }}>L</span>
+                      <input type="number" className="I Is" value={p.cost} onChange={e => upd(setPrendas)(p.id, "cost", e.target.value)} style={{ width: 80, fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
                       <button className="DB" onClick={() => del(setPrendas)(p.id)}>×</button>
                     </div>
                   ))}
-                  <button className="BA" style={{ marginTop: 6 }} onClick={add(setPrendas, { name: "Nueva", cost: 0 })}>+ Agregar prenda</button>
+                  <button className="BA" style={{ marginTop: 8 }} onClick={add(setPrendas, { name: "Nueva prenda", cost: 0 })}>+ Agregar prenda</button>
                 </div>
               </div>
             )}
 
-            {/* PLACEMENTS */}
             {cfgTab === "placements" && (
-              <div className="S"><div className="SH"><b style={{ fontSize: 13 }}>Placements</b></div>
+              <div className="S fi">
+                <div className="SH"><span style={{ fontFamily: "'Outfit'", fontSize: 14, fontWeight: 700, color: "#E8DDD0" }}>Placements</span></div>
                 <div className="SB">
-                  <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 48px 48px 48px 20px", gap: 4, fontSize: 8, fontWeight: 700, color: "#A09080", marginBottom: 4, letterSpacing: ".05em" }}>
-                    <span>COLOR</span><span>NOMBRE</span><span>W″</span><span>H″</span><span>POLI</span><span></span>
+                  <div style={{ display: "grid", gridTemplateColumns: "28px 1fr 52px 52px 20px", gap: 6, fontSize: 9, fontWeight: 700, color: "#4A3E30", marginBottom: 8, letterSpacing: ".08em", textTransform: "uppercase" }}>
+                    <span>Color</span><span>Nombre</span><span>W″</span><span>H″</span><span></span>
                   </div>
                   {placements.map(p => (
-                    <div key={p.id} style={{ display: "grid", gridTemplateColumns: "28px 1fr 48px 48px 48px 20px", gap: 4, marginBottom: 3, alignItems: "center" }}>
+                    <div key={p.id} style={{ display: "grid", gridTemplateColumns: "28px 1fr 52px 52px 20px", gap: 6, marginBottom: 5, alignItems: "center" }}>
                       <input type="color" value={p.color} onChange={e => upd(setPlacements)(p.id, "color", e.target.value)}
-                        style={{ width: 24, height: 24, border: "none", background: "none", cursor: "pointer", padding: 0 }} />
+                        style={{ width: 26, height: 26, border: "2px solid #2A2218", background: "none", cursor: "pointer", padding: 0, borderRadius: 6 }} />
                       <input className="I Is" value={p.label} onChange={e => upd(setPlacements)(p.id, "label", e.target.value)} />
-                      <input type="number" className="I Is" value={p.w} onChange={e => upd(setPlacements)(p.id, "w", e.target.value)} step={0.5} style={{ textAlign: "center" }} />
-                      <input type="number" className="I Is" value={p.h} onChange={e => upd(setPlacements)(p.id, "h", e.target.value)} step={0.5} style={{ textAlign: "center" }} />
-                      <input type="number" className="I Is" value={p.poli} onChange={e => upd(setPlacements)(p.id, "poli", e.target.value)} style={{ textAlign: "center" }} />
+                      <input type="number" className="I Is" value={p.w} onChange={e => upd(setPlacements)(p.id, "w", e.target.value)} step={0.5} style={{ textAlign: "center", fontFamily: "'JetBrains Mono'" }} />
+                      <input type="number" className="I Is" value={p.h} onChange={e => upd(setPlacements)(p.id, "h", e.target.value)} step={0.5} style={{ textAlign: "center", fontFamily: "'JetBrains Mono'" }} />
                       <button className="DB" onClick={() => del(setPlacements)(p.id)}>×</button>
                     </div>
                   ))}
-                  <button className="BA" style={{ marginTop: 6 }} onClick={add(setPlacements, { label: "Nuevo", w: 5, h: 5, poli: 5, color: "#888888" })}>+ Agregar placement</button>
+                  <button className="BA" style={{ marginTop: 8 }} onClick={add(setPlacements, { label: "Nuevo", w: 5, h: 5, color: "#888888" })}>+ Agregar placement</button>
                 </div>
               </div>
             )}
 
-            {/* SHEETS */}
             {cfgTab === "sheets" && (
-              <div className="S"><div className="SH"><b style={{ fontSize: 13 }}>Hojas DTF</b></div>
+              <div className="S fi">
+                <div className="SH"><span style={{ fontFamily: "'Outfit'", fontSize: 14, fontWeight: 700, color: "#E8DDD0" }}>Hojas DTF</span></div>
                 <div className="SB">
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 56px 56px 66px 20px", gap: 4, fontSize: 8, fontWeight: 700, color: "#A09080", marginBottom: 4, letterSpacing: ".05em" }}>
-                    <span>NOMBRE</span><span>W″</span><span>H″</span><span>PRECIO</span><span></span>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 56px 56px 80px 20px", gap: 6, fontSize: 9, fontWeight: 700, color: "#4A3E30", marginBottom: 8, letterSpacing: ".08em", textTransform: "uppercase" }}>
+                    <span>Nombre</span><span>W″</span><span>H″</span><span>Precio L</span><span></span>
                   </div>
                   {sheets.map(s => (
-                    <div key={s.id} style={{ display: "grid", gridTemplateColumns: "1fr 56px 56px 66px 20px", gap: 4, marginBottom: 3 }}>
+                    <div key={s.id} style={{ display: "grid", gridTemplateColumns: "1fr 56px 56px 80px 20px", gap: 6, marginBottom: 5 }}>
                       <input className="I Is" value={s.name} onChange={e => upd(setSheets)(s.id, "name", e.target.value)} />
-                      <input type="number" className="I Is" value={s.w} onChange={e => upd(setSheets)(s.id, "w", e.target.value)} step={0.01} style={{ textAlign: "center" }} />
-                      <input type="number" className="I Is" value={s.h} onChange={e => upd(setSheets)(s.id, "h", e.target.value)} step={0.01} style={{ textAlign: "center" }} />
-                      <div className="R"><span style={{ color: "#A09080", fontSize: 10 }}>L</span>
-                        <input type="number" className="I Is" value={s.price} onChange={e => upd(setSheets)(s.id, "price", e.target.value)} /></div>
+                      <input type="number" className="I Is" value={s.w} onChange={e => upd(setSheets)(s.id, "w", e.target.value)} step={0.01} style={{ textAlign: "center", fontFamily: "'JetBrains Mono'" }} />
+                      <input type="number" className="I Is" value={s.h} onChange={e => upd(setSheets)(s.id, "h", e.target.value)} step={0.01} style={{ textAlign: "center", fontFamily: "'JetBrains Mono'" }} />
+                      <input type="number" className="I Is" value={s.price} onChange={e => upd(setSheets)(s.id, "price", e.target.value)} style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
                       <button className="DB" onClick={() => del(setSheets)(s.id)}>×</button>
                     </div>
                   ))}
-                  <button className="BA" style={{ marginTop: 6 }} onClick={add(setSheets, { name: "Nueva", w: 10, h: 10, price: 0 })}>+ Agregar hoja</button>
+                  <button className="BA" style={{ marginTop: 8 }} onClick={add(setSheets, { name: "Nueva", w: 10, h: 10, price: 0 })}>+ Agregar hoja</button>
                 </div>
               </div>
             )}
 
-            {/* POLIAMIDA */}
             {cfgTab === "poli" && (
-              <div className="S"><div className="SH"><b style={{ fontSize: 13 }}>Poliamida</b></div>
+              <div className="S fi">
+                <div className="SH"><span style={{ fontFamily: "'Outfit'", fontSize: 14, fontWeight: 700, color: "#E8DDD0" }}>Poliamida</span></div>
                 <div className="SB G2">
-                  <div><div className="L">Precio bolsa (L)</div><input type="number" className="I" value={poliBolsa} onChange={e => setPoliBolsa(Number(e.target.value))} /></div>
-                  <div><div className="L">Gramos / bolsa</div><input type="number" className="I" value={poliGramos} onChange={e => setPoliGramos(Number(e.target.value))} /></div>
-                  <div style={{ gridColumn: "1/-1" }}><span className="T" style={{ background: "#F0E8DC", color: "#8C7E70" }}>= L{poliRate.toFixed(3)}/gramo</span></div>
+                  <div>
+                    <div className="L">Precio bolsa (L)</div>
+                    <input type="number" className="I" value={poliBolsa} onChange={e => setPoliBolsa(Number(e.target.value))} style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
+                  </div>
+                  <div>
+                    <div className="L">Gramos / bolsa</div>
+                    <input type="number" className="I" value={poliGramos} onChange={e => setPoliGramos(Number(e.target.value))} style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
+                  </div>
+                  <div style={{ gridColumn: "1/-1", background: "#12100E", borderRadius: 8, padding: "10px 14px", border: "1px solid #2A2218" }}>
+                    <span style={{ fontFamily: "'JetBrains Mono'", fontSize: 13, fontWeight: 700, color: "#D4732A" }}>L{poliRate.toFixed(4)}</span>
+                    <span style={{ fontSize: 11, color: "#5A4E40", marginLeft: 6 }}>por gramo · 120 g/m² estándar DTF</span>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* DESIGN */}
             {cfgTab === "design" && (
-              <div className="S"><div className="SH"><b style={{ fontSize: 13 }}>Tarifas de Diseño</b></div>
+              <div className="S fi">
+                <div className="SH"><span style={{ fontFamily: "'Outfit'", fontSize: 14, fontWeight: 700, color: "#E8DDD0" }}>Tarifas de Diseño</span></div>
                 <div className="SB">
                   {designTypes.map(d => d.id !== "d0" && (
-                    <div key={d.id} style={{ marginBottom: 6, padding: "6px 0", borderBottom: "1px solid #F0EBE4" }}>
-                      <div className="R">
-                        <input className="I Is" value={d.label} onChange={e => upd(setDesignTypes)(d.id, "label", e.target.value)} style={{ flex: 1 }} placeholder="Nombre" />
-                        <span style={{ color: "#A09080", fontSize: 10 }}>L</span>
-                        <input type="number" className="I Is" value={d.price} onChange={e => upd(setDesignTypes)(d.id, "price", e.target.value)} style={{ width: 60 }} />
+                    <div key={d.id} style={{ marginBottom: 8, padding: "10px 12px", background: "#12100E", borderRadius: 8, border: "1px solid #2A2218" }}>
+                      <div className="R" style={{ marginBottom: 5 }}>
+                        <input className="I Is" value={d.label} onChange={e => upd(setDesignTypes)(d.id, "label", e.target.value)} style={{ flex: 1, fontWeight: 600 }} placeholder="Nombre" />
+                        <span style={{ color: "#5A4E40", fontSize: 10, fontFamily: "'JetBrains Mono'" }}>L</span>
+                        <input type="number" className="I Is" value={d.price} onChange={e => upd(setDesignTypes)(d.id, "price", e.target.value)} style={{ width: 70, fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
                         <button className="DB" onClick={() => del(setDesignTypes)(d.id)}>×</button>
                       </div>
-                      <input className="I Is" value={d.desc} onChange={e => upd(setDesignTypes)(d.id, "desc", e.target.value)} placeholder="Descripción breve..." style={{ marginTop: 3, color: "#8C7E70", fontStyle: "italic" }} />
+                      <input className="I Is" value={d.desc} onChange={e => upd(setDesignTypes)(d.id, "desc", e.target.value)} placeholder="Descripción breve..." style={{ color: "#5A4E40", fontStyle: "italic" }} />
                     </div>
                   ))}
-                  <button className="BA" style={{ marginTop: 6 }} onClick={add(setDesignTypes, { label: "Nuevo servicio", price: 0, desc: "" })}>+ Agregar servicio</button>
+                  <button className="BA" style={{ marginTop: 4 }} onClick={add(setDesignTypes, { label: "Nuevo servicio", price: 0, desc: "" })}>+ Agregar servicio</button>
                 </div>
               </div>
             )}
 
-            {/* FIX */}
             {cfgTab === "fix" && (
-              <div className="S"><div className="SH"><b style={{ fontSize: 13 }}>Tarifas de Corrección</b></div>
+              <div className="S fi">
+                <div className="SH"><span style={{ fontFamily: "'Outfit'", fontSize: 14, fontWeight: 700, color: "#E8DDD0" }}>Tarifas de Corrección</span></div>
                 <div className="SB">
-                  <div style={{ marginBottom: 6, padding: "4px 0", borderBottom: "1px solid #F0EBE4", color: "#8C7E70", fontSize: 11 }}>
-                    <b>Listo para DTF</b> — {fixTypes.find(f => f.id === "f0")?.desc}
+                  <div style={{ marginBottom: 10, padding: "8px 12px", borderRadius: 8, background: "#12100E", border: "1px solid #2A2218", fontSize: 11, color: "#5A4E40" }}>
+                    <b style={{ color: "#7A6A5A" }}>Listo para DTF</b> — {fixTypes.find(f => f.id === "f0")?.desc}
                   </div>
                   {fixTypes.map(f => f.id !== "f0" && (
-                    <div key={f.id} style={{ marginBottom: 6, padding: "6px 0", borderBottom: "1px solid #F0EBE4" }}>
-                      <div className="R">
-                        <input className="I Is" value={f.label} onChange={e => upd(setFixTypes)(f.id, "label", e.target.value)} style={{ flex: 1 }} />
-                        <span style={{ color: "#A09080", fontSize: 10 }}>L</span>
-                        <input type="number" className="I Is" value={f.price} onChange={e => upd(setFixTypes)(f.id, "price", e.target.value)} style={{ width: 60 }} />
+                    <div key={f.id} style={{ marginBottom: 8, padding: "10px 12px", background: "#12100E", borderRadius: 8, border: "1px solid #2A2218" }}>
+                      <div className="R" style={{ marginBottom: 5 }}>
+                        <input className="I Is" value={f.label} onChange={e => upd(setFixTypes)(f.id, "label", e.target.value)} style={{ flex: 1, fontWeight: 600 }} />
+                        <span style={{ color: "#5A4E40", fontSize: 10, fontFamily: "'JetBrains Mono'" }}>L</span>
+                        <input type="number" className="I Is" value={f.price} onChange={e => upd(setFixTypes)(f.id, "price", e.target.value)} style={{ width: 70, fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
                         <button className="DB" onClick={() => del(setFixTypes)(f.id)}>×</button>
                       </div>
-                      <input className="I Is" value={f.desc} onChange={e => upd(setFixTypes)(f.id, "desc", e.target.value)} placeholder="Descripción..." style={{ marginTop: 3, color: "#8C7E70", fontStyle: "italic" }} />
+                      <input className="I Is" value={f.desc} onChange={e => upd(setFixTypes)(f.id, "desc", e.target.value)} placeholder="Descripción..." style={{ color: "#5A4E40", fontStyle: "italic" }} />
                     </div>
                   ))}
-                  <button className="BA" style={{ marginTop: 6 }} onClick={add(setFixTypes, { label: "Nuevo nivel", price: 0, desc: "" })}>+ Agregar nivel</button>
+                  <button className="BA" style={{ marginTop: 4 }} onClick={add(setFixTypes, { label: "Nuevo nivel", price: 0, desc: "" })}>+ Agregar nivel</button>
                 </div>
               </div>
             )}
 
-            {/* VOLUME */}
             {cfgTab === "vol" && (
-              <div className="S"><div className="SH"><b style={{ fontSize: 13 }}>Descuentos por Volumen</b></div>
+              <div className="S fi">
+                <div className="SH"><span style={{ fontFamily: "'Outfit'", fontSize: 14, fontWeight: 700, color: "#E8DDD0" }}>Descuentos por Volumen</span></div>
                 <div className="SB">
                   {volTiers.map(t => (
-                    <div key={t.id} style={{ marginBottom: 8, padding: 8, background: "#FAF7F4", borderRadius: 8, border: "1px solid #E8E0D6" }}>
-                      <div className="R" style={{ marginBottom: 4 }}>
+                    <div key={t.id} style={{ marginBottom: 10, padding: 12, background: "#12100E", borderRadius: 10, border: "1px solid #2A2218" }}>
+                      <div className="R" style={{ marginBottom: 8 }}>
                         <div className="L" style={{ margin: 0 }}>Desde</div>
-                        <input type="number" className="I Is" value={t.minQty} onChange={e => upd(setVolTiers)(t.id, "minQty", e.target.value)} style={{ width: 50, textAlign: "center" }} />
+                        <input type="number" className="I Is" value={t.minQty} onChange={e => upd(setVolTiers)(t.id, "minQty", e.target.value)} style={{ width: 52, textAlign: "center", fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
                         <div className="L" style={{ margin: 0 }}>hasta</div>
-                        <input type="number" className="I Is" value={t.maxQty} onChange={e => upd(setVolTiers)(t.id, "maxQty", e.target.value)} style={{ width: 50, textAlign: "center" }} />
-                        <div className="L" style={{ margin: 0 }}>u</div>
+                        <input type="number" className="I Is" value={t.maxQty} onChange={e => upd(setVolTiers)(t.id, "maxQty", e.target.value)} style={{ width: 52, textAlign: "center", fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
+                        <span style={{ fontSize: 10, color: "#4A3E30" }}>u</span>
                         <button className="DB" style={{ marginLeft: "auto" }} onClick={() => del(setVolTiers)(t.id)}>×</button>
                       </div>
-                      <input className="I Is" value={t.desc} onChange={e => upd(setVolTiers)(t.id, "desc", e.target.value)} placeholder="Descripción" style={{ marginBottom: 4 }} />
-                      <div className="R">
-                        <div className="L" style={{ margin: 0 }}>Desc %</div>
-                        <input type="number" className="I Is" value={t.discPct} onChange={e => upd(setVolTiers)(t.id, "discPct", e.target.value)} style={{ width: 45, textAlign: "center" }} />
-                        <div className="L" style={{ margin: 0 }}>Diseño desc %</div>
-                        <input type="number" className="I Is" value={t.designDisc} onChange={e => upd(setVolTiers)(t.id, "designDisc", e.target.value)} style={{ width: 45, textAlign: "center" }} />
-                        <label className="R" style={{ gap: 3, cursor: "pointer" }}>
+                      <input className="I Is" value={t.desc} onChange={e => upd(setVolTiers)(t.id, "desc", e.target.value)} placeholder="Descripción del tier" style={{ marginBottom: 8 }} />
+                      <div className="R" style={{ flexWrap: "wrap", gap: 10 }}>
+                        <div><div className="L">Desc %</div>
+                          <input type="number" className="I Is" value={t.discPct} onChange={e => upd(setVolTiers)(t.id, "discPct", e.target.value)} style={{ width: 52, textAlign: "center", fontFamily: "'JetBrains Mono'" }} /></div>
+                        <div><div className="L">Diseño desc %</div>
+                          <input type="number" className="I Is" value={t.designDisc} onChange={e => upd(setVolTiers)(t.id, "designDisc", e.target.value)} style={{ width: 52, textAlign: "center", fontFamily: "'JetBrains Mono'" }} /></div>
+                        <label className="R" style={{ gap: 5, cursor: "pointer", alignSelf: "flex-end", paddingBottom: 2 }}>
                           <input type="checkbox" checked={t.fixFree} onChange={e => setVolTiers(p => p.map(x => x.id === t.id ? { ...x, fixFree: e.target.checked } : x))} />
-                          <span style={{ fontSize: 10, color: "#8C7E70" }}>Corrección gratis</span>
+                          <span style={{ fontSize: 11, color: "#7A6A5A" }}>Corrección gratis</span>
                         </label>
                       </div>
                     </div>
@@ -514,95 +564,118 @@ export default function App() {
         {/* ═══ COTIZAR ═══ */}
         {tab === "cotizar" && (
           <div className="fi">
-            {/* ① CONFIG */}
+            {/* ① PEDIDO */}
             <div className="S">
-              <div className="SH"><Num n={1} /><b style={{ fontSize: 13 }}>Pedido</b></div>
+              <div className="SH">
+                <Num n={1} />
+                <span style={{ fontFamily: "'Outfit'", fontSize: 14, fontWeight: 700, color: "#E8DDD0" }}>Pedido</span>
+              </div>
               <div className="SB">
-                <div className="G2" style={{ marginBottom: 8 }}>
-                  <div><div className="L">¿Quién diseña?</div>
+                <div className="G2" style={{ marginBottom: 10 }}>
+                  <div>
+                    <div className="L">¿Quién diseña?</div>
                     <select className="SL" value={designWho} onChange={e => { setDesignWho(e.target.value); if (e.target.value === "Cliente trae arte") setDesignId("d0"); }}>
-                      <option>Cliente trae arte</option><option>Nosotros diseñamos</option></select></div>
-                  <div><div className="L">Tipo de diseño</div>
+                      <option>Cliente trae arte</option><option>Nosotros diseñamos</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div className="L">Tipo de diseño</div>
                     <select className="SL" value={designId} onChange={e => setDesignId(e.target.value)}
-                      disabled={designWho === "Cliente trae arte"} style={designWho === "Cliente trae arte" ? { opacity: .4 } : {}}>
-                      {designTypes.map(d => <option key={d.id} value={d.id}>{d.label}{d.price ? ` (L${d.price})` : ""}</option>)}</select>
+                      disabled={designWho === "Cliente trae arte"} style={designWho === "Cliente trae arte" ? { opacity: .35 } : {}}>
+                      {designTypes.map(d => <option key={d.id} value={d.id}>{d.label}{d.price ? ` (L${d.price})` : ""}</option>)}
+                    </select>
                     {designWho !== "Cliente trae arte" && designTypes.find(d => d.id === designId)?.desc && (
-                      <div style={{ fontSize: 10, color: "#A09080", fontStyle: "italic", marginTop: 2 }}>{designTypes.find(d => d.id === designId).desc}</div>
+                      <div style={{ fontSize: 10, color: "#5A4E40", fontStyle: "italic", marginTop: 3 }}>{designTypes.find(d => d.id === designId).desc}</div>
                     )}
                   </div>
-                  <div><div className="L">Corrección de archivo</div>
+                  <div>
+                    <div className="L">Corrección de archivo</div>
                     <select className="SL" value={fixId} onChange={e => setFixId(e.target.value)}
-                      disabled={designWho === "Nosotros diseñamos"} style={designWho === "Nosotros diseñamos" ? { opacity: .4 } : {}}>
-                      {fixTypes.map(f => <option key={f.id} value={f.id}>{f.label}{f.price ? ` (L${f.price})` : ""}</option>)}</select>
+                      disabled={designWho === "Nosotros diseñamos"} style={designWho === "Nosotros diseñamos" ? { opacity: .35 } : {}}>
+                      {fixTypes.map(f => <option key={f.id} value={f.id}>{f.label}{f.price ? ` (L${f.price})` : ""}</option>)}
+                    </select>
                     {fixTypes.find(f => f.id === fixId)?.desc && (
-                      <div style={{ fontSize: 10, color: "#A09080", fontStyle: "italic", marginTop: 2 }}>{fixTypes.find(f => f.id === fixId).desc}</div>
+                      <div style={{ fontSize: 10, color: "#5A4E40", fontStyle: "italic", marginTop: 3 }}>{fixTypes.find(f => f.id === fixId).desc}</div>
                     )}
                   </div>
-                  <div><div className="L">Margen ganancia %</div>
-                    <div className="R"><input type="number" className="I" style={{ textAlign: "center", fontWeight: 700, fontFamily: "'JetBrains Mono'" }}
-                      value={margin} onChange={e => setMargin(Number(e.target.value) || 0)} /><span style={{ color: "#A09080", fontSize: 12, flexShrink: 0 }}>%</span></div></div>
+                  <div>
+                    <div className="L">Margen ganancia</div>
+                    <div className="R">
+                      <input type="number" className="I" style={{ textAlign: "center", fontWeight: 800, fontFamily: "'JetBrains Mono'", fontSize: 16, color: "#D4732A" }}
+                        value={margin} onChange={e => setMargin(Number(e.target.value) || 0)} />
+                      <span style={{ color: "#5A4E40", fontSize: 13, flexShrink: 0, fontFamily: "'JetBrains Mono'" }}>%</span>
+                    </div>
+                  </div>
                 </div>
-                {designWho === "Nosotros diseñamos" && <span className="T" style={{ background: "#D8EAF8", color: "#3A6A9A" }}>Corrección = L0 automático</span>}
+                {designWho === "Nosotros diseñamos" && (
+                  <span className="T" style={{ background: "#1A2E3A", color: "#5A9ABD", border: "1px solid #1E3848" }}>Corrección = L0 automático</span>
+                )}
               </div>
             </div>
 
             {/* ② LÍNEAS */}
             <div className="S">
               <div className="SH">
-                <Num n={2} /><b style={{ fontSize: 13 }}>Líneas</b>
-                {calc && <span className="T" style={{ marginLeft: "auto", background: "#F0E8DC", color: "#8C7E70" }}>{calc.totalQty}u — {calc.tier.desc}</span>}
+                <Num n={2} />
+                <span style={{ fontFamily: "'Outfit'", fontSize: 14, fontWeight: 700, color: "#E8DDD0" }}>Líneas</span>
+                {calc && (
+                  <span style={{ marginLeft: "auto", fontFamily: "'JetBrains Mono'", fontSize: 12, color: "#D4732A", fontWeight: 700 }}>
+                    {calc.totalQty}u · {calc.tier.desc}
+                  </span>
+                )}
               </div>
               <div className="SB">
                 {lines.map((line, i) => (
-                  <div key={line.id} style={{ background: "#FAF7F4", border: "1px solid #E8E0D6", borderRadius: 9, padding: 10, marginBottom: 7 }}>
-                    <div className="R" style={{ marginBottom: 6 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "#C4A08B", width: 18, textAlign: "center", flexShrink: 0 }}>{i + 1}</span>
-                      <input type="number" min={0} className="I Is" style={{ width: 48, textAlign: "center", fontWeight: 700, flexShrink: 0 }}
+                  <div key={line.id} className="line-card">
+                    <div className="R" style={{ marginBottom: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: "#4A3E30", width: 18, textAlign: "center", flexShrink: 0, fontFamily: "'JetBrains Mono'" }}>{i + 1}</span>
+                      <input type="number" min={0} className="I Is" style={{ width: 52, textAlign: "center", fontWeight: 800, flexShrink: 0, fontFamily: "'JetBrains Mono'", color: "#D4732A", fontSize: 14 }}
                         placeholder="0" value={line.qty} onChange={e => updLine(i, "qty", e.target.value)} />
                       <select className="SL SLs" value={line.prendaId} onChange={e => updLine(i, "prendaId", e.target.value)} style={{ flex: 1 }}>
                         <option value="">— Prenda —</option>
                         {prendas.map(p => <option key={p.id} value={p.id}>{p.name} (L{p.cost})</option>)}
                         <option value="__otro">Otro</option>
                       </select>
-                      <select className="SL SLs" value={line.quien} onChange={e => updLine(i, "quien", e.target.value)} style={{ width: 66, flexShrink: 0 }}>
-                        <option>Yo</option><option>Cliente</option></select>
+                      <select className="SL SLs" value={line.quien} onChange={e => updLine(i, "quien", e.target.value)} style={{ width: 70, flexShrink: 0 }}>
+                        <option>Yo</option><option>Cliente</option>
+                      </select>
                       <button className="DB" onClick={() => setLines(p => p.length > 1 ? p.filter((_, j) => j !== i) : p)}>×</button>
                     </div>
 
                     {line.prendaId === "__otro" && (
-                      <div className="R" style={{ marginBottom: 6, marginLeft: 22 }}>
+                      <div className="R" style={{ marginBottom: 8, marginLeft: 24 }}>
                         <input className="I Is" placeholder="Nombre (Gorra, Tote...)" style={{ flex: 1 }}
                           value={line.otroName} onChange={e => updLine(i, "otroName", e.target.value)} />
-                        <span style={{ color: "#A09080", fontSize: 10 }}>L</span>
-                        <input type="number" className="I Is" placeholder="Costo" style={{ width: 60 }}
+                        <span style={{ color: "#5A4E40", fontSize: 10, fontFamily: "'JetBrains Mono'" }}>L</span>
+                        <input type="number" className="I Is" placeholder="Costo" style={{ width: 70, fontFamily: "'JetBrains Mono'" }}
                           value={line.otroCost} onChange={e => updLine(i, "otroCost", e.target.value)} />
                       </div>
                     )}
 
-                    <div style={{ marginLeft: 22 }}>
+                    <div style={{ marginLeft: 24 }}>
                       <div className="L">Placements</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                         {placements.map(pl => {
                           const on = line.placementIds.includes(pl.id);
                           return (
-                            <div key={pl.id} className={`PC ${on ? "on" : "off"}`}
+                            <div key={pl.id} className={`PC ${on ? "on" : ""}`}
                               style={on ? { background: pl.color, borderColor: pl.color } : {}}
                               onClick={() => togglePl(i, pl.id)}>
-                              <span style={{ fontSize: 8, opacity: .7 }}>{pl.w}×{pl.h}</span> {pl.label}
+                              <span style={{ fontSize: 8, opacity: .65 }}>{pl.w}×{pl.h}</span> {pl.label}
                             </div>
                           );
                         })}
                       </div>
                       {line.customs.map((c, ci) => (
-                        <div key={ci} className="R" style={{ marginTop: 4 }}>
-                          <input className="I Is" placeholder="Nombre" style={{ width: 80 }} value={c.label} onChange={e => updCustom(i, ci, "label", e.target.value)} />
-                          <input type="number" step={0.5} className="I Is" placeholder='W"' style={{ width: 48, textAlign: "center" }} value={c.w} onChange={e => updCustom(i, ci, "w", e.target.value)} />
-                          <span style={{ color: "#C4A08B", fontWeight: 700, fontSize: 11 }}>×</span>
-                          <input type="number" step={0.5} className="I Is" placeholder='H"' style={{ width: 48, textAlign: "center" }} value={c.h} onChange={e => updCustom(i, ci, "h", e.target.value)} />
+                        <div key={ci} className="R" style={{ marginTop: 6 }}>
+                          <input className="I Is" placeholder="Nombre" style={{ width: 84 }} value={c.label} onChange={e => updCustom(i, ci, "label", e.target.value)} />
+                          <input type="number" step={0.5} className="I Is" placeholder='W"' style={{ width: 50, textAlign: "center", fontFamily: "'JetBrains Mono'" }} value={c.w} onChange={e => updCustom(i, ci, "w", e.target.value)} />
+                          <span style={{ color: "#4A3E30", fontWeight: 700, fontSize: 11 }}>×</span>
+                          <input type="number" step={0.5} className="I Is" placeholder='H"' style={{ width: 50, textAlign: "center", fontFamily: "'JetBrains Mono'" }} value={c.h} onChange={e => updCustom(i, ci, "h", e.target.value)} />
                           <button className="DB" onClick={() => delCustom(i, ci)}>×</button>
                         </div>
                       ))}
-                      <button onClick={() => addCustom(i)} style={{ marginTop: 4, background: "transparent", border: "1px dashed #D4CBC0", borderRadius: 5, padding: "2px 8px", fontSize: 10, color: "#A09080", cursor: "pointer", fontWeight: 600 }}>+ Custom</button>
+                      <button onClick={() => addCustom(i)} style={{ marginTop: 6, background: "transparent", border: "1px dashed #2E2620", borderRadius: 6, padding: "3px 10px", fontSize: 10, color: "#5A4E40", cursor: "pointer", fontWeight: 600, transition: "all .15s" }}>+ Custom</button>
                     </div>
                   </div>
                 ))}
@@ -612,24 +685,23 @@ export default function App() {
 
             {calc && (
               <>
-                {/* ③ NESTING */}
+                {/* ③ HOJAS DTF */}
                 <div className="S fi">
-                  <div className="SH" style={{ background: "#2C2420", borderColor: "#2C2420" }}>
-                    <Num n={3} /><span style={{ fontSize: 13, fontWeight: 700, color: "white" }}>Hojas DTF</span>
-                    <span style={{ marginLeft: "auto", fontFamily: "'JetBrains Mono'", fontSize: 14, fontWeight: 700, color: "#C45C3B" }}>
-                      L{calc.dtfCost}
-                    </span>
+                  <div className="SH" style={{ background: "#1E1208", borderColor: "#3A2810" }}>
+                    <Num n={3} />
+                    <span style={{ fontFamily: "'Outfit'", fontSize: 14, fontWeight: 700, color: "#E8DDD0" }}>Hojas DTF</span>
+                    <span style={{ marginLeft: "auto", fontFamily: "'JetBrains Mono'", fontSize: 18, fontWeight: 800, color: "#D4732A" }}>L{calc.dtfCost}</span>
                   </div>
-                  <div style={{ padding: 14, background: "#1E1A16" }}>
-                    {/* Resumen de hojas necesarias */}
+                  <div style={{ padding: 16, background: "#0E0B08" }}>
+                    {/* Resumen */}
                     {(() => {
                       const counts = {};
                       calc.nesting.results.forEach(r => { counts[r.sheet.name] = (counts[r.sheet.name] || 0) + 1; });
                       return (
-                        <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 8, background: "#2A2520", border: "1px solid #4A4035", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                          <span style={{ fontSize: 10, color: "#8C7E70", textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700 }}>Necesitas:</span>
+                        <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 10, background: "#1A1208", border: "1px solid #3A2810", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 10, color: "#7A5A30", textTransform: "uppercase", letterSpacing: ".1em", fontWeight: 700 }}>Necesitas:</span>
                           {Object.entries(counts).map(([name, qty]) => (
-                            <span key={name} style={{ fontFamily: "'JetBrains Mono'", fontSize: 13, fontWeight: 700, color: "#E8DDD0", background: "#3A3028", borderRadius: 6, padding: "3px 10px" }}>
+                            <span key={name} style={{ fontFamily: "'JetBrains Mono'", fontSize: 13, fontWeight: 800, color: "#E8C890", background: "#2A1E0A", borderRadius: 7, padding: "4px 12px", border: "1px solid #4A3010" }}>
                               {qty > 1 ? `${qty}×` : ""}{name}
                             </span>
                           ))}
@@ -640,54 +712,54 @@ export default function App() {
                       const { sheet, placed } = res;
                       const maxH = placed.length ? Math.max(...placed.map(p => p.y + p.h)) : sheet.h;
                       const dH = Math.min(maxH + 2, sheet.h);
-                      const svW = 340, sc = svW / sheet.w, svH = dH * sc, pd = 22;
+                      const svW = 340, sc = svW / sheet.w, svH = dH * sc, pd = 24;
                       return (
-                        <div key={ri} style={{ marginBottom: ri < calc.nesting.results.length - 1 ? 18 : 0 }}>
-                          <div className="R" style={{ justifyContent: "space-between", marginBottom: 8 }}>
-                            <span style={{ color: "#E8DDD0", fontSize: 14, fontWeight: 700 }}>{sheet.name}
-                              <span style={{ color: "#8C7E70", fontWeight: 400, fontSize: 11, marginLeft: 6 }}>{sheet.w}″ × {sheet.h}″</span></span>
-                            <span style={{ fontFamily: "'JetBrains Mono'", color: "#C45C3B", fontSize: 16, fontWeight: 700 }}>L{sheet.price}</span>
+                        <div key={ri} style={{ marginBottom: ri < calc.nesting.results.length - 1 ? 20 : 0 }}>
+                          <div className="R" style={{ justifyContent: "space-between", marginBottom: 10 }}>
+                            <span style={{ color: "#E8DDD0", fontSize: 14, fontWeight: 700, fontFamily: "'Outfit'" }}>{sheet.name}
+                              <span style={{ color: "#5A4E40", fontWeight: 400, fontSize: 11, marginLeft: 8, fontFamily: "'JetBrains Mono'" }}>{sheet.w}″ × {sheet.h}″</span></span>
+                            <span style={{ fontFamily: "'JetBrains Mono'", color: "#D4732A", fontSize: 18, fontWeight: 800 }}>L{sheet.price}</span>
                           </div>
                           <svg width="100%" viewBox={`${-pd} ${-pd} ${svW + pd * 2} ${svH + pd * 2}`} style={{ display: "block", maxWidth: svW + pd * 2 }}>
                             <defs>
-                              <pattern id={`g${ri}`} width={sc} height={sc} patternUnits="userSpaceOnUse"><rect width={sc} height={sc} fill="none" stroke="#2A2520" strokeWidth=".3" /></pattern>
-                              <pattern id="ht" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="rgba(255,255,255,.1)" strokeWidth="1" /></pattern>
-                              <filter id="sh"><feDropShadow dx="1" dy="1" stdDeviation="1.5" floodOpacity=".25" /></filter>
+                              <pattern id={`g${ri}`} width={sc} height={sc} patternUnits="userSpaceOnUse"><rect width={sc} height={sc} fill="none" stroke="#1A1408" strokeWidth=".4" /></pattern>
+                              <pattern id="ht" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="rgba(255,255,255,.06)" strokeWidth="1" /></pattern>
+                              <filter id="sh"><feDropShadow dx="1" dy="2" stdDeviation="2" floodOpacity=".35" /></filter>
                             </defs>
-                            <rect x={0} y={0} width={svW} height={svH} rx={4} fill="#242018" stroke="#4A4035" strokeWidth={1.5} />
-                            <rect x={0} y={0} width={svW} height={svH} rx={4} fill={`url(#g${ri})`} />
+                            <rect x={0} y={0} width={svW} height={svH} rx={5} fill="#140F0A" stroke="#3A2810" strokeWidth={1.5} />
+                            <rect x={0} y={0} width={svW} height={svH} rx={5} fill={`url(#g${ri})`} />
                             {placed.map((p, pi) => {
                               const px = p.x * sc + 1, py = p.y * sc + 1, pw = p.w * sc - 2, ph = p.h * sc - 2;
                               const sl = pw > 26 && ph > 14, sd = pw > 18 && ph > 10;
                               return (
                                 <g key={pi} filter="url(#sh)">
-                                  <rect x={px} y={py} width={pw} height={ph} rx={3} fill={p.color || "#888"} fillOpacity={.88} />
-                                  <rect x={px} y={py} width={pw} height={ph} rx={3} fill="url(#ht)" />
-                                  <rect x={px} y={py} width={pw} height={ph} rx={3} fill="none" stroke="rgba(255,255,255,.2)" strokeWidth={1} />
-                                  {sl && <text x={px + pw / 2} y={py + ph / 2 - (sd ? 4 : 0)} textAnchor="middle" dominantBaseline="central"
-                                    fill="white" fontSize={Math.min(11, pw / 5)} fontWeight="700" style={{ fontFamily: "'Libre Franklin'" }}>{p.label}</text>}
-                                  {sl && sd && <text x={px + pw / 2} y={py + ph / 2 + 9} textAnchor="middle"
-                                    fill="rgba(255,255,255,.5)" fontSize={Math.min(8, pw / 7)} style={{ fontFamily: "'JetBrains Mono'" }}>{p.w}×{p.h}″</text>}
+                                  <rect x={px} y={py} width={pw} height={ph} rx={4} fill={p.color || "#888"} fillOpacity={.9} />
+                                  <rect x={px} y={py} width={pw} height={ph} rx={4} fill="url(#ht)" />
+                                  <rect x={px} y={py} width={pw} height={ph} rx={4} fill="none" stroke="rgba(255,255,255,.15)" strokeWidth={1} />
+                                  {sl && <text x={px + pw / 2} y={py + ph / 2 - (sd ? 5 : 0)} textAnchor="middle" dominantBaseline="central"
+                                    fill="white" fontSize={Math.min(11, pw / 5)} fontWeight="700" style={{ fontFamily: "'DM Sans'" }}>{p.label}</text>}
+                                  {sl && sd && <text x={px + pw / 2} y={py + ph / 2 + 10} textAnchor="middle"
+                                    fill="rgba(255,255,255,.45)" fontSize={Math.min(8, pw / 7)} style={{ fontFamily: "'JetBrains Mono'" }}>{p.w}×{p.h}″</text>}
                                   {!sl && sd && <text x={px + pw / 2} y={py + ph / 2 + 3} textAnchor="middle"
-                                    fill="white" fontSize={6} fontWeight="600" style={{ fontFamily: "'JetBrains Mono'" }}>{p.w}×{p.h}</text>}
+                                    fill="white" fontSize={6} fontWeight="700" style={{ fontFamily: "'JetBrains Mono'" }}>{p.w}×{p.h}</text>}
                                 </g>
                               );
                             })}
-                            <line x1={0} y1={-8} x2={svW} y2={-8} stroke="#6A6055" strokeWidth={.6} />
-                            <line x1={0} y1={-12} x2={0} y2={-4} stroke="#6A6055" strokeWidth={.6} />
-                            <line x1={svW} y1={-12} x2={svW} y2={-4} stroke="#6A6055" strokeWidth={.6} />
-                            <text x={svW / 2} y={-13} textAnchor="middle" fill="#8C7E70" fontSize={8} style={{ fontFamily: "'JetBrains Mono'" }}>{sheet.w}″</text>
-                            <line x1={-8} y1={0} x2={-8} y2={svH} stroke="#6A6055" strokeWidth={.6} />
-                            <line x1={-12} y1={0} x2={-4} y2={0} stroke="#6A6055" strokeWidth={.6} />
-                            <line x1={-12} y1={svH} x2={-4} y2={svH} stroke="#6A6055" strokeWidth={.6} />
-                            <text x={-12} y={svH / 2} textAnchor="middle" fill="#8C7E70" fontSize={8}
-                              transform={`rotate(-90,-12,${svH / 2})`} style={{ fontFamily: "'JetBrains Mono'" }}>{dH.toFixed(1)}″</text>
+                            <line x1={0} y1={-9} x2={svW} y2={-9} stroke="#5A4030" strokeWidth={.6} />
+                            <line x1={0} y1={-13} x2={0} y2={-5} stroke="#5A4030" strokeWidth={.6} />
+                            <line x1={svW} y1={-13} x2={svW} y2={-5} stroke="#5A4030" strokeWidth={.6} />
+                            <text x={svW / 2} y={-14} textAnchor="middle" fill="#7A5A30" fontSize={8} style={{ fontFamily: "'JetBrains Mono'" }}>{sheet.w}″</text>
+                            <line x1={-9} y1={0} x2={-9} y2={svH} stroke="#5A4030" strokeWidth={.6} />
+                            <line x1={-13} y1={0} x2={-5} y2={0} stroke="#5A4030" strokeWidth={.6} />
+                            <line x1={-13} y1={svH} x2={-5} y2={svH} stroke="#5A4030" strokeWidth={.6} />
+                            <text x={-13} y={svH / 2} textAnchor="middle" fill="#7A5A30" fontSize={8}
+                              transform={`rotate(-90,-13,${svH / 2})`} style={{ fontFamily: "'JetBrains Mono'" }}>{dH.toFixed(1)}″</text>
                           </svg>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
                             {[...new Map(placed.map(p => [p.label, p.color])).entries()].map(([l, c]) => (
-                              <div key={l} className="R" style={{ gap: 4 }}>
-                                <div style={{ width: 10, height: 10, borderRadius: 2, background: c }} />
-                                <span style={{ fontSize: 10, color: "#A09080" }}>{l}</span>
+                              <div key={l} className="R" style={{ gap: 5 }}>
+                                <div style={{ width: 10, height: 10, borderRadius: 3, background: c, flexShrink: 0 }} />
+                                <span style={{ fontSize: 10, color: "#7A6A5A" }}>{l}</span>
                               </div>
                             ))}
                           </div>
@@ -699,76 +771,109 @@ export default function App() {
 
                 {/* ④ DESGLOSE */}
                 <div className="S fi">
-                  <div className="SH"><Num n={4} /><b style={{ fontSize: 13 }}>Desglose</b></div>
+                  <div className="SH"><Num n={4} /><span style={{ fontFamily: "'Outfit'", fontSize: 14, fontWeight: 700, color: "#E8DDD0" }}>Desglose</span></div>
                   <div className="SB">
                     {calc.lp.map((l, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #F0EBE4", fontSize: 12 }}>
-                        <div><b>{l.qty}×</b> {l.prendaLabel} <span style={{ color: "#A09080", fontSize: 10 }}>({l.cfgLabel})</span>
-                          {l.quien === "Cliente" && <span className="T" style={{ background: "#FFF3E0", color: "#C47A3B", marginLeft: 4, fontSize: 8 }}>cliente pone</span>}</div>
-                        <div style={{ whiteSpace: "nowrap" }}><span style={{ color: "#A09080", fontSize: 10 }}>L{l.sellPrice}/u = </span><b>L{l.lineTotal}</b></div>
+                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", padding: "8px 0", borderBottom: "1px solid #1E1A14", fontSize: 13 }}>
+                        <div>
+                          <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, color: "#D4732A" }}>{l.qty}×</span>
+                          <span style={{ marginLeft: 6, fontWeight: 600, color: "#E8DDD0" }}>{l.prendaLabel}</span>
+                          <span style={{ color: "#4A3E30", fontSize: 10, marginLeft: 6 }}>({l.cfgLabel})</span>
+                          {l.quien === "Cliente" && <span className="T" style={{ background: "#2A1E0A", color: "#D4902A", marginLeft: 6, fontSize: 9 }}>cliente pone</span>}
+                        </div>
+                        <div style={{ whiteSpace: "nowrap", textAlign: "right" }}>
+                          <span style={{ color: "#4A3E30", fontSize: 10, fontFamily: "'JetBrains Mono'" }}>L{l.sellPrice}/u = </span>
+                          <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, color: "#E8DDD0" }}>L{l.lineTotal}</span>
+                        </div>
                       </div>
                     ))}
-                    <div style={{ marginTop: 6, marginBottom: 2 }}>
-                      <div className="L" style={{ marginBottom: 6 }}>Mis costos (no visible al cliente)</div>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 10, color: "#A09080", borderBottom: "1px solid #F0EBE4" }}>
-                      <span>Prendas en blanco</span><span>L{Math.round(calc.lp.reduce((s, l) => s + l.prendaCost * l.qty, 0))}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 10, color: "#A09080", borderBottom: "1px solid #F0EBE4" }}>
-                      <span>Hojas DTF: {calc.nesting.results.map(r => r.sheet.name).join(" + ")}</span><span>L{calc.dtfCost}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 10, color: "#A09080", borderBottom: "1px solid #F0EBE4" }}>
-                      <span>Poliamida: {calc.totalPoli}g × L{poliRate.toFixed(2)}/g</span><span>L{calc.totalPoliCost.toFixed(2)}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 10, color: "#A09080", borderBottom: "1px solid #F0EBE4" }}>
-                      <span>Energía: {calc.totalQty} prenda{calc.totalQty !== 1 ? "s" : ""} × L{energyCost}</span><span>L{calc.totalEnergyCost.toFixed(2)}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 11, fontWeight: 600, color: "#8C7E70", borderBottom: "1px solid #E0D8CE" }}>
-                      <span>Total mi costo</span><span>L{Math.round(calc.cost)}</span>
-                    </div>
-                    <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 0 3px", fontSize: 13, fontWeight: 700 }}>
-                      <span>Subtotal</span><span>L{calc.sub}</span></div>
-                    {calc.disc > 0 && <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 12, color: "#4A7A4A" }}>
-                      <span>Desc. {calc.volPct}%</span><b>-L{calc.disc}</b></div>}
-                    {calc.designFee > 0 && <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 12 }}>
-                      <span>Diseño: {calc.dType?.label}{calc.designCharged === 0 ? " ✅" : calc.designCharged < calc.designFee ? " (50%)" : ""}</span>
-                      <b style={{ color: calc.designCharged === 0 ? "#4A7A4A" : undefined }}>{calc.designCharged === 0 ? "Incluido" : `L${calc.designCharged}`}</b></div>}
-                    {calc.fixFee > 0 && <div style={{ display: "flex", justifyContent: "space-between", padding: "3px 0", fontSize: 12 }}>
-                      <span>Corrección{calc.fixCharged === 0 ? " ✅" : ""}</span>
-                      <b style={{ color: calc.fixCharged === 0 ? "#4A7A4A" : undefined }}>{calc.fixCharged === 0 ? "Incluida" : `L${calc.fixCharged}`}</b></div>}
 
-                    <div style={{ textAlign: "center", padding: 18, background: "linear-gradient(135deg,#2C2420,#3D322C)", borderRadius: 10, color: "white", marginTop: 12 }}>
-                      <div style={{ fontSize: 9, textTransform: "uppercase", letterSpacing: ".15em", color: "#A09080" }}>Cobrar al cliente</div>
-                      <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 36, fontWeight: 800, marginTop: 4 }}>L{calc.total.toLocaleString()}</div>
+                    {/* Costos internos */}
+                    <div style={{ marginTop: 14, marginBottom: 6 }}>
+                      <div className="L">Mis costos internos</div>
                     </div>
-                    <div className="G3" style={{ marginTop: 10 }}>
-                      <SB label="Mi costo" val={`L${Math.round(calc.cost)}`} />
-                      <SB label="Ganancia" val={`L${Math.round(calc.profit)}`} g />
-                      <SB label="Margen" val={`${calc.rm.toFixed(1)}%`} g={calc.rm >= 30} b={calc.rm < 30} />
+                    {[
+                      ["Prendas en blanco", `L${Math.round(calc.lp.reduce((s, l) => s + l.prendaCost * l.qty, 0))}`],
+                      [`Hojas DTF: ${calc.nesting.results.map(r => r.sheet.name).join(" + ")}`, `L${calc.dtfCost}`],
+                      [`Poliamida: ${calc.totalPoli.toFixed(1)}g × L${poliRate.toFixed(3)}/g`, `L${calc.totalPoliCost.toFixed(2)}`],
+                      [`Energía: ${calc.totalQty}u × L${energyCost}`, `L${calc.totalEnergyCost.toFixed(2)}`],
+                    ].map(([label, val]) => (
+                      <div key={label} style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 11, color: "#5A4E40", borderBottom: "1px solid #1A1610" }}>
+                        <span>{label}</span><span style={{ fontFamily: "'JetBrains Mono'" }}>{val}</span>
+                      </div>
+                    ))}
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "7px 0", fontSize: 12, fontWeight: 700, color: "#7A6A5A", borderBottom: "1px solid #2A2218", marginBottom: 10 }}>
+                      <span>Total mi costo</span>
+                      <span style={{ fontFamily: "'JetBrains Mono'" }}>L{Math.round(calc.cost)}</span>
+                    </div>
+
+                    {/* Subtotal + ajustes */}
+                    <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 14, fontWeight: 700, color: "#E8DDD0" }}>
+                      <span>Subtotal</span><span style={{ fontFamily: "'JetBrains Mono'" }}>L{calc.sub}</span>
+                    </div>
+                    {calc.disc > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12, color: "#4CAF78" }}>
+                        <span>Descuento {calc.volPct}%</span><span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>-L{calc.disc}</span>
+                      </div>
+                    )}
+                    {calc.designFee > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12, color: calc.designCharged === 0 ? "#4CAF78" : "#E8DDD0" }}>
+                        <span>Diseño: {calc.dType?.label}{calc.designCharged === 0 ? " ✓" : calc.designCharged < calc.designFee ? " (50%)" : ""}</span>
+                        <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>{calc.designCharged === 0 ? "Incluido" : `L${calc.designCharged}`}</span>
+                      </div>
+                    )}
+                    {calc.fixFee > 0 && (
+                      <div style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12, color: calc.fixCharged === 0 ? "#4CAF78" : "#E8DDD0" }}>
+                        <span>Corrección{calc.fixCharged === 0 ? " ✓" : ""}</span>
+                        <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>{calc.fixCharged === 0 ? "Incluida" : `L${calc.fixCharged}`}</span>
+                      </div>
+                    )}
+
+                    {/* Total */}
+                    <div style={{ marginTop: 16, borderRadius: 12, overflow: "hidden", border: "1px solid #4A2E10" }}>
+                      <div style={{ background: "linear-gradient(135deg, #2A1A08, #1E1208)", padding: "20px 20px 14px", textAlign: "center" }}>
+                        <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".18em", color: "#7A5A30", marginBottom: 4 }}>Cobrar al cliente</div>
+                        <div style={{ fontFamily: "'Outfit'", fontSize: 44, fontWeight: 900, color: "#D4732A", letterSpacing: "-1px", lineHeight: 1 }}>L{calc.total.toLocaleString()}</div>
+                      </div>
+                      <div className="G3" style={{ borderTop: "1px solid #3A2810" }}>
+                        <SB label="Mi costo" val={`L${Math.round(calc.cost)}`} />
+                        <SB label="Ganancia" val={`L${Math.round(calc.profit)}`} g />
+                        <SB label="Margen" val={`${calc.rm.toFixed(1)}%`} g={calc.rm >= 30} b={calc.rm < 30} />
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* ⑤ RESUMEN */}
+                {/* ⑤ RESUMEN WHATSAPP */}
                 <div className="S fi">
-                  <div className="SH"><Num n={5} /><b style={{ fontSize: 13 }}>Resumen WhatsApp</b>
+                  <div className="SH">
+                    <Num n={5} />
+                    <span style={{ fontFamily: "'Outfit'", fontSize: 14, fontWeight: 700, color: "#E8DDD0" }}>Resumen WhatsApp</span>
                     <button onClick={() => { const e = document.getElementById("rt"); if (e) navigator.clipboard.writeText(e.innerText).catch(() => {}); }}
-                      style={{ marginLeft: "auto", background: "#FAF7F4", border: "1px solid #E0D8CE", borderRadius: 5, padding: "3px 12px", fontSize: 10, fontWeight: 600, color: "#C45C3B", cursor: "pointer" }}>Copiar</button>
+                      style={{ marginLeft: "auto", background: "#1E1A14", border: "1px solid #3A2E20", borderRadius: 7, padding: "5px 14px", fontSize: 11, fontWeight: 700, color: "#D4732A", cursor: "pointer", transition: "all .15s" }}>
+                      Copiar
+                    </button>
                   </div>
                   <div className="SB">
-                    <div id="rt" style={{ fontFamily: "'JetBrains Mono'", fontSize: 11, lineHeight: 1.7, color: "#4A4035", background: "#FAF7F4", borderRadius: 7, padding: 12, border: "1px solid #E8E0D6", userSelect: "all" }}>
-                      <div style={{ fontWeight: 700, color: "#C45C3B", marginBottom: 3 }}>COTIZACIÓN {businessName} DTF</div>
+                    <div id="rt" style={{ fontFamily: "'JetBrains Mono'", fontSize: 11, lineHeight: 1.8, color: "#C4B8A8", background: "#0A0806", borderRadius: 9, padding: 14, border: "1px solid #2A2218", userSelect: "all" }}>
+                      <div style={{ fontWeight: 800, color: "#D4732A", marginBottom: 4 }}>COTIZACIÓN {businessName} DTF</div>
                       {calc.lp.map((l, i) => <div key={i}>{l.qty}× {l.prendaLabel} ({l.cfgLabel}){l.quien === "Cliente" ? " — cliente pone" : ""} — L{l.sellPrice}/u</div>)}
-                      {calc.disc > 0 && <div style={{ color: "#4A7A4A" }}>Desc. {calc.volPct}%: -L{calc.disc}</div>}
-                      {calc.designFee > 0 && <div>Diseño: {calc.designCharged === 0 ? "Incluido ✅" : `L${calc.designCharged}`}</div>}
-                      {calc.fixFee > 0 && <div>Corrección: {calc.fixCharged === 0 ? "Incluida ✅" : `L${calc.fixCharged}`}</div>}
-                      <div style={{ fontWeight: 700, color: "#C45C3B", fontSize: 14, marginTop: 5 }}>TOTAL: L{calc.total.toLocaleString()}</div>
+                      {calc.disc > 0 && <div style={{ color: "#4CAF78" }}>Desc. {calc.volPct}%: -L{calc.disc}</div>}
+                      {calc.designFee > 0 && <div>Diseño: {calc.designCharged === 0 ? "Incluido ✓" : `L${calc.designCharged}`}</div>}
+                      {calc.fixFee > 0 && <div>Corrección: {calc.fixCharged === 0 ? "Incluida ✓" : `L${calc.fixCharged}`}</div>}
+                      <div style={{ fontWeight: 800, color: "#D4732A", fontSize: 14, marginTop: 6 }}>TOTAL: L{calc.total.toLocaleString()}</div>
                     </div>
                   </div>
                 </div>
               </>
             )}
-            {!calc && <div style={{ textAlign: "center", padding: "50px 20px", color: "#C4B8A8" }}><div style={{ fontSize: 28, marginBottom: 6 }}>📋</div>Agregá líneas con cantidad y placements</div>}
+            {!calc && (
+              <div style={{ textAlign: "center", padding: "60px 20px", color: "#2E2620" }}>
+                <div style={{ fontSize: 36, marginBottom: 10 }}>🖨</div>
+                <div style={{ fontFamily: "'Outfit'", fontSize: 15, fontWeight: 600, color: "#3A3028" }}>Agregá líneas con cantidad y placements</div>
+                <div style={{ fontSize: 12, color: "#2A2218", marginTop: 4 }}>para calcular el costo de hojas DTF y precio de venta</div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -777,17 +882,21 @@ export default function App() {
 }
 
 function Num({ n }) {
-  return <span style={{ background: "#C45C3B", color: "white", width: 20, height: 20, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>{n}</span>;
+  return (
+    <span style={{ background: "#D4732A", color: "#0E0C0A", width: 22, height: 22, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, flexShrink: 0, fontFamily: "'Outfit'" }}>{n}</span>
+  );
 }
 
 function SB({ label, val, g, b }) {
-  const bg = g ? "#F0F7F0" : b ? "#FFF0F0" : "#FAF7F4";
-  const bc = g ? "#D0E8D0" : b ? "#F0D0D0" : "#E8E0D6";
-  const c = g ? "#2A5A2A" : b ? "#AA3A3A" : "#2C2420";
+  const bg = g ? "#0E1E12" : b ? "#1E0E0E" : "#12100E";
+  const bc = g ? "#1E3A22" : b ? "#3A1E1E" : "#2A2218";
+  const c = g ? "#4CAF78" : b ? "#E05040" : "#C4B8A8";
+  const lc = g ? "#2A6A3A" : b ? "#6A2A2A" : "#4A3E30";
   return (
-    <div style={{ background: bg, borderRadius: 7, padding: "6px 8px", textAlign: "center", border: `1px solid ${bc}` }}>
-      <div style={{ fontSize: 8, color: g ? "#4A7A4A" : b ? "#AA3A3A" : "#A09080", textTransform: "uppercase", letterSpacing: ".07em" }}>{label}</div>
-      <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 14, fontWeight: 700, color: c, marginTop: 1 }}>{val}</div>
+    <div style={{ background: bg, padding: "10px 8px", textAlign: "center", border: `1px solid ${bc}` }}>
+      <div style={{ fontSize: 8, color: lc, textTransform: "uppercase", letterSpacing: ".1em", fontWeight: 700 }}>{label}</div>
+      <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 15, fontWeight: 800, color: c, marginTop: 2 }}>{val}</div>
     </div>
   );
 }
+
