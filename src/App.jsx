@@ -80,74 +80,92 @@ const GAP = 0.25;
 const EDGE = 0.15;
 
 // ── SHELF PACKING con rotación ──
+// Cuando abre un shelf nuevo, prefiere la orientación con MENOR ALTURA
+// para maximizar el espacio vertical restante.
 function shelfPack(pieces, sw, sh) {
-  const uw = sw - EDGE * 2, uh = sh - EDGE * 2;
+  const uw = sw - EDGE * 2;
+  const uh = sh - EDGE * 2;
   if (!pieces.length) return { fits: false, placed: [] };
 
-  // Ordenar piezas: más altas primero, mayor área como tiebreak
+  // Ordenar: mayor dimensión desc, luego mayor área
   const sorted = [...pieces].sort((a, b) => {
-    const aMax = Math.max(a.w, a.h), bMax = Math.max(b.w, b.h);
-    if (Math.abs(bMax - aMax) > 0.01) return bMax - aMax;
-    return (b.w * b.h) - (a.w * a.h);
+    const aH = Math.max(a.w, a.h), bH = Math.max(b.w, b.h);
+    if (Math.abs(bH - aH) > 0.005) return bH - aH;
+    return b.w * b.h - a.w * a.h;
   });
 
-  const shelves = []; // { y, h, x }
-  let curY = 0;
+  // shelf = { y: posY absoluta, h: altura, nextX: cursor x absoluto }
+  const shelves = [];
+  let cursorY = 0;
   const placed = [];
 
   for (const p of sorted) {
-    // Probar las dos orientaciones
-    const orients = [{ w: p.w, h: p.h, rot: false }];
-    if (Math.abs(p.w - p.h) > 0.01) orients.push({ w: p.h, h: p.w, rot: true });
+    const orients = [{ pw: p.w, ph: p.h, rot: false }];
+    if (Math.abs(p.w - p.h) > 0.005) orients.push({ pw: p.h, ph: p.w, rot: true });
 
-    let best = null; // { shelfIdx, orient, x, y, waste }
+    let bestExisting = null; // mejor opción en shelf existente
 
-    // Intentar colocar en shelf existente
+    // ─ Intentar en shelves existentes ─
     for (let si = 0; si < shelves.length; si++) {
       const s = shelves[si];
-      const avail = uw - s.x;
+      const availW = uw - s.nextX + EDGE;
       for (const o of orients) {
-        if (o.w > avail + 0.01 || o.h > s.h + 0.01) continue;
-        const waste = s.h - o.h;
-        if (!best || waste < best.waste) {
-          best = { shelfIdx: si, orient: o, x: s.x + EDGE, y: s.y + EDGE, waste, isNew: false };
+        if (o.pw > availW + 0.005) continue;
+        if (o.ph > s.h + 0.005) continue;
+        const waste = s.h - o.ph;
+        if (!bestExisting || waste < bestExisting.waste) {
+          bestExisting = { si, orient: o, px: s.nextX, py: s.y, waste, isNew: false };
         }
       }
+      if (bestExisting && bestExisting.waste < 0.01) break;
     }
 
-    // Si no cabe en shelf existente, abrir uno nuevo
-    if (!best) {
-      const ny = curY + (shelves.length ? GAP : 0);
-      for (const o of orients) {
-        if (ny + o.h > uh + 0.01 || o.w > uw + 0.01) continue;
-        best = { shelfIdx: -1, orient: o, x: EDGE, y: ny + EDGE, waste: 0, isNew: true, ny };
-        break;
+    // ─ Calcular mejor opción en shelf nuevo ─
+    let bestNew = null;
+    const newY = cursorY + (shelves.length ? GAP : 0);
+    for (const o of orients) {
+      if (o.pw > uw + 0.005) continue;
+      if (newY + o.ph > uh + 0.005) continue;
+      // Para nuevo shelf: preferir la orientación con MENOR ALTURA
+      if (!bestNew || o.ph < bestNew.orient.ph) {
+        bestNew = { si: -1, orient: o, px: EDGE, py: EDGE + newY, waste: 0, isNew: true, newY };
       }
     }
 
-    if (!best) continue; // No encaja en ninguna orientación
+    // ─ Elegir: existente vs nuevo ─
+    // Preferir existente si el desperdicio es razonable (≤ 1"), si no abrir nuevo
+    let chosen = null;
+    if (bestExisting && (!bestNew || bestExisting.waste <= 1.0)) {
+      chosen = bestExisting;
+    } else if (bestNew) {
+      chosen = bestNew;
+    } else if (bestExisting) {
+      chosen = bestExisting; // último recurso
+    }
 
-    const { orient: o, x, y, isNew, ny, shelfIdx } = best;
-    placed.push({ ...p, x, y, w: o.w, h: o.h, rotated: o.rot });
+    if (!chosen) continue;
+
+    const { si, orient: o, px, py, isNew, newY: ny } = chosen;
+    placed.push({ ...p, x: px, y: py, w: o.pw, h: o.ph, rotated: o.rot });
 
     if (isNew) {
-      shelves.push({ y: ny, h: o.h, x: o.w + GAP });
-      curY = ny + o.h;
+      shelves.push({ y: EDGE + ny, h: o.ph, nextX: EDGE + o.pw + GAP });
+      cursorY = ny + o.ph;
     } else {
-      shelves[shelfIdx].x += o.w + GAP;
+      shelves[si].nextX += o.pw + GAP;
     }
   }
 
   return { fits: placed.length === pieces.length, placed };
 }
 
-// Greedy: packs remaining pieces onto the cheapest possible sheets
+// Greedy: empaqueta en la hoja más barata posible
 function findBestSheets(allPieces, sheets) {
   if (!allPieces.length) return { results: [], totalCost: 0 };
   const sortedSheets = [...sheets].sort((a, b) => a.price - b.price);
   let rem = [...allPieces];
   const results = [];
-  let safe = 60;
+  let safe = 80;
   while (rem.length > 0 && safe-- > 0) {
     let bestSheet = null, bestPlaced = [];
     for (const sh of sortedSheets) {
