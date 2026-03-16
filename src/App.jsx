@@ -1,18 +1,19 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { loadPedidos, savePedidos, nextQuoteNum, ESTADOS as ESTADOS_BASE, ESTADO_COLOR as ESTADO_COLOR_BASE } from "./store.js";
 import { findBestSheets } from "./nesting.js";
-// Extended estados including Pendiente (client requests)
-const ESTADOS = ["Pendiente", ...ESTADOS_BASE];
-const ESTADO_COLOR = {
-  Pendiente:    { bg: "rgba(251,191,36,.12)",  border: "rgba(251,191,36,.4)",  text: "#FBBF24" },
-  ...ESTADO_COLOR_BASE,
-};
-
+import PhoneInput from "./PhoneInput.jsx";
 import {
   loadConfigRemote, saveConfigRemote,
   loadCotizaciones, createCotizacion, updateCotizacionEstado, deleteCotizacion,
   getNextNumero, checkConnection,
 } from "./supabase.js";
+
+// Extended estados including Pendiente (client requests)
+const ESTADOS = ["Pendiente", ...ESTADOS_BASE];
+const ESTADO_COLOR = {
+  Pendiente: { bg: "rgba(251,191,36,.12)", border: "rgba(251,191,36,.4)", text: "#FBBF24" },
+  ...ESTADO_COLOR_BASE,
+};
 
 const STORAGE_KEY = "dtf_config_v3"; // bumped: per-prenda tallas+colores, TCambio, margenMin, darkMode
 
@@ -933,13 +934,9 @@ export default function App() {
                     <input className="inp" value={businessName} onChange={e => setBusinessName(e.target.value)} style={{ fontWeight: 700, fontSize: 16 }} />
                   </div>
                   <div style={{ marginBottom: 14 }}>
-                    <div className="lbl">WhatsApp del negocio (con código de país)</div>
-                    <div className="row" style={{ gap: 6 }}>
-                      <input className="inp" placeholder="ej. 50498765432" value={whatsappBiz}
-                        onChange={e => setWhatsappBiz(e.target.value.replace(/\D/g,""))}
-                        style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
-                    </div>
-                    <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4 }}>Honduras: 504 + tu número de 8 dígitos · Se usa en el cotizador de clientes</div>
+                    <div className="lbl">WhatsApp del negocio</div>
+                    <PhoneInput value={whatsappBiz} onChange={setWhatsappBiz} placeholder="tu número" />
+                    <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6 }}>Se usa para recibir solicitudes de clientes y como botón en la factura</div>
                   </div>
                   <div>
                     <div className="lbl">Energía — cálculo automático</div>

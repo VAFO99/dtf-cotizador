@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import PhoneInput from "./PhoneInput.jsx";
 import { loadConfigRemote, createCotizacion, getNextNumero } from "./supabase.js";
 
 // ── PLACEMENT INFO (educativo para el cliente) ──
@@ -268,9 +269,9 @@ export default function ClientApp() {
                   <input className="cinp" placeholder="Ej: María García" value={nombre} onChange={e=>setNombre(e.target.value)} autoFocus/>
                 </div>
                 <div>
-                  <div className="lbl">WhatsApp * (con código de país)</div>
-                  <input className="cinp" placeholder="504XXXXXXXX" value={whatsapp} onChange={e=>setWhatsapp(e.target.value.replace(/\D/g,""))} type="tel"/>
-                  <div style={{ fontSize:11, color:"#4A5568", marginTop:5 }}>Honduras: 504 + tu número de 8 dígitos</div>
+                  <div className="lbl">WhatsApp *</div>
+                  <PhoneInput value={whatsapp} onChange={setWhatsapp} placeholder="tu número" style={{ height:46 }} />
+                  <div style={{ fontSize:11, color:"#4A5568", marginTop:5 }}>Usaremos este número para enviarte la cotización</div>
                 </div>
                 <div>
                   <div className="lbl">Correo electrónico (opcional)</div>
