@@ -1,12 +1,30 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { MaxRectsPacker } from "maxrects-packer";
 
-const STORAGE_KEY = "dtf_config_v1";
+const STORAGE_KEY = "dtf_config_v2"; // bumped: placements en español + tallas/colores config
+
+// Mapa de migración de nombres en inglés → español
+const PLACEMENT_ES = {
+  "Front": "Frente", "Back": "Espalda",
+  "LC": "Pecho Izq", "RC": "Pecho Der",
+  "Manga L": "Manga Izq", "Manga R": "Manga Der",
+  "Nape": "Cuello", "Bolsillo": "Bolsillo",
+  "Front OS": "Frente OS", "Back OS": "Espalda OS",
+};
 
 function loadConfig() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const cfg = JSON.parse(raw);
+    // Migrar nombres en inglés a español si vienen de v1
+    if (cfg.placements) {
+      cfg.placements = cfg.placements.map(p => ({
+        ...p,
+        label: PLACEMENT_ES[p.label] ?? p.label,
+      }));
+    }
+    return cfg;
   } catch { return null; }
 }
 
@@ -219,6 +237,10 @@ export default function App() {
   const [poliGramos, setPoliGramos] = useState(saved?.poliGramos ?? 907);
   const [businessName, setBusinessName] = useState(saved?.businessName ?? "ARTAMPA");
   const [energyCost, setEnergyCost] = useState(saved?.energyCost ?? 0.20);
+  const [tallasCfg, setTallasCfg] = useState(saved?.tallasCfg ?? ["XS","S","M","L","XL","XXL","XXXL"]);
+  const [coloresCfg, setColoresCfg] = useState(saved?.coloresCfg ?? ["Blanco","Negro","Gris","Rojo","Azul marino","Azul cielo","Verde","Amarillo","Naranja","Rosado","Morado","Café"]);
+  const [newTalla, setNewTalla] = useState("");
+  const [newColor, setNewColor] = useState("");
 
   // Save state
   const [saveStatus, setSaveStatus] = useState("idle"); // idle | dirty | saved
@@ -227,8 +249,8 @@ export default function App() {
 
   const currentConfig = useMemo(() => ({
     margin, prendas, placements, sheets, designTypes, fixTypes, volTiers,
-    poliBolsa, poliGramos, businessName, energyCost
-  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, energyCost]);
+    poliBolsa, poliGramos, businessName, energyCost, tallasCfg, coloresCfg
+  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, energyCost, tallasCfg, coloresCfg]);
 
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
@@ -695,7 +717,7 @@ export default function App() {
 
             {/* Config tab pills */}
             <div className="cfg-pills-scroll" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-              {[["negocio","Mi Negocio"],["prendas","Prendas"],["placements","Posiciones"],["sheets","Hojas DTF"],["poli","Poliamida"],["design","Diseño"],["fix","Corrección"],["vol","Volumen"]].map(([k,v]) => (
+              {[["negocio","Mi Negocio"],["prendas","Prendas"],["placements","Posiciones"],["tallas","Tallas"],["colores","Colores"],["sheets","Hojas DTF"],["poli","Poliamida"],["design","Diseño"],["fix","Corrección"],["vol","Volumen"]].map(([k,v]) => (
                 <button key={k} className={`cfg-pill ${cfgTab === k ? "active" : ""}`} onClick={() => setCfgTab(k)}>{v}</button>
               ))}
             </div>
@@ -760,6 +782,80 @@ export default function App() {
                     </div>
                   ))}
                   <button className="btn-add" style={{ marginTop: 4 }} onClick={add(setPlacements, { label: "Nuevo", w: 5, h: 5, color: "#22D3EE" })}>+ Agregar posición</button>
+                </div>
+              </div>
+            )}
+
+            {/* TALLAS */}
+            {cfgTab === "tallas" && (
+              <div className="card fade-up">
+                <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Tallas disponibles</span></div>
+                <div className="card-body">
+                  <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 12 }}>
+                    Define las tallas que aparecen al cotizar. Arrastrá para reordenar o eliminá las que no usás.
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                    {tallasCfg.map((t, i) => (
+                      <div key={t} style={{ display: "flex", alignItems: "center", gap: 4, background: "var(--bg)", border: "1.5px solid var(--border2)", borderRadius: 8, padding: "6px 10px" }}>
+                        <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 13, color: "var(--accent)" }}>{t}</span>
+                        <button onClick={() => setTallasCfg(p => p.filter((_, j) => j !== i))}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 14, padding: "0 0 0 4px", lineHeight: 1 }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="row" style={{ gap: 8 }}>
+                    <input className="inp inp-sm" placeholder="Nueva talla (ej. 4T, 6T, One Size…)" value={newTalla}
+                      onChange={e => setNewTalla(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && newTalla.trim() && !tallasCfg.includes(newTalla.trim())) { setTallasCfg(p => [...p, newTalla.trim()]); setNewTalla(""); }}}
+                      style={{ flex: 1 }} />
+                    <button onClick={() => { if (newTalla.trim() && !tallasCfg.includes(newTalla.trim())) { setTallasCfg(p => [...p, newTalla.trim()]); setNewTalla(""); }}}
+                      style={{ background: "var(--accent)", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 700, color: "var(--bg)", cursor: "pointer", minHeight: 38 }}>
+                      + Agregar
+                    </button>
+                  </div>
+                  <div style={{ marginTop: 12 }}>
+                    <button onClick={() => setTallasCfg(["XS","S","M","L","XL","XXL","XXXL"])}
+                      style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 14px", fontSize: 11, color: "var(--text3)", cursor: "pointer" }}>
+                      ↺ Restaurar defaults
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* COLORES */}
+            {cfgTab === "colores" && (
+              <div className="card fade-up">
+                <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Colores de prenda frecuentes</span></div>
+                <div className="card-body">
+                  <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 12 }}>
+                    Estos colores aparecen como sugerencias al cotizar. El campo de color también acepta cualquier texto libre.
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                    {coloresCfg.map((c, i) => (
+                      <div key={c} style={{ display: "flex", alignItems: "center", gap: 4, background: "var(--bg)", border: "1.5px solid var(--border2)", borderRadius: 8, padding: "6px 12px" }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{c}</span>
+                        <button onClick={() => setColoresCfg(p => p.filter((_, j) => j !== i))}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 14, padding: "0 0 0 4px", lineHeight: 1 }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="row" style={{ gap: 8 }}>
+                    <input className="inp inp-sm" placeholder="Nuevo color (ej. Verde militar, Tie dye…)" value={newColor}
+                      onChange={e => setNewColor(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && newColor.trim() && !coloresCfg.includes(newColor.trim())) { setColoresCfg(p => [...p, newColor.trim()]); setNewColor(""); }}}
+                      style={{ flex: 1 }} />
+                    <button onClick={() => { if (newColor.trim() && !coloresCfg.includes(newColor.trim())) { setColoresCfg(p => [...p, newColor.trim()]); setNewColor(""); }}}
+                      style={{ background: "var(--accent)", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 700, color: "var(--bg)", cursor: "pointer", minHeight: 38 }}>
+                      + Agregar
+                    </button>
+                  </div>
+                  <div style={{ marginTop: 12 }}>
+                    <button onClick={() => setColoresCfg(["Blanco","Negro","Gris","Rojo","Azul marino","Azul cielo","Verde","Amarillo","Naranja","Rosado","Morado","Café"])}
+                      style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 14px", fontSize: 11, color: "var(--text3)", cursor: "pointer" }}>
+                      ↺ Restaurar defaults
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -970,18 +1066,30 @@ export default function App() {
                       <button className="btn-del" onClick={() => setLines(p => p.length > 1 ? p.filter((_, j) => j !== i) : p)}>×</button>
                     </div>
 
-                    {/* Color */}
+                    {/* Color con sugerencias */}
                     <div style={{ marginLeft: 24, marginBottom: 10 }}>
                       <div className="lbl">Color de prenda</div>
-                      <input className="inp inp-sm" placeholder="ej. Blanco, Negro, Rojo…" value={line.color || ""}
-                        onChange={e => updLine(i, "color", e.target.value)} style={{ maxWidth: 220 }} />
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 6 }}>
+                        {coloresCfg.map(c => (
+                          <button key={c} onClick={() => updLine(i, "color", c)}
+                            style={{
+                              padding: "4px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                              background: line.color === c ? "var(--accent)" : "var(--bg)",
+                              color: line.color === c ? "var(--bg)" : "var(--text2)",
+                              border: `1.5px solid ${line.color === c ? "var(--accent)" : "var(--border2)"}`,
+                              transition: "all .12s",
+                            }}>{c}</button>
+                        ))}
+                      </div>
+                      <input className="inp inp-sm" placeholder="O escribe cualquier color…" value={line.color || ""}
+                        onChange={e => updLine(i, "color", e.target.value)} style={{ maxWidth: 260 }} />
                     </div>
 
                     {/* Tallas + cantidad — siempre visible */}
                     <div style={{ marginLeft: 24, marginBottom: 10 }}>
                       <div className="lbl">Cantidad por talla</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 6 }}>
-                        {TALLAS_DEFAULT.map(t => {
+                        {tallasCfg.map(t => {
                           const entry = (line.tallas || []).find(x => x.talla === t);
                           const val = entry?.qty ?? "";
                           const active = Number(val) > 0;
