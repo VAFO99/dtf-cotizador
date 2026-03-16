@@ -225,7 +225,7 @@ export default function ClientApp() {
         <div style={{ maxWidth:560, margin:"0 auto", padding:"0 16px", height:56, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <div>
             <h1 style={{ fontWeight:800, fontSize:17, letterSpacing:"-.3px", color:"#22D3EE", margin:0 }}>{businessName}</h1>
-            <p style={{ fontSize:9, color:"#4A5568", letterSpacing:".1em", textTransform:"uppercase", fontFamily:"'JetBrains Mono'", margin:0 }}>DTF · Solicitar cotización</p>
+            <p style={{ fontSize:9, color:"#4A5568", letterSpacing:".1em", textTransform:"uppercase", fontFamily:"'JetBrains Mono'", margin:0 }}>{cfg?.seoSlogan || "DTF · Solicitar cotización"}</p>
           </div>
 
         </div>

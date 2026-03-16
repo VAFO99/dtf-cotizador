@@ -174,6 +174,10 @@ export default function App() {
   const [pinError, setPinError]       = useState(false);
   const [adminPin, setAdminPin]       = useState(saved?.adminPin ?? "1234");
   const [whatsappBiz, setWhatsappBiz] = useState(saved?.whatsappBiz ?? "");
+  // SEO fields — editable from Config → Mi Negocio
+  const [seoTitle, setSeoTitle]           = useState(saved?.seoTitle       ?? "");
+  const [seoDesc, setSeoDesc]             = useState(saved?.seoDesc        ?? "");
+  const [seoSlogan, setSeoSlogan]         = useState(saved?.seoSlogan      ?? "");
   // BCH exchange rate (auto-fetched)
   const [bchRate, setBchRate]         = useState(saved?.tipoCambio ?? 25.5);
   const [bchUpdated, setBchUpdated]   = useState(null);
@@ -187,8 +191,9 @@ export default function App() {
   const currentConfig = useMemo(() => ({
     margin, prendas, placements, sheets, designTypes, fixTypes, volTiers,
     poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias,
-    darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, whatsappBiz
-  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias, darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, whatsappBiz]);
+    darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, whatsappBiz,
+    seoTitle, seoDesc, seoSlogan
+  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias, darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, whatsappBiz, seoTitle, seoDesc, seoSlogan]);
 
   // Add noindex meta for admin (security — don't let search engines index this)
   useEffect(() => {
@@ -269,7 +274,10 @@ export default function App() {
         if (remoteCfg.tipoCambio)   setTipoCambio(remoteCfg.tipoCambio);
         if (remoteCfg.mostrarUSD !== undefined) setMostrarUSD(remoteCfg.mostrarUSD);
         if (remoteCfg.darkMode !== undefined) setDarkMode(remoteCfg.darkMode);
-        if (remoteCfg.whatsappBiz)                 setWhatsappBiz(remoteCfg.whatsappBiz);
+        if (remoteCfg.whatsappBiz)  setWhatsappBiz(remoteCfg.whatsappBiz);
+        if (remoteCfg.seoTitle)     setSeoTitle(remoteCfg.seoTitle);
+        if (remoteCfg.seoDesc)      setSeoDesc(remoteCfg.seoDesc);
+        if (remoteCfg.seoSlogan)    setSeoSlogan(remoteCfg.seoSlogan);
         if (remoteCfg.darkMode      !== undefined)  setDarkMode(remoteCfg.darkMode);
         if (remoteCfg.mostrarUSD    !== undefined)  setMostrarUSD(remoteCfg.mostrarUSD);
         if (remoteCfg.margenMin     !== undefined)  setMargenMin(remoteCfg.margenMin);
@@ -349,6 +357,9 @@ export default function App() {
         if (cfg.agruparPorColor !== undefined) setAgruparPorColor(cfg.agruparPorColor);
         // adminPin stored separately
         if (cfg.whatsappBiz) setWhatsappBiz(cfg.whatsappBiz);
+        if (cfg.seoTitle)    setSeoTitle(cfg.seoTitle);
+        if (cfg.seoDesc)     setSeoDesc(cfg.seoDesc);
+        if (cfg.seoSlogan)   setSeoSlogan(cfg.seoSlogan);
         alert("✅ Configuración importada correctamente");
       } catch { alert("❌ Archivo inválido"); }
     };
@@ -939,6 +950,58 @@ export default function App() {
                     <div className="lbl">WhatsApp del negocio</div>
                     <PhoneInput value={whatsappBiz} onChange={setWhatsappBiz} placeholder="tu número" />
                     <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6 }}>Se usa para recibir solicitudes de clientes y como botón en la factura</div>
+                  </div>
+
+                  {/* SEO — editable desde admin */}
+                  <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                      <span style={{ fontWeight: 700, fontSize: 13, color: "var(--accent)" }}>SEO y redes sociales</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 12, lineHeight: 1.6 }}>
+                      Estos datos aparecen cuando alguien comparte el link de tu cotizador en WhatsApp, Facebook o Google.
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <div>
+                        <div className="lbl">Título de la página (SEO title)</div>
+                        <input className="inp" value={seoTitle}
+                          onChange={e => setSeoTitle(e.target.value)}
+                          placeholder={`${businessName} — Cotización DTF`}
+                          maxLength={70} />
+                        <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 4, display: "flex", justifyContent: "space-between" }}>
+                          <span>Aparece en la pestaña del browser y en Google</span>
+                          <span style={{ color: seoTitle.length > 60 ? "var(--warn)" : "var(--text3)" }}>{seoTitle.length}/70</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="lbl">Descripción (meta description)</div>
+                        <textarea className="inp" value={seoDesc}
+                          onChange={e => setSeoDesc(e.target.value)}
+                          placeholder="Personalizá tus prendas con estampado DTF. Cotizá en minutos, entrega en 24-48h."
+                          maxLength={160} rows={3} style={{ resize: "vertical", minHeight: 70 }} />
+                        <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 4, display: "flex", justifyContent: "space-between" }}>
+                          <span>Aparece en Google y cuando se comparte el link en WhatsApp</span>
+                          <span style={{ color: seoDesc.length > 150 ? "var(--warn)" : "var(--text3)" }}>{seoDesc.length}/160</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="lbl">Slogan / subtítulo (página pública)</div>
+                        <input className="inp" value={seoSlogan}
+                          onChange={e => setSeoSlogan(e.target.value)}
+                          placeholder="Estampado DTF · Entrega 24-48h · Honduras"
+                          maxLength={80} />
+                        <div style={{ fontSize: 10, color: "var(--text3)", marginTop: 4 }}>Aparece debajo del nombre en la página de cotización del cliente</div>
+                      </div>
+                    </div>
+                    {/* Preview */}
+                    {(seoTitle || seoDesc) && (
+                      <div style={{ marginTop: 14, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px" }}>
+                        <div style={{ fontSize: 10, color: "var(--text3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".08em" }}>Preview Google</div>
+                        <div style={{ fontSize: 15, color: "#1a73e8", fontWeight: 500, marginBottom: 2 }}>{seoTitle || `${businessName} — Cotización DTF`}</div>
+                        <div style={{ fontSize: 12, color: "#006621", marginBottom: 4, fontFamily: "'JetBrains Mono'" }}>dtf-cotizador...vercel.app</div>
+                        <div style={{ fontSize: 13, color: "var(--text2)", lineHeight: 1.5 }}>{seoDesc || "Personalizá tus prendas con estampado DTF. Cotizá en minutos."}</div>
+                      </div>
+                    )}
                   </div>
                   <div>
                     <div className="lbl">Energía — cálculo automático</div>
