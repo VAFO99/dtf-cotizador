@@ -187,8 +187,16 @@ export default function App() {
   const currentConfig = useMemo(() => ({
     margin, prendas, placements, sheets, designTypes, fixTypes, volTiers,
     poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias,
-    darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, adminPin, whatsappBiz
-  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias, darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, adminPin, whatsappBiz]);
+    darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, whatsappBiz
+  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias, darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, whatsappBiz]);
+
+  // Add noindex meta for admin (security — don't let search engines index this)
+  useEffect(() => {
+    const meta = document.createElement('meta');
+    meta.name = 'robots'; meta.content = 'noindex,nofollow';
+    document.head.appendChild(meta);
+    return () => document.head.removeChild(meta);
+  }, []);
 
   // Track unsaved changes (just the indicator dot, no auto-POST)
   useEffect(() => {
@@ -197,10 +205,19 @@ export default function App() {
     setSaveStatus("dirty");
   }, [currentConfig]);
 
+  // adminPin saved separately, NOT in main config JSON
+  const PIN_KEY = "dtf_admin_pin";
+  useEffect(() => {
+    const savedPin = localStorage.getItem(PIN_KEY);
+    if (savedPin) setAdminPin(savedPin);
+  }, []);
+
   const handleSave = useCallback(async () => {
     setSaveStatus("saving");
     const localOk = saveConfig(currentConfig);
     if (supabaseReady) await saveConfigRemote(currentConfig);
+    // Save PIN separately (not in main config)
+    localStorage.setItem(PIN_KEY, adminPin);
     if (localOk === false) {
       setSaveStatus("error");
       setTimeout(() => setSaveStatus("dirty"), 3000);
@@ -257,7 +274,7 @@ export default function App() {
         if (remoteCfg.mostrarUSD    !== undefined)  setMostrarUSD(remoteCfg.mostrarUSD);
         if (remoteCfg.margenMin     !== undefined)  setMargenMin(remoteCfg.margenMin);
         if (remoteCfg.agruparPorColor !== undefined) setAgruparPorColor(remoteCfg.agruparPorColor);
-        if (remoteCfg.adminPin)                     setAdminPin(remoteCfg.adminPin);
+        // adminPin stored separately, not in remote config
         if (remoteCfg.prensaWatts)  setPrensaWatts(remoteCfg.prensaWatts);
         if (remoteCfg.prensaSeg)    setPrensaSeg(remoteCfg.prensaSeg);
         if (remoteCfg.tarifaKwh)    setTarifaKwh(remoteCfg.tarifaKwh);
@@ -330,7 +347,7 @@ export default function App() {
         if (cfg.mostrarUSD !== undefined) setMostrarUSD(cfg.mostrarUSD);
         if (cfg.margenMin !== undefined) setMargenMin(cfg.margenMin);
         if (cfg.agruparPorColor !== undefined) setAgruparPorColor(cfg.agruparPorColor);
-        if (cfg.adminPin) setAdminPin(cfg.adminPin);
+        // adminPin stored separately
         if (cfg.whatsappBiz) setWhatsappBiz(cfg.whatsappBiz);
         alert("✅ Configuración importada correctamente");
       } catch { alert("❌ Archivo inválido"); }
@@ -832,8 +849,8 @@ export default function App() {
                 </svg>
               </div>
               <div>
-                <div style={{ fontWeight: 800, fontSize: 15, letterSpacing: "-.3px", lineHeight: 1.1 }}>{businessName}</div>
-                <div style={{ fontSize: 10, color: "var(--text3)", fontFamily: "'JetBrains Mono'", letterSpacing: ".06em" }}>DTF · COTIZADOR</div>
+                <h1 style={{ fontWeight: 800, fontSize: 15, letterSpacing: "-.3px", lineHeight: 1.1, margin: 0 }}>{businessName}</h1>
+                <p style={{ fontSize: 10, color: "var(--text3)", fontFamily: "'JetBrains Mono'", letterSpacing: ".06em", margin: 0 }}>DTF · COTIZADOR</p>
               </div>
             </div>
             {/* Save indicator */}
@@ -857,6 +874,7 @@ export default function App() {
             </div>
           </div>
           {/* Desktop tabs */}
+          <nav aria-label="Navegación principal">
           <div className="desktop-tabs" style={{ display: "flex", borderTop: "1px solid var(--border)", overflowX: "auto" }}>
             <button className={`tab-btn ${tab === "cotizar" ? "active" : ""}`} onClick={() => setTab("cotizar")}>Cotizar</button>
             <button className={`tab-btn ${tab === "pedidos" ? "active" : ""}`} onClick={() => setTab("pedidos")}>
@@ -868,6 +886,7 @@ export default function App() {
             </button>
             <button className={`tab-btn ${tab === "config" ? "active" : ""}`} onClick={() => setTab("config")}>Configuración</button>
           </div>
+          </nav>
         </div>
       </header>
 

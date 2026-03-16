@@ -199,7 +199,7 @@ export default function ClientApp() {
   );
 
   return (
-    <div style={{ minHeight:"100vh", background:"#080A10", color:"#E2E8F4", fontFamily:"'Sora',sans-serif" }}>
+    <div style={{ minHeight:"100vh", background:"#080A10", color:"#E2E8F4", fontFamily:"'Sora',sans-serif" }} role="document">
       <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet"/>
       <style>{`
         *{box-sizing:border-box;margin:0;padding:0}
@@ -224,10 +224,10 @@ export default function ClientApp() {
       <header style={{ background:"rgba(13,16,24,.92)", backdropFilter:"blur(20px)", borderBottom:"1px solid #1E2535", position:"sticky", top:0, zIndex:50 }}>
         <div style={{ maxWidth:560, margin:"0 auto", padding:"0 16px", height:56, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
           <div>
-            <div style={{ fontWeight:800, fontSize:17, letterSpacing:"-.3px", color:"#22D3EE" }}>{businessName}</div>
-            <div style={{ fontSize:9, color:"#4A5568", letterSpacing:".1em", textTransform:"uppercase", fontFamily:"'JetBrains Mono'" }}>DTF · Solicitar cotización</div>
+            <h1 style={{ fontWeight:800, fontSize:17, letterSpacing:"-.3px", color:"#22D3EE", margin:0 }}>{businessName}</h1>
+            <p style={{ fontSize:9, color:"#4A5568", letterSpacing:".1em", textTransform:"uppercase", fontFamily:"'JetBrains Mono'", margin:0 }}>DTF · Solicitar cotización</p>
           </div>
-          <a href="/admin" style={{ fontSize:11, color:"#1E2535", textDecoration:"none" }}>Admin</a>
+
         </div>
       </header>
 
@@ -251,14 +251,14 @@ export default function ClientApp() {
         </div>
       </div>
 
-      <div style={{ maxWidth:560, margin:"0 auto", padding:"0 16px 100px" }}>
+      <div id="main-content" style={{ maxWidth:560, margin:"0 auto", padding:"0 16px 100px" }}>
 
         {/* ══ STEP 0: DATOS ══ */}
         {step===0 && (
           <div className="fade-up">
             <div className="card">
               <div style={{ marginBottom:20 }}>
-                <div style={{ fontSize:22, fontWeight:800, marginBottom:6 }}>¡Hola! 👋</div>
+                <h2 style={{ fontSize:22, fontWeight:800, marginBottom:6, margin:"0 0 6px" }}>¡Hola! 👋</h2>
                 <div style={{ fontSize:14, color:"#94A3B8", lineHeight:1.6 }}>
                   Completá este formulario y te enviaremos una cotización personalizada por WhatsApp. <b style={{ color:"#E2E8F4" }}>Sin costo, sin compromiso.</b>
                 </div>
@@ -266,7 +266,7 @@ export default function ClientApp() {
               <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
                 <div>
                   <div className="lbl">Tu nombre completo *</div>
-                  <input className="cinp" placeholder="Ej: María García" value={nombre} onChange={e=>setNombre(e.target.value)} autoFocus/>
+                  <input className="cinp" placeholder="Ej: María García" aria-label="Tu nombre completo" value={nombre} onChange={e=>setNombre(e.target.value)} autoFocus/>
                 </div>
                 <div>
                   <div className="lbl">WhatsApp *</div>
@@ -275,7 +275,7 @@ export default function ClientApp() {
                 </div>
                 <div>
                   <div className="lbl">Correo electrónico (opcional)</div>
-                  <input className="cinp" placeholder="tu@correo.com" value={email} onChange={e=>setEmail(e.target.value)} type="email"/>
+                  <input className="cinp" placeholder="tu@correo.com" value={email} aria-label="Correo electrónico" onChange={e=>setEmail(e.target.value)} type="email"/>
                 </div>
               </div>
             </div>
@@ -345,7 +345,7 @@ export default function ClientApp() {
                     <div key={t} style={{ background:"#080A10", border:`1.5px solid ${(tallas[t]??0)>0?"#22D3EE":"#1E2535"}`, borderRadius:10, padding:"10px 8px", textAlign:"center" }}>
                       <div style={{ fontSize:13, fontWeight:800, color:(tallas[t]??0)>0?"#22D3EE":"#64748B", marginBottom:6, fontFamily:"'JetBrains Mono'" }}>{t}</div>
                       <input type="number" min={0} max={999} value={tallas[t]??""} placeholder="0"
-                        onChange={e=>setTallas(prev=>({...prev,[t]:parseInt(e.target.value)||0}))}
+                        onChange={e=>setTallas(prev=>({...prev,[t]:parseInt(e.target.value)||0}))} aria-label={`Cantidad talla ${t}`}
                         style={{ width:"100%", textAlign:"center", background:"transparent", border:"none", outline:"none", fontSize:18, fontWeight:800, fontFamily:"'JetBrains Mono'", color:"#E2E8F4" }}/>
                     </div>
                   ))}
