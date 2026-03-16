@@ -4,7 +4,7 @@ import { findBestSheets } from "./nesting.js";
 import PhoneInput from "./PhoneInput.jsx";
 import {
   loadConfigRemote, saveConfigRemote,
-  loadCotizaciones, createCotizacion, updateCotizacionEstado, deleteCotizacion,
+  loadCotizaciones, createCotizacion, updateCotizacion, updateCotizacionEstado, deleteCotizacion,
   getNextNumero, checkConnection,
 } from "./supabase.js";
 
@@ -164,6 +164,10 @@ export default function App() {
   const [pedidos, setPedidos]         = useState(() => loadPedidos());
   const [agruparPorColor, setAgruparPorColor] = useState(saved?.agruparPorColor ?? false);
   const [pedidoTab, setPedidoTab]     = useState("Todos");
+  const [cotizandoId, setCotizandoId]   = useState(null); // ID del pedido que se está cotizando
+  const [cotizModal, setCotizModal]     = useState(null); // { id, cliente, lines, ... }
+  const [modalTotal, setModalTotal]     = useState("");
+  const [modalNota, setModalNota]       = useState("");
   const [pedidosPage, setPedidosPage]   = useState(0);
   const PEDIDOS_PER_PAGE = 20;
   const [syncStatus, setSyncStatus]   = useState("idle");

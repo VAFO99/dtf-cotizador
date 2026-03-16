@@ -85,6 +85,17 @@ export async function createCotizacion(cotizacion) {
   }
 }
 
+export async function updateCotizacion(id, fields) {
+  try {
+    const { error } = await supabase
+      .from("cotizaciones")
+      .update(fields)
+      .eq("id", id);
+    if (error) console.warn("Supabase update error:", error.message);
+    return !error;
+  } catch (e) { return false; }
+}
+
 export async function updateCotizacionEstado(id, estado) {
   try {
     const { error } = await supabase
