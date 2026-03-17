@@ -343,7 +343,7 @@ function buildPackingContext({ lines, placements, prendas, poliRate, sheets, agr
       if (!(custom.w && custom.h)) return;
       const width = Number(custom.w);
       const height = Number(custom.h);
-      piecesPerUnit.push({ w: width, h: height, label: custom.label || "Custom", color: custom.color || "#63E1D9" });
+      piecesPerUnit.push({ w: width, h: height, label: custom.label || "Custom", color: custom.color || "#0071E3" });
       poli += calcPoli(width, height);
     });
 
@@ -1205,14 +1205,14 @@ export default function App() {
     <div className={darkMode ? "dark-theme" : "light-theme"} style={{ background: "var(--bg)", color: "var(--text)", fontFamily: "'Outfit',sans-serif", minHeight: "100dvh" }}>
       {/* PIN Gate */}
       {!pinUnlocked && (
-        <div style={{ position: "fixed", inset: 0, background: "#06080d", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
-          <div style={{ position: "absolute", top: "-20%", right: "-10%", width: "50vw", height: "50vw", borderRadius: "50%", background: "radial-gradient(circle,rgba(99,225,217,.04) 0%,transparent 70%)", filter: "blur(80px)", pointerEvents: "none" }}/>
+        <div style={{ position: "fixed", inset: 0, background: "#1C1C1E", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
+          <div style={{ position: "absolute", top: "-20%", right: "-10%", width: "50vw", height: "50vw", borderRadius: "50%", background: "radial-gradient(circle,rgba(0,113,227,.04) 0%,transparent 70%)", filter: "blur(80px)", pointerEvents: "none" }}/>
           <div style={{ textAlign: "center", marginBottom: 8, position: "relative" }}>
-            <div style={{ fontFamily: "'Outfit'", fontWeight: 800, fontSize: 28, color: "#e8edf5", letterSpacing: "-.03em" }}>{businessName}</div>
-            <div style={{ fontSize: 10, color: "#4a5a72", letterSpacing: ".14em", textTransform: "uppercase", marginTop: 6, fontWeight: 600 }}>Panel interno · Acceso restringido</div>
+            <div style={{ fontFamily: "'Outfit'", fontWeight: 800, fontSize: 28, color: "#F5F5F7", letterSpacing: "-.03em" }}>{businessName}</div>
+            <div style={{ fontSize: 10, color: "#6E6E73", letterSpacing: ".14em", textTransform: "uppercase", marginTop: 6, fontWeight: 600 }}>Panel interno · Acceso restringido</div>
           </div>
           <div style={{ background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)", borderRadius: 22, padding: "28px 32px", width: 280, textAlign: "center", backdropFilter: "blur(12px)", position: "relative" }}>
-            <div style={{ fontSize: 13, color: "#7a8ba8", marginBottom: 16, fontWeight: 600 }}>Ingresa el PIN de acceso</div>
+            <div style={{ fontSize: 13, color: "#A1A1A6", marginBottom: 16, fontWeight: 600 }}>Ingresa el PIN de acceso</div>
             <input
               type="password" inputMode="numeric" maxLength={8}
               value={pinInput} onChange={e => { setPinInput(e.target.value); setPinError(false); }}
@@ -1224,55 +1224,49 @@ export default function App() {
               }}
               placeholder="••••"
               style={{ width: "100%", textAlign: "center", fontSize: 28, letterSpacing: 8, fontFamily: "'JetBrains Mono'", fontWeight: 700,
-                background: "#06080d", border: `2px solid ${pinError ? "#F87171" : "rgba(255,255,255,.1)"}`, borderRadius: 10, padding: "12px", color: "#e8edf5", outline: "none" }}
+                background: "#1C1C1E", border: `2px solid ${pinError ? "#F87171" : "rgba(255,255,255,.1)"}`, borderRadius: 10, padding: "12px", color: "#F5F5F7", outline: "none" }}
               autoFocus
             />
             {pinError && <div style={{ color: "#F87171", fontSize: 12, marginTop: 8, fontWeight: 600 }}>PIN incorrecto</div>}
             <button onClick={() => {
               if (pinInput === adminPin) { sessionStorage.setItem("dtf_pin_ok", "1"); setPinUnlocked(true); }
               else { setPinError(true); setPinInput(""); }
-            }} style={{ marginTop: 16, width: "100%", background: "linear-gradient(135deg,#63E1D9,#4CB8B0)", border: "none", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 800, color: "#06080d", cursor: "pointer" }}>
+            }} style={{ marginTop: 16, width: "100%", background: "var(--accent)", border: "none", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 800, color: "#fff", cursor: "pointer" }}>
               Entrar
             </button>
           </div>
-          <a href="/" style={{ fontSize: 12, color: "#4a5a72", textDecoration: "none" }}>← Volver al cotizador público</a>
+          <a href="/" style={{ fontSize: 12, color: "#6E6E73", textDecoration: "none" }}>← Volver al cotizador público</a>
         </div>
       )}
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-      {/* Ambient background glow */}
-      {darkMode && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: "-15%", right: "-8%", width: "45vw", height: "45vw", borderRadius: "50%", background: "radial-gradient(circle,rgba(99,225,217,.035) 0%,transparent 70%)", filter: "blur(80px)" }}/>
-          <div style={{ position: "absolute", bottom: "-10%", left: "-8%", width: "35vw", height: "35vw", borderRadius: "50%", background: "radial-gradient(circle,rgba(76,184,176,.025) 0%,transparent 70%)", filter: "blur(60px)" }}/>
-        </div>
-      )}
+      {/* No ambient effects — clean Apple-like aesthetic */}
       <style>{`
         :root {
-          --accent: #63E1D9;
-          --accent-dim: rgba(99,225,217,.1);
-          --accent-glow: rgba(99,225,217,.2);
-          --green: #34D399;
-          --red: #F87171;
-          --warn: #FBBF24;
-          --radius: 18px;
+          --accent: #0071E3;
+          --accent-dim: rgba(0,113,227,.08);
+          --accent-glow: rgba(0,113,227,.15);
+          --green: #2E7D32;
+          --red: #D32F2F;
+          --warn: #F57F17;
+          --radius: 16px;
           --radius-sm: 10px;
         }
         .dark-theme {
-          --bg: #06080d; --bg2: rgba(255,255,255,.025); --bg3: rgba(255,255,255,.04);
-          --border: rgba(255,255,255,.06); --border2: rgba(255,255,255,.1);
-          --text: #e8edf5; --text2: #7a8ba8; --text3: #4a5a72;
-          --shadow: rgba(0,0,0,.5);
+          --bg: #1C1C1E; --bg2: #2C2C2E; --bg3: #3A3A3C;
+          --border: #38383A; --border2: #48484A;
+          --text: #F5F5F7; --text2: #A1A1A6; --text3: #6E6E73;
+          --shadow: rgba(0,0,0,.4);
         }
         .light-theme {
-          --bg: #F8FAFC; --bg2: #FFFFFF; --bg3: #F1F5F9;
-          --border: #E2E8F0; --border2: #CBD5E1;
-          --text: #0F172A; --text2: #475569; --text3: #94A3B8;
-          --shadow: rgba(0,0,0,.06);
+          --bg: #F5F5F7; --bg2: #FFFFFF; --bg3: #FAFAFA;
+          --border: #E8E8ED; --border2: #D2D2D7;
+          --text: #1D1D1F; --text2: #6E6E73; --text3: #86868B;
+          --shadow: rgba(0,0,0,.04);
         }
-        .light-theme .card { box-shadow: 0 1px 12px var(--shadow); }
-        .light-theme .line-card { background: #F8FAFC; }
-        .light-theme header { background: rgba(255,255,255,.88); backdrop-filter: blur(24px); }
+        .light-theme .card { box-shadow: 0 1px 4px var(--shadow); }
+        .light-theme .line-card { background: #FAFAFA; }
+        .light-theme header { background: rgba(245,245,247,.8); backdrop-filter: blur(20px); }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { -webkit-text-size-adjust: 100%; font-size: 16px; }
         body { background: var(--bg); overscroll-behavior-y: none; }
@@ -1292,8 +1286,7 @@ export default function App() {
           border-radius: var(--radius);
           margin-bottom: 12px;
           overflow: hidden;
-          transition: border-color .25s;
-          backdrop-filter: blur(12px);
+          transition: border-color .2s;
         }
         .card:hover { border-color: var(--border2); }
         .card-head {
@@ -1325,7 +1318,6 @@ export default function App() {
           outline: none;
           border-color: var(--accent);
           box-shadow: 0 0 0 3px var(--accent-dim);
-          background: rgba(99,225,217,.03);
         }
         .inp-sm { font-size: 12px; padding: 8px 10px; min-height: 38px; }
         .sel {
@@ -1380,7 +1372,7 @@ export default function App() {
           transition: all .25s;
           letter-spacing: -.01em;
         }
-        .btn-save:hover { transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-dim); }
+        .btn-save:hover { opacity: .85; }
 
         /* ── TABS ── */
         .tab-btn {
@@ -1392,7 +1384,7 @@ export default function App() {
           transition: all .25s; white-space: nowrap;
           min-height: 44px; letter-spacing: -.01em;
         }
-        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); text-shadow: 0 0 20px var(--accent-dim); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
         .tab-btn:hover:not(.active) { color: var(--text2); }
 
         /* ── PILLS ── */
@@ -1416,10 +1408,9 @@ export default function App() {
           white-space: nowrap;
         }
         .cfg-pill.active {
-          background: linear-gradient(135deg,#63E1D9,#4CB8B0);
-          color: #06080d;
-          border-color: transparent;
-          box-shadow: 0 0 16px rgba(99,225,217,.15);
+          background: var(--accent);
+          color: #fff;
+          border-color: var(--accent);
         }
         .cfg-pill:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
 
@@ -1438,7 +1429,7 @@ export default function App() {
           -webkit-tap-highlight-color: transparent;
         }
         .pl-chip:hover { border-color: var(--text2); color: var(--text); }
-        .pl-chip.on { color: #fff; border-color: transparent; font-weight: 700; box-shadow: 0 0 12px rgba(99,225,217,.1); }
+        .pl-chip.on { color: #fff; border-color: transparent; font-weight: 700; }
 
         /* ── LINE CARD ── */
         .line-card {
@@ -1477,7 +1468,7 @@ export default function App() {
           display: none;
           position: fixed;
           bottom: 0; left: 0; right: 0;
-          background: rgba(6,8,13,.88);
+          background: darkMode ? "rgba(28,28,30,.9)" : "rgba(245,245,247,.9)";
           backdrop-filter: blur(24px) saturate(1.5);
           -webkit-backdrop-filter: blur(24px) saturate(1.5);
           border-top: 1px solid var(--border);
@@ -1529,9 +1520,9 @@ export default function App() {
 
       {/* ── TOPBAR ── */}
       <header style={{
-        background: "rgba(6,8,13,.82)",
-        backdropFilter: "blur(24px) saturate(1.5)",
-        WebkitBackdropFilter: "blur(24px) saturate(1.5)",
+        background: darkMode ? "rgba(28,28,30,.85)" : "rgba(245,245,247,.8)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
         borderBottom: "1px solid var(--border)",
         position: "sticky", top: 0, zIndex: 100,
       }}>
@@ -1541,9 +1532,9 @@ export default function App() {
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{
                 width: 34, height: 34, borderRadius: 10,
-                background: "var(--accent-dim)", border: "1px solid rgba(99,225,217,.25)",
+                background: "var(--accent-dim)", border: "1px solid rgba(0,113,227,.25)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 0 16px rgba(99,225,217,.08)",
+                boxShadow: "0 0 16px rgba(0,113,227,.08)",
               }}>
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <rect x="1" y="4" width="14" height="9" rx="1.5" stroke="var(--accent)" strokeWidth="1.4"/>
@@ -1914,7 +1905,7 @@ export default function App() {
                       <button className="btn-del" onClick={() => del(setPlacements)(p.id)}>×</button>
                     </div>
                   ))}
-                  <button className="btn-add" style={{ marginTop: 4 }} onClick={add(setPlacements, { label: "Nuevo", w: 5, h: 5, color: "#63E1D9" })}>+ Agregar posición</button>
+                  <button className="btn-add" style={{ marginTop: 4 }} onClick={add(setPlacements, { label: "Nuevo", w: 5, h: 5, color: "#0071E3" })}>+ Agregar posición</button>
                 </div>
               </div>
             )}
@@ -2636,7 +2627,7 @@ export default function App() {
                               <pattern id={`ht${ri}`} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="rgba(255,255,255,.04)" strokeWidth="1" /></pattern>
                               <filter id={`sh${ri}`}><feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity=".4" /></filter>
                             </defs>
-                            <rect x={0} y={0} width={svW} height={svH} rx={6} fill="#0a0e16" stroke="var(--border2)" strokeWidth={1.5} />
+                            <rect x={0} y={0} width={svW} height={svH} rx={6} fill="var(--bg2)" stroke="var(--border2)" strokeWidth={1.5} />
                             <rect x={0} y={0} width={svW} height={svH} rx={6} fill={`url(#g${ri})`} />
                             {placed.map((p, pi) => {
                               const px = p.x * sc + 1, py = p.y * sc + 1, pw = p.w * sc - 2, ph = p.h * sc - 2;
@@ -3711,9 +3702,9 @@ ${businessName}`
             {[["cotizacion", "Cotización"], ["factura", "Factura"]].map(([val, label]) => (
               <button key={val} onClick={() => setDocType(val)}
                 style={{ padding: "6px 16px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all .25s", border: "1.5px solid",
-                  background: docType === val ? "linear-gradient(135deg,#63E1D9,#4CB8B0)" : "transparent",
+                  background: docType === val ? "var(--accent)" : "transparent",
                   borderColor: docType === val ? "transparent" : "var(--border2)",
-                  color: docType === val ? "#06080d" : "var(--text3)" }}>
+                  color: docType === val ? "#fff" : "var(--text3)" }}>
                 {label}
               </button>
             ))}
