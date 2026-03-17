@@ -981,13 +981,13 @@ export default function App() {
   }, []);
 
   // Save cotización as pedido — with Supabase sync
-  const savePedido = useCallback(async (calc, clientName, invoiceNum, email = "", telefono = "", notas = "") => {
+  const savePedido = useCallback(async (calc, clientName, invoiceNum, email = "", telefono = "", notas = "", docTypeOverride = "cotizacion") => {
     if (!calc) return false;
     const exists = loadPedidos().some(p => p.num === invoiceNum);
     if (exists) return "duplicate";
 
     const meta = {
-      ...defaultDocumentMeta("Borrador", "cotizacion"),
+      ...defaultDocumentMeta("Borrador", docTypeOverride),
       designWho,
       designId,
       fixId,
@@ -3569,11 +3569,13 @@ function DocumentEditorModal({
 }
 
 function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido, whatsappBiz,
-  prefillCliente = "", prefillPhone = "", prefillEmail = "", prefillNum = null }) {
+  prefillCliente = "", prefillPhone = "", prefillEmail = "", prefillNum = null, prefillDocType = "cotizacion" }) {
   const today = new Date();
   const [clientName, setClientName] = useState(prefillCliente);
   const [clientEmail, setClientEmail] = useState(prefillEmail);
   const [clientPhone, setClientPhone] = useState(prefillPhone);
+  const [docType, setDocType] = useState(prefillDocType);
+  const docLabel = docType === "factura" ? "Factura" : "Cotización";
   // FIX 7: generate invoice number ONCE per mount from Supabase (real auto-increment)
   const invoiceNumRef = useRef(null);
   // If we have a pre-existing number (from solicitud), use it; otherwise generate new
@@ -3627,7 +3629,7 @@ function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido, 
           remainH -= sliceH;
         }
       }
-      pdf.save(`Cotizacion-${invoiceNum}-${businessName.replace(/\s+/g,"-")}.pdf`);
+      pdf.save(`${docLabel}-${invoiceNum}-${businessName.replace(/\s+/g,"-")}.pdf`);
     } catch (err) {
       console.error("PDF error:", err);
       alert("Error generando PDF. Intenta de nuevo.");
@@ -3643,7 +3645,7 @@ function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido, 
     const body = encodeURIComponent(
 `Estimado/a ${clientName || "cliente"},
 
-Adjunto la cotización #${invoiceNum} de ${businessName} DTF:
+Adjunto ${docLabel.toLowerCase() === "factura" ? "la factura" : "la cotización"} #${invoiceNum} de ${businessName} DTF:
 
 ${lines}
 ${calc.disc > 0 ? `\nDescuento ${calc.volPct}%: -L${calc.disc}` : ""}${calc.designFee > 0 ? `\nDiseño: ${calc.designCharged === 0 ? "Incluido" : `L${calc.designCharged}`}` : ""}${calc.fixFee > 0 ? `\nCorrección: ${calc.fixCharged === 0 ? "Incluida" : `L${calc.fixCharged}`}` : ""}
@@ -3651,12 +3653,12 @@ ${calc.disc > 0 ? `\nDescuento ${calc.volPct}%: -L${calc.disc}` : ""}${calc.desi
 TOTAL: L${calc.total.toLocaleString()}
 
 Fecha: ${dateStr}
-Cotización válida por ${validezDias} días.
+${docLabel} válida por ${validezDias} días.
 
 ${notes ? `Notas: ${notes}\n` : ""}Gracias por preferirnos.
 ${businessName}`
     );
-    window.location.href = `mailto:${clientEmail}?subject=Cotizaci%C3%B3n%20%23${invoiceNum}%20-%20${encodeURIComponent(businessName)}%20DTF&body=${body}`;
+    window.location.href = `mailto:${clientEmail}?subject=${encodeURIComponent(docLabel)}%20%23${invoiceNum}%20-%20${encodeURIComponent(businessName)}%20DTF&body=${body}`;
   };
 
   return (
@@ -3666,10 +3668,10 @@ ${businessName}`
       `}</style>
       <div className="card-head">
         <StepBadge n={5} />
-        <span style={{ fontWeight: 700, fontSize: 14 }}>Factura / Cotización</span>
+        <span style={{ fontWeight: 700, fontSize: 14 }}>{docLabel}</span>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
           <button onClick={async () => {
-              const result = await onSavePedido(calc, clientName, invoiceNum, clientEmail, clientPhone, notes);
+              const result = await onSavePedido(calc, clientName, invoiceNum, clientEmail, clientPhone, notes, docType);
               if (result === "duplicate") {
                 if (confirm("Esta cotización ya está guardada. ¿Guardar de todas formas como nueva?")) {
                   onSavePedido(calc, clientName, invoiceNum + "-bis");
@@ -3683,7 +3685,7 @@ ${businessName}`
           </button>
           {whatsappBiz && (
             <button onClick={() => {
-              const msg = encodeURIComponent(`Factura #${invoiceNum} — ${clientName || "Cliente"}\nTotal: L${calc.total.toLocaleString()}\nFecha: ${dateStr}`);
+              const msg = encodeURIComponent(`${docLabel} #${invoiceNum} — ${clientName || "Cliente"}\nTotal: L${calc.total.toLocaleString()}\nFecha: ${dateStr}`);
               window.open(`https://wa.me/${whatsappBiz}?text=${msg}`, "_blank");
             }} style={{ background: "rgba(37,211,102,.1)", border: "1px solid rgba(37,211,102,.3)", borderRadius: 8, padding: "7px 14px", fontSize: 12, fontWeight: 700, color: "#25D366", cursor: "pointer", minHeight: 36, display: "flex", alignItems: "center", gap: 6 }}>
               WhatsApp
@@ -3702,6 +3704,21 @@ ${businessName}`
         </div>
       </div>
       <div className="card-body">
+        {/* Document type toggle */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+          <div className="lbl" style={{ margin: 0 }}>Tipo de documento</div>
+          <div style={{ display: "flex", gap: 4, marginLeft: "auto" }}>
+            {[["cotizacion", "Cotización"], ["factura", "Factura"]].map(([val, label]) => (
+              <button key={val} onClick={() => setDocType(val)}
+                style={{ padding: "6px 16px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer", transition: "all .25s", border: "1.5px solid",
+                  background: docType === val ? "linear-gradient(135deg,#63E1D9,#4CB8B0)" : "transparent",
+                  borderColor: docType === val ? "transparent" : "var(--border2)",
+                  color: docType === val ? "#06080d" : "var(--text3)" }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         {/* Datos del cliente */}
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
           <div style={{ gridColumn: "1/-1" }}>
@@ -3717,7 +3734,7 @@ ${businessName}`
             <input className="inp inp-sm" type="tel" placeholder="+504 9999-9999" value={clientPhone} onChange={e => setClientPhone(e.target.value)} />
           </div>
           <div>
-            <div className="lbl">Nº de cotización</div>
+            <div className="lbl">Nº de {docLabel.toLowerCase()}</div>
             <input className="inp inp-sm" value={invoiceNum} onChange={e => setInvoiceNum(e.target.value)} style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
           </div>
           <div>
@@ -3742,17 +3759,17 @@ ${businessName}`
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 11, color: "#999", textTransform: "uppercase", letterSpacing: ".1em" }}>Cotización</div>
+              <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 11, color: "#999", textTransform: "uppercase", letterSpacing: ".1em" }}>{docLabel}</div>
               <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 22, fontWeight: 800, color: "#111" }}>#{invoiceNum}</div>
               <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>{dateStr}</div>
-              <div style={{ fontSize: 11, color: "#999", marginTop: 1 }}>Válida {validezDias} días</div>
+              {docType === "cotizacion" && <div style={{ fontSize: 11, color: "#999", marginTop: 1 }}>Válida {validezDias} días</div>}
             </div>
           </div>
 
           {/* Cliente */}
           {clientName && (
             <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".1em", color: "#999", fontWeight: 700, marginBottom: 6 }}>Cotización para</div>
+              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".1em", color: "#999", fontWeight: 700, marginBottom: 6 }}>{docLabel} para</div>
               <div style={{ fontSize: 17, fontWeight: 700, color: "#111" }}>{clientName}</div>
               {clientEmail && <div style={{ fontSize: 12, color: "#555", marginTop: 3 }}>{clientEmail}</div>}
               {clientPhone && <div style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{clientPhone}</div>}
@@ -3832,7 +3849,7 @@ ${businessName}`
 
           {/* Footer */}
           <div style={{ marginTop: 32, paddingTop: 14, borderTop: "1px solid #eee", fontSize: 11, color: "#aaa", textAlign: "center" }}>
-            Cotización generada por {businessName} · {dateStr} · Válida por {validezDias} días
+            {docLabel} generada por {businessName} · {dateStr}{docType === "cotizacion" ? ` · Válida por ${validezDias} días` : ""}
           </div>
         </div>
       </div>

@@ -86,6 +86,7 @@ export default function ClientApp() {
   const [customColor, setCustomColor] = useState("");
   const [notas, setNotas] = useState("");
   const [selectedPos, setSelectedPos] = useState([]);
+  const [deliveryPref, setDeliveryPref] = useState("whatsapp");
 
   useEffect(() => { const init = async () => { const remoteCfg = await loadConfigRemote(); if (remoteCfg) setCfg(remoteCfg); const num = await getNextNumero(); setQuoteNum(num); setLoading(false); }; init(); }, []);
 
@@ -124,8 +125,9 @@ export default function ClientApp() {
     try {
       const groupId = `${prendaId || "prenda"}-${quoteNum}`;
       const lines = variantsByColor.map(group => ({ qty: group.total, prendaLabel: prenda?.name ?? "Prenda", color: group.color, cfgLabel: selectedPos.join(" + "), tallasSummary: group.items.map(item => `${item.talla}:${item.qty}`).join(", "), groupId, groupLabel: prenda?.name ?? "Prenda", variants: group.items.map(item => ({ sku: buildVariantSku({ prendaLabel: prenda?.name ?? "Prenda", color: group.color, talla: item.talla }), color: group.color, talla: item.talla, qty: item.qty })), sellPrice: 0, lineTotal: 0 }));
-      await createCotizacion({ numero: quoteNum, cliente: nombre.trim(), email: email.trim(), telefono: whatsapp.trim(), total: 0, estado: "Pendiente", notas: `Pedido web | ${prenda?.name ?? "?"} | Variantes: ${colorResumen}${notas ? " | Nota: " + notas : ""}`, lines });
-      if (whatsappBiz) { const msg = encodeURIComponent(`🔔 *Nueva solicitud de cotización DTF*\n\n📋 Solicitud #${quoteNum}\n👤 *${nombre}*\n📱 ${whatsapp || "No indicado"}\n👕 ${prenda?.name ?? "?"}\n🎽 Variantes: ${colorResumen}\n🎨 Posiciones: ${selectedPos.join(", ")}\n📦 Total prendas: ${totalQty}\n${notas ? `📝 Nota: ${notas}\n` : ""}\n_Revisa el panel admin para aprobar y cotizar._`); window.open(`https://wa.me/${whatsappBiz}?text=${msg}`, "_blank"); }
+      const deliveryLabel = deliveryPref === "whatsapp" ? "WhatsApp" : deliveryPref === "email" ? "Correo" : "Descarga";
+      await createCotizacion({ numero: quoteNum, cliente: nombre.trim(), email: email.trim(), telefono: whatsapp.trim(), total: 0, estado: "Pendiente", notas: `Pedido web | ${prenda?.name ?? "?"} | Variantes: ${colorResumen} | Enviar por: ${deliveryLabel}${notas ? " | Nota: " + notas : ""}`, lines });
+      if (whatsappBiz) { const msg = encodeURIComponent(`🔔 *Nueva solicitud de cotización DTF*\n\n📋 Solicitud #${quoteNum}\n👤 *${nombre}*\n📱 ${whatsapp || "No indicado"}\n👕 ${prenda?.name ?? "?"}\n🎽 Variantes: ${colorResumen}\n🎨 Posiciones: ${selectedPos.join(", ")}\n📦 Total prendas: ${totalQty}\n📩 Enviar cotización por: *${deliveryLabel}*\n${notas ? `📝 Nota: ${notas}\n` : ""}\n_Revisa el panel admin para aprobar y cotizar._`); window.open(`https://wa.me/${whatsappBiz}?text=${msg}`, "_blank"); }
       setSubmitted(true);
     } catch (e) { console.error(e); alert("Error al enviar. Intentá de nuevo."); }
     setSubmitting(false);
@@ -153,18 +155,18 @@ export default function ClientApp() {
         </div>
         <h1 style={{ fontWeight: 800, fontSize: 28, color: "#e8edf5", marginBottom: 10, letterSpacing: "-.02em", animation: "fadeSlide .5s .15s both" }}>Solicitud enviada</h1>
         <p style={{ color: "#7a8ba8", fontSize: 15, lineHeight: 1.7, marginBottom: 28, animation: "fadeSlide .5s .25s both" }}>
-          Tu solicitud <b style={{ color: "#63E1D9", fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>#{quoteNum}</b> fue recibida por <b style={{ color: "#e8edf5" }}>{businessName}</b>. Te contactaremos por WhatsApp.
+          Tu solicitud <b style={{ color: "#63E1D9", fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>#{quoteNum}</b> fue recibida por <b style={{ color: "#e8edf5" }}>{businessName}</b>. {deliveryPref === "whatsapp" ? "Te contactaremos por WhatsApp." : deliveryPref === "email" ? "Te enviaremos la cotización por correo." : "Te notificaremos cuando esté lista para descargar."}
         </p>
         <div style={{ background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)", borderRadius: 20, padding: "20px 22px", marginBottom: 24, textAlign: "left", backdropFilter: "blur(12px)", animation: "fadeSlide .5s .35s both" }}>
           <div style={{ fontSize: 10, color: "#4a5a72", textTransform: "uppercase", letterSpacing: ".14em", fontWeight: 700, marginBottom: 14 }}>Resumen</div>
-          {[["Referencia", `#${quoteNum}`], ["Nombre", nombre], ["Prenda", prenda?.name ?? "?"], ["Variantes", colorResumen || "—"], ["Posiciones", selectedPos.join(", ")], ["Colores", `${activeColorCount}`], ["Total prendas", `${totalQty}`], ...(notas ? [["Nota", notas]] : [])].map(([k,v]) => (
+          {[["Referencia", `#${quoteNum}`], ["Nombre", nombre], ["Prenda", prenda?.name ?? "?"], ["Variantes", colorResumen || "—"], ["Posiciones", selectedPos.join(", ")], ["Colores", `${activeColorCount}`], ["Total prendas", `${totalQty}`], ["Recibir por", deliveryPref === "whatsapp" ? "WhatsApp" : deliveryPref === "email" ? "Correo" : "Descarga"], ...(notas ? [["Nota", notas]] : [])].map(([k,v]) => (
             <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,.04)", fontSize: 13 }}>
               <span style={{ color: "#5a6b84" }}>{k}</span>
               <span style={{ color: "#c8d4e6", fontWeight: 600, textAlign: "right", maxWidth: "60%", wordBreak: "break-word" }}>{v}</span>
             </div>
           ))}
         </div>
-        <button onClick={() => { setSubmitted(false); setStep(0); setNombre(""); setWhatsapp(""); setEmail(""); setPrendaId(""); resetVariantSelection(); setSelectedPos([]); setNotas(""); }}
+        <button onClick={() => { setSubmitted(false); setStep(0); setNombre(""); setWhatsapp(""); setEmail(""); setPrendaId(""); resetVariantSelection(); setSelectedPos([]); setNotas(""); setDeliveryPref("whatsapp"); }}
           style={{ background: "linear-gradient(135deg,#63E1D9,#4CB8B0)", border: "none", borderRadius: 14, padding: "16px 32px", fontSize: 15, fontWeight: 700, color: "#06080d", cursor: "pointer", width: "100%", fontFamily: "'Outfit'", letterSpacing: "-.01em", animation: "fadeSlide .5s .45s both" }}>Nueva solicitud</button>
       </div>
     </div>
@@ -377,10 +379,36 @@ export default function ClientApp() {
                 <div key={k} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,.04)", gap: 14 }}><span style={{ fontSize: 13, color: "#4a5a72", flexShrink: 0 }}>{k}</span><span style={{ fontSize: 13, fontWeight: 600, textAlign: "right", wordBreak: "break-word", maxWidth: "65%", color: "#c8d4e6" }}>{v}</span></div>
               ))}
             </div>
-            <div style={{ background: "rgba(99,225,217,.03)", border: "1px solid rgba(99,225,217,.08)", borderRadius: 20, padding: 22, marginBottom: 20, textAlign: "center" }}>
-              <div style={{ fontSize: 15, fontWeight: 700, color: "#63E1D9", marginBottom: 8 }}>¿Cuánto cuesta?</div>
-              <p style={{ fontSize: 13, color: "#5a6b84", lineHeight: 1.6 }}>Revisaremos tu solicitud y te enviaremos la cotización exacta por WhatsApp.</p>
-              <p style={{ fontSize: 11, color: "#3a4a62", marginTop: 10 }}>Tiempo de respuesta: el mismo día hábil</p>
+            <div className="glass">
+              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, letterSpacing: "-.01em" }}>¿Cómo querés recibir la cotización?</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {[
+                  ["whatsapp", "📱", "WhatsApp", "Te la enviamos directo a tu chat"],
+                  ["email", "📧", "Correo electrónico", email ? `A ${email}` : "Ingresá tu correo en el paso 1"],
+                  ["download", "📄", "Solo descargar", "La podrás ver cuando esté lista"],
+                ].map(([val, icon, label, desc]) => (
+                  <div key={val} onClick={() => (val !== "email" || email) && setDeliveryPref(val)}
+                    style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px",
+                      background: deliveryPref === val ? "rgba(99,225,217,.06)" : "rgba(255,255,255,.02)",
+                      border: `1.5px solid ${deliveryPref === val ? "rgba(99,225,217,.3)" : "rgba(255,255,255,.06)"}`,
+                      borderRadius: 14, cursor: val === "email" && !email ? "not-allowed" : "pointer",
+                      transition: "all .2s", opacity: val === "email" && !email ? .4 : 1 }}>
+                    <div style={{ width: 24, height: 24, borderRadius: 8, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", transition: "all .25s",
+                      background: deliveryPref === val ? "linear-gradient(135deg,#63E1D9,#4CB8B0)" : "rgba(255,255,255,.04)",
+                      border: `1.5px solid ${deliveryPref === val ? "transparent" : "rgba(255,255,255,.1)"}` }}>
+                      {deliveryPref === val && <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l2.8 3L10 3" stroke="#06080d" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: deliveryPref === val ? "#63E1D9" : "#c8d4e6" }}>{icon} {label}</div>
+                      <div style={{ fontSize: 11, color: "#3a4a62", marginTop: 2 }}>{desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ background: "rgba(99,225,217,.03)", border: "1px solid rgba(99,225,217,.08)", borderRadius: 20, padding: 18, marginBottom: 20, textAlign: "center" }}>
+              <p style={{ fontSize: 13, color: "#5a6b84", lineHeight: 1.6 }}>Revisaremos tu solicitud y te enviaremos la cotización exacta{deliveryPref === "whatsapp" ? " por WhatsApp" : deliveryPref === "email" ? " por correo" : ""}.</p>
+              <p style={{ fontSize: 11, color: "#3a4a62", marginTop: 8 }}>Tiempo de respuesta: el mismo día hábil</p>
             </div>
             <div style={{ display: "flex", gap: 10 }}><button className="cbtn-out" onClick={()=>setStep(2)}>← Atrás</button><button className="cbtn" disabled={submitting} onClick={handleSubmit} style={{ flex: 1 }}>{submitting ? "Enviando…" : "Enviar solicitud"}</button></div>
           </div>
