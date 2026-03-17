@@ -343,7 +343,7 @@ function buildPackingContext({ lines, placements, prendas, poliRate, sheets, agr
       if (!(custom.w && custom.h)) return;
       const width = Number(custom.w);
       const height = Number(custom.h);
-      piecesPerUnit.push({ w: width, h: height, label: custom.label || "Custom", color: custom.color || "#22D3EE" });
+      piecesPerUnit.push({ w: width, h: height, label: custom.label || "Custom", color: custom.color || "#63E1D9" });
       poli += calcPoli(width, height);
     });
 
@@ -1202,16 +1202,17 @@ export default function App() {
 
   // ── RENDER ──
   return (
-    <div className={darkMode ? "dark-theme" : "light-theme"} style={{ background: "var(--bg)", color: "var(--text)", fontFamily: "'Sora',sans-serif", minHeight: "100dvh" }}>
+    <div className={darkMode ? "dark-theme" : "light-theme"} style={{ background: "var(--bg)", color: "var(--text)", fontFamily: "'Outfit',sans-serif", minHeight: "100dvh" }}>
       {/* PIN Gate */}
       {!pinUnlocked && (
-        <div style={{ position: "fixed", inset: 0, background: "#080A10", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
-          <div style={{ textAlign: "center", marginBottom: 8 }}>
-            <div style={{ fontFamily: "'Sora'", fontWeight: 800, fontSize: 28, color: "#22D3EE", letterSpacing: "-1px" }}>ARTAMPA</div>
-            <div style={{ fontSize: 12, color: "#4A5568", letterSpacing: ".15em", textTransform: "uppercase", marginTop: 4 }}>Panel interno · Acceso restringido</div>
+        <div style={{ position: "fixed", inset: 0, background: "#06080d", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
+          <div style={{ position: "absolute", top: "-20%", right: "-10%", width: "50vw", height: "50vw", borderRadius: "50%", background: "radial-gradient(circle,rgba(99,225,217,.04) 0%,transparent 70%)", filter: "blur(80px)", pointerEvents: "none" }}/>
+          <div style={{ textAlign: "center", marginBottom: 8, position: "relative" }}>
+            <div style={{ fontFamily: "'Outfit'", fontWeight: 800, fontSize: 28, color: "#e8edf5", letterSpacing: "-.03em" }}>{businessName}</div>
+            <div style={{ fontSize: 10, color: "#4a5a72", letterSpacing: ".14em", textTransform: "uppercase", marginTop: 6, fontWeight: 600 }}>Panel interno · Acceso restringido</div>
           </div>
-          <div style={{ background: "#0D1018", border: "1px solid #1E2535", borderRadius: 16, padding: "28px 32px", width: 280, textAlign: "center" }}>
-            <div style={{ fontSize: 13, color: "#94A3B8", marginBottom: 16, fontWeight: 600 }}>Ingresa el PIN de acceso</div>
+          <div style={{ background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)", borderRadius: 22, padding: "28px 32px", width: 280, textAlign: "center", backdropFilter: "blur(12px)", position: "relative" }}>
+            <div style={{ fontSize: 13, color: "#7a8ba8", marginBottom: 16, fontWeight: 600 }}>Ingresa el PIN de acceso</div>
             <input
               type="password" inputMode="numeric" maxLength={8}
               value={pinInput} onChange={e => { setPinInput(e.target.value); setPinError(false); }}
@@ -1223,47 +1224,55 @@ export default function App() {
               }}
               placeholder="••••"
               style={{ width: "100%", textAlign: "center", fontSize: 28, letterSpacing: 8, fontFamily: "'JetBrains Mono'", fontWeight: 700,
-                background: "#080A10", border: `2px solid ${pinError ? "#F87171" : "#252D3F"}`, borderRadius: 10, padding: "12px", color: "#E2E8F4", outline: "none" }}
+                background: "#06080d", border: `2px solid ${pinError ? "#F87171" : "rgba(255,255,255,.1)"}`, borderRadius: 10, padding: "12px", color: "#e8edf5", outline: "none" }}
               autoFocus
             />
             {pinError && <div style={{ color: "#F87171", fontSize: 12, marginTop: 8, fontWeight: 600 }}>PIN incorrecto</div>}
             <button onClick={() => {
               if (pinInput === adminPin) { sessionStorage.setItem("dtf_pin_ok", "1"); setPinUnlocked(true); }
               else { setPinError(true); setPinInput(""); }
-            }} style={{ marginTop: 16, width: "100%", background: "#22D3EE", border: "none", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 800, color: "#080A10", cursor: "pointer" }}>
+            }} style={{ marginTop: 16, width: "100%", background: "linear-gradient(135deg,#63E1D9,#4CB8B0)", border: "none", borderRadius: 10, padding: "12px", fontSize: 14, fontWeight: 800, color: "#06080d", cursor: "pointer" }}>
               Entrar
             </button>
           </div>
-          <a href="/" style={{ fontSize: 12, color: "#4A5568", textDecoration: "none" }}>← Volver al cotizador público</a>
+          <a href="/" style={{ fontSize: 12, color: "#4a5a72", textDecoration: "none" }}>← Volver al cotizador público</a>
         </div>
       )}
-      <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700;800&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+      {/* Ambient background glow */}
+      {darkMode && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 0, pointerEvents: "none", overflow: "hidden" }}>
+          <div style={{ position: "absolute", top: "-15%", right: "-8%", width: "45vw", height: "45vw", borderRadius: "50%", background: "radial-gradient(circle,rgba(99,225,217,.035) 0%,transparent 70%)", filter: "blur(80px)" }}/>
+          <div style={{ position: "absolute", bottom: "-10%", left: "-8%", width: "35vw", height: "35vw", borderRadius: "50%", background: "radial-gradient(circle,rgba(76,184,176,.025) 0%,transparent 70%)", filter: "blur(60px)" }}/>
+        </div>
+      )}
       <style>{`
         :root {
-          --accent: #22D3EE;
-          --accent-dim: rgba(34,211,238,.12);
-          --accent-glow: rgba(34,211,238,.25);
+          --accent: #63E1D9;
+          --accent-dim: rgba(99,225,217,.1);
+          --accent-glow: rgba(99,225,217,.2);
           --green: #34D399;
           --red: #F87171;
           --warn: #FBBF24;
-          --radius: 14px;
-          --radius-sm: 8px;
+          --radius: 18px;
+          --radius-sm: 10px;
         }
         .dark-theme {
-          --bg: #080A10; --bg2: #0D1018; --bg3: #131720;
-          --border: #1E2535; --border2: #252D3F;
-          --text: #E2E8F4; --text2: #94A3B8; --text3: #4A5568;
+          --bg: #06080d; --bg2: rgba(255,255,255,.025); --bg3: rgba(255,255,255,.04);
+          --border: rgba(255,255,255,.06); --border2: rgba(255,255,255,.1);
+          --text: #e8edf5; --text2: #7a8ba8; --text3: #4a5a72;
           --shadow: rgba(0,0,0,.5);
         }
         .light-theme {
           --bg: #F8FAFC; --bg2: #FFFFFF; --bg3: #F1F5F9;
           --border: #E2E8F0; --border2: #CBD5E1;
           --text: #0F172A; --text2: #475569; --text3: #94A3B8;
-          --shadow: rgba(0,0,0,.08);
+          --shadow: rgba(0,0,0,.06);
         }
-        .light-theme .card { box-shadow: 0 1px 8px var(--shadow); }
+        .light-theme .card { box-shadow: 0 1px 12px var(--shadow); }
         .light-theme .line-card { background: #F8FAFC; }
-        .light-theme header { background: rgba(255,255,255,.92); }
+        .light-theme header { background: rgba(255,255,255,.88); backdrop-filter: blur(24px); }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { -webkit-text-size-adjust: 100%; font-size: 16px; }
         body { background: var(--bg); overscroll-behavior-y: none; }
@@ -1273,7 +1282,7 @@ export default function App() {
         input::-webkit-inner-spin-button { -webkit-appearance: none; }
         ::selection { background: var(--accent); color: var(--bg); }
         ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
 
         /* ── CARDS ── */
@@ -1283,8 +1292,10 @@ export default function App() {
           border-radius: var(--radius);
           margin-bottom: 12px;
           overflow: hidden;
-          transition: border-color .2s;
+          transition: border-color .25s;
+          backdrop-filter: blur(12px);
         }
+        .card:hover { border-color: var(--border2); }
         .card-head {
           padding: 14px 16px;
           border-bottom: 1px solid var(--border);
@@ -1298,21 +1309,23 @@ export default function App() {
 
         /* ── INPUTS ── */
         .inp {
-          background: var(--bg);
+          background: var(--bg3);
           border: 1.5px solid var(--border2);
           border-radius: var(--radius-sm);
-          padding: 10px 12px;
+          padding: 11px 14px;
           font-size: 14px;
           color: var(--text);
           width: 100%;
-          transition: border-color .2s, box-shadow .2s;
+          transition: all .2s ease;
           -webkit-appearance: none;
           min-height: 44px;
+          letter-spacing: -.01em;
         }
         .inp:focus {
           outline: none;
           border-color: var(--accent);
           box-shadow: 0 0 0 3px var(--accent-dim);
+          background: rgba(99,225,217,.03);
         }
         .inp-sm { font-size: 12px; padding: 8px 10px; min-height: 38px; }
         .sel {
@@ -1365,7 +1378,9 @@ export default function App() {
           cursor: pointer;
           min-height: 44px;
           transition: all .25s;
+          letter-spacing: -.01em;
         }
+        .btn-save:hover { transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-dim); }
 
         /* ── TABS ── */
         .tab-btn {
@@ -1374,10 +1389,10 @@ export default function App() {
           font-size: 14px; font-weight: 600;
           color: var(--text3); cursor: pointer;
           border-bottom: 2px solid transparent;
-          transition: all .2s; white-space: nowrap;
-          min-height: 44px;
+          transition: all .25s; white-space: nowrap;
+          min-height: 44px; letter-spacing: -.01em;
         }
-        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); text-shadow: 0 0 20px var(--accent-dim); }
         .tab-btn:hover:not(.active) { color: var(--text2); }
 
         /* ── PILLS ── */
@@ -1387,22 +1402,24 @@ export default function App() {
           border-radius: 20px;
           font-size: 11px;
           font-weight: 600;
+          letter-spacing: -.01em;
         }
         .cfg-pill {
           padding: 8px 16px; min-height: 36px;
           border: 1.5px solid var(--border);
-          border-radius: 20px;
+          border-radius: 24px;
           font-size: 12px; font-weight: 600;
           cursor: pointer;
-          transition: all .15s;
+          transition: all .25s cubic-bezier(.4,0,.2,1);
           background: transparent;
           color: var(--text2);
           white-space: nowrap;
         }
         .cfg-pill.active {
-          background: var(--accent);
-          color: var(--bg);
-          border-color: var(--accent);
+          background: linear-gradient(135deg,#63E1D9,#4CB8B0);
+          color: #06080d;
+          border-color: transparent;
+          box-shadow: 0 0 16px rgba(99,225,217,.15);
         }
         .cfg-pill:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
 
@@ -1421,24 +1438,24 @@ export default function App() {
           -webkit-tap-highlight-color: transparent;
         }
         .pl-chip:hover { border-color: var(--text2); color: var(--text); }
-        .pl-chip.on { color: #fff; border-color: transparent; font-weight: 700; }
+        .pl-chip.on { color: #fff; border-color: transparent; font-weight: 700; box-shadow: 0 0 12px rgba(99,225,217,.1); }
 
         /* ── LINE CARD ── */
         .line-card {
-          background: var(--bg);
+          background: var(--bg3);
           border: 1px solid var(--border);
-          border-radius: var(--radius-sm);
-          padding: 14px;
+          border-radius: 14px;
+          padding: 16px;
           margin-bottom: 10px;
-          transition: border-color .2s;
+          transition: all .25s;
         }
         .line-card:hover { border-color: var(--border2); }
 
         /* ── LABEL ── */
         .lbl {
           font-size: 10px; text-transform: uppercase;
-          letter-spacing: .1em; color: var(--text3);
-          font-weight: 700; margin-bottom: 5px;
+          letter-spacing: .14em; color: var(--text3);
+          font-weight: 700; margin-bottom: 6px;
         }
 
         /* ── LAYOUT ── */
@@ -1448,10 +1465,10 @@ export default function App() {
 
         /* ── ANIMATIONS ── */
         @keyframes fadeUp {
-          from { opacity: 0; transform: translateY(10px); }
+          from { opacity: 0; transform: translateY(16px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        .fade-up { animation: fadeUp .3s ease-out both; }
+        .fade-up { animation: fadeUp .4s cubic-bezier(.4,0,.2,1) both; }
         @keyframes blink { 0%,100%{opacity:1}50%{opacity:.4} }
         .blink { animation: blink 1.4s infinite; }
 
@@ -1460,9 +1477,9 @@ export default function App() {
           display: none;
           position: fixed;
           bottom: 0; left: 0; right: 0;
-          background: rgba(13,16,24,.92);
-          backdrop-filter: blur(16px);
-          -webkit-backdrop-filter: blur(16px);
+          background: rgba(6,8,13,.88);
+          backdrop-filter: blur(24px) saturate(1.5);
+          -webkit-backdrop-filter: blur(24px) saturate(1.5);
           border-top: 1px solid var(--border);
           z-index: 200;
           padding: 0;
@@ -1512,20 +1529,21 @@ export default function App() {
 
       {/* ── TOPBAR ── */}
       <header style={{
-        background: "rgba(13,16,24,.85)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
+        background: "rgba(6,8,13,.82)",
+        backdropFilter: "blur(24px) saturate(1.5)",
+        WebkitBackdropFilter: "blur(24px) saturate(1.5)",
         borderBottom: "1px solid var(--border)",
         position: "sticky", top: 0, zIndex: 100,
       }}>
         <div style={{ maxWidth: 760, margin: "0 auto", padding: "0 16px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 56 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 60 }}>
             {/* Logo */}
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{
-                width: 32, height: 32, borderRadius: 8,
-                background: "var(--accent-dim)", border: "1px solid var(--accent)",
+                width: 34, height: 34, borderRadius: 10,
+                background: "var(--accent-dim)", border: "1px solid rgba(99,225,217,.25)",
                 display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 0 16px rgba(99,225,217,.08)",
               }}>
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <rect x="1" y="4" width="14" height="9" rx="1.5" stroke="var(--accent)" strokeWidth="1.4"/>
@@ -1534,8 +1552,8 @@ export default function App() {
                 </svg>
               </div>
               <div>
-                <h1 style={{ fontWeight: 800, fontSize: 15, letterSpacing: "-.3px", lineHeight: 1.1, margin: 0 }}>{businessName}</h1>
-                <p style={{ fontSize: 10, color: "var(--text3)", fontFamily: "'JetBrains Mono'", letterSpacing: ".06em", margin: 0 }}>DTF · COTIZADOR</p>
+                <h1 style={{ fontWeight: 800, fontSize: 16, letterSpacing: "-.03em", lineHeight: 1.1, margin: 0 }}>{businessName}</h1>
+                <p style={{ fontSize: 10, color: "var(--text3)", fontFamily: "'JetBrains Mono'", letterSpacing: ".1em", margin: 0 }}>DTF · COTIZADOR</p>
               </div>
             </div>
             {/* Save indicator */}
@@ -1896,7 +1914,7 @@ export default function App() {
                       <button className="btn-del" onClick={() => del(setPlacements)(p.id)}>×</button>
                     </div>
                   ))}
-                  <button className="btn-add" style={{ marginTop: 4 }} onClick={add(setPlacements, { label: "Nuevo", w: 5, h: 5, color: "#22D3EE" })}>+ Agregar posición</button>
+                  <button className="btn-add" style={{ marginTop: 4 }} onClick={add(setPlacements, { label: "Nuevo", w: 5, h: 5, color: "#63E1D9" })}>+ Agregar posición</button>
                 </div>
               </div>
             )}
@@ -2218,7 +2236,7 @@ export default function App() {
                             setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: newEstado, meta: { ...x.meta, status: newEstado } } : x));
                             if (supabaseReady) await updateCotizacionEstado(p.id, newEstado);
                           }}
-                            style={{ background: ec.bg, border: `1px solid ${ec.border}`, color: ec.text, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Sora'" }}>
+                            style={{ background: ec.bg, border: `1px solid ${ec.border}`, color: ec.text, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Outfit'" }}>
                             {ESTADOS.map(es => <option key={es}>{es}</option>)}
                           </select>
                           <button onClick={async () => { if (confirm("¿Eliminar este pedido?")) {
@@ -2232,7 +2250,7 @@ export default function App() {
                         <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 8, fontFamily: "'JetBrains Mono'", display:"flex", gap:12, flexWrap:"wrap" }}>
                           <span>{new Date(p.fecha).toLocaleDateString("es-HN", { year:"numeric", month:"short", day:"numeric" })}</span>
                           {p.telefono && <span>📱 {p.telefono}</span>}
-                          {p.notas && <span style={{ color:"var(--warn)", fontFamily:"'Sora'", fontSize:10 }}>📝 {p.notas.slice(0,60)}{p.notas.length>60?"…":""}</span>}
+                          {p.notas && <span style={{ color:"var(--warn)", fontFamily:"'Outfit'", fontSize:10 }}>📝 {p.notas.slice(0,60)}{p.notas.length>60?"…":""}</span>}
                         </div>
                         {groupedLines.map(group => (
                           <div key={group.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
@@ -2618,7 +2636,7 @@ export default function App() {
                               <pattern id={`ht${ri}`} width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="rgba(255,255,255,.04)" strokeWidth="1" /></pattern>
                               <filter id={`sh${ri}`}><feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity=".4" /></filter>
                             </defs>
-                            <rect x={0} y={0} width={svW} height={svH} rx={6} fill="#0D1018" stroke="var(--border2)" strokeWidth={1.5} />
+                            <rect x={0} y={0} width={svW} height={svH} rx={6} fill="#0a0e16" stroke="var(--border2)" strokeWidth={1.5} />
                             <rect x={0} y={0} width={svW} height={svH} rx={6} fill={`url(#g${ri})`} />
                             {placed.map((p, pi) => {
                               const px = p.x * sc + 1, py = p.y * sc + 1, pw = p.w * sc - 2, ph = p.h * sc - 2;
@@ -2629,7 +2647,7 @@ export default function App() {
                                   <rect x={px} y={py} width={pw} height={ph} rx={4} fill={`url(#ht${ri})`} />
                                   <rect x={px} y={py} width={pw} height={ph} rx={4} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth={1} />
                                   {sl && <text x={px + pw / 2} y={py + ph / 2 - (sd ? 5 : 0)} textAnchor="middle" dominantBaseline="central"
-                                    fill="white" fontSize={Math.min(11, pw / 5)} fontWeight="700" style={{ fontFamily: "'Sora'" }}>{p.label}</text>}
+                                    fill="white" fontSize={Math.min(11, pw / 5)} fontWeight="700" style={{ fontFamily: "'Outfit'" }}>{p.label}</text>}
                                   {sl && sd && <text x={px + pw / 2} y={py + ph / 2 + 10} textAnchor="middle"
                                     fill="rgba(255,255,255,.4)" fontSize={Math.min(8, pw / 7)} style={{ fontFamily: "'JetBrains Mono'" }}>{p.w}×{p.h}″</text>}
                                 </g>
@@ -2739,7 +2757,7 @@ export default function App() {
                     <div style={{ marginTop: 16, borderRadius: 14, overflow: "hidden", border: `1px solid ${calc.rm < margenMin ? "rgba(248,113,113,.4)" : "rgba(34,211,238,.25)"}` }}>
                       <div style={{ background: "linear-gradient(135deg, rgba(34,211,238,.08), rgba(34,211,238,.03))", padding: "22px 20px 16px", textAlign: "center" }}>
                         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".18em", color: "var(--text3)", marginBottom: 6 }}>Cobrar al cliente</div>
-                        <div style={{ fontFamily: "'Sora'", fontSize: 48, fontWeight: 800, color: "var(--accent)", letterSpacing: "-2px", lineHeight: 1 }}>L{calc.total.toLocaleString()}</div>
+                        <div style={{ fontFamily: "'Outfit'", fontSize: 48, fontWeight: 800, color: "var(--accent)", letterSpacing: "-2px", lineHeight: 1 }}>L{calc.total.toLocaleString()}</div>
                         {mostrarUSD && tipoCambio > 0 && (
                           <div style={{ fontSize: 18, fontWeight: 600, color: "var(--text2)", marginTop: 4, fontFamily: "'JetBrains Mono'" }}>
                             ≈ ${(calc.total / tipoCambio).toFixed(2)} USD
@@ -3719,7 +3737,7 @@ ${businessName}`
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               {logoB64 && <img src={logoB64} alt="Logo" style={{ height: 56, maxWidth: 120, objectFit: "contain" }} />}
               <div>
-                <div style={{ fontFamily: "'Sora'", fontSize: 26, fontWeight: 800, letterSpacing: "-1px", color: "#111" }}>{businessName}</div>
+                <div style={{ fontFamily: "'Outfit'", fontSize: 26, fontWeight: 800, letterSpacing: "-1px", color: "#111" }}>{businessName}</div>
                 <div style={{ fontSize: 10, color: "#999", letterSpacing: ".1em", textTransform: "uppercase", marginTop: 2 }}>DTF · Estampado Digital</div>
               </div>
             </div>
@@ -3829,7 +3847,7 @@ function StepBadge({ n }) {
       background: "var(--accent)", color: "var(--bg)",
       width: 24, height: 24, borderRadius: "50%",
       display: "inline-flex", alignItems: "center", justifyContent: "center",
-      fontSize: 12, fontWeight: 800, flexShrink: 0, fontFamily: "'Sora'"
+      fontSize: 12, fontWeight: 800, flexShrink: 0, fontFamily: "'Outfit'"
     }}>{n}</span>
   );
 }
