@@ -33,7 +33,6 @@ const COUNTRIES = [
   { code: "VE", name: "Venezuela",          dial: "58",  flag: "🇻🇪" },
 ];
 
-// Detect country from full phone number string
 function detectCountry(val) {
   if (!val) return COUNTRIES[0];
   for (const c of COUNTRIES) {
@@ -48,63 +47,35 @@ export default function PhoneInput({ value = "", onChange, placeholder = "tu nú
   const [search, setSearch] = useState("");
   const dropRef = useRef(null);
   const searchRef = useRef(null);
-  const isOpen = useRef(false);
 
-  // Close dropdown on outside click
   useEffect(() => {
-    const handler = (e) => {
-      if (!dropRef.current?.contains(e.target)) setOpen(false);
-    };
+    const handler = (e) => { if (!dropRef.current?.contains(e.target)) setOpen(false); };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Focus search input when dropdown opens
   useEffect(() => {
-    isOpen.current = open;
-    if (open) {
-      setSearch("");
-      setTimeout(() => searchRef.current?.focus(), 40);
-    }
+    if (open) { setSearch(""); setTimeout(() => searchRef.current?.focus(), 40); }
   }, [open]);
 
-  // Local number = value minus the dial code
   const localNum = value.startsWith(country.dial) ? value.slice(country.dial.length) : value;
-
-  const handleLocalChange = (e) => {
-    const local = e.target.value.replace(/\D/g, "");
-    onChange(country.dial + local);
-  };
-
-  const handleCountrySelect = (c) => {
-    if (c.code === "__") return;
-    setCountry(c);
-    setOpen(false);
-    onChange(c.dial + localNum);
-  };
-
-  const filtered = COUNTRIES.filter(c =>
-    c.code === "__" ||
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.dial.includes(search)
-  );
+  const handleLocalChange = (e) => { onChange(country.dial + e.target.value.replace(/\D/g, "")); };
+  const handleCountrySelect = (c) => { if (c.code === "__") return; setCountry(c); setOpen(false); onChange(c.dial + localNum); };
+  const filtered = COUNTRIES.filter(c => c.code === "__" || c.name.toLowerCase().includes(search.toLowerCase()) || c.dial.includes(search));
 
   return (
     <div ref={dropRef} style={{ position: "relative", display: "flex", gap: 6, ...style }}>
-      {/* ── Country button ── */}
-      <button
-        type="button"
-        onClick={() => setOpen(v => !v)}
+      <button type="button" onClick={() => setOpen(v => !v)}
         style={{
           display: "flex", alignItems: "center", gap: 6, flexShrink: 0,
           padding: "0 10px", height: 46, minWidth: 92,
-          background: "var(--bg2, #0D1018)",
-          border: `1.5px solid ${open ? "var(--accent, #22D3EE)" : "var(--border, #1E2535)"}`,
-          borderRadius: 10, cursor: "pointer", color: "var(--text, #E2E8F4)",
-          fontFamily: "'Sora',sans-serif", transition: "border-color .15s",
+          background: "var(--bg3, #F5F5F7)",
+          border: `1.5px solid ${open ? "var(--accent, #0071E3)" : "var(--border2, #E8E8ED)"}`,
+          borderRadius: 12, cursor: "pointer", color: "var(--text, #1D1D1F)",
+          fontFamily: "'Outfit',sans-serif", transition: "border-color .2s",
         }}>
         <span style={{ fontSize: 18, lineHeight: 1 }}>{country.flag}</span>
-        <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace", color: "var(--text2, #94A3B8)" }}>
+        <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace", color: "var(--text2, #86868B)" }}>
           +{country.dial}
         </span>
         <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
@@ -113,90 +84,63 @@ export default function PhoneInput({ value = "", onChange, placeholder = "tu nú
         </svg>
       </button>
 
-      {/* ── Number input ── */}
-      <input
-        type="tel"
-        value={localNum}
-        onChange={handleLocalChange}
-        placeholder={placeholder}
+      <input type="tel" value={localNum} onChange={handleLocalChange} placeholder={placeholder}
         style={{
-          flex: 1, height: 46, padding: "0 14px", fontSize: 15,
-          background: "var(--bg2, #0D1018)",
-          border: "1.5px solid var(--border, #1E2535)",
-          borderRadius: 10, outline: "none",
-          color: "var(--text, #E2E8F4)", fontFamily: "'Sora',sans-serif",
-          transition: "border-color .15s",
+          flex: 1, height: 46, padding: "0 16px", fontSize: 15,
+          background: "var(--bg3, #F5F5F7)",
+          border: "1.5px solid var(--border2, #E8E8ED)",
+          borderRadius: 12, outline: "none",
+          color: "var(--text, #1D1D1F)", fontFamily: "'Outfit',sans-serif",
+          transition: "border-color .2s",
           ...inputStyle,
         }}
-        onFocus={e => e.target.style.borderColor = "var(--accent, #22D3EE)"}
-        onBlur={e => e.target.style.borderColor = "var(--border, #1E2535)"}
+        onFocus={e => e.target.style.borderColor = "var(--accent, #0071E3)"}
+        onBlur={e => e.target.style.borderColor = "var(--border2, #E8E8ED)"}
       />
 
-      {/* ── Dropdown ── */}
       {open && (
         <div style={{
           position: "absolute", top: "calc(100% + 6px)", left: 0, zIndex: 1000,
           width: 290, maxHeight: 320,
-          background: "var(--bg2, #0D1018)",
-          border: "1.5px solid var(--border2, #252D3F)",
-          borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,.5)",
+          background: "var(--bg2, #fff)",
+          border: "1px solid var(--border, #E8E8ED)",
+          borderRadius: 14, boxShadow: "0 8px 32px rgba(0,0,0,.12)",
           display: "flex", flexDirection: "column", overflow: "hidden",
         }}>
-          {/* Search */}
-          <div style={{ padding: "8px 10px 6px", borderBottom: "1px solid var(--border, #1E2535)" }}>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8,
-              background: "var(--bg3, #131720)", borderRadius: 8, padding: "7px 10px",
-            }}>
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-                stroke="var(--text3, #4A5568)" strokeWidth="2">
+          <div style={{ padding: "8px 10px 6px", borderBottom: "1px solid var(--border, #E8E8ED)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg3, #F5F5F7)", borderRadius: 10, padding: "8px 10px" }}>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text3, #86868B)" strokeWidth="2">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
               </svg>
-              <input
-                ref={searchRef}
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Buscar país o código…"
-                style={{
-                  background: "none", border: "none", outline: "none",
-                  fontSize: 13, color: "var(--text, #E2E8F4)",
-                  width: "100%", fontFamily: "'Sora',sans-serif",
-                }}
-              />
+              <input ref={searchRef} value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar país…"
+                style={{ background: "none", border: "none", outline: "none", fontSize: 13, color: "var(--text, #1D1D1F)", width: "100%", fontFamily: "'Outfit',sans-serif" }}/>
             </div>
           </div>
-
-          {/* List */}
           <div style={{ overflowY: "auto", flex: 1 }}>
             {filtered.map((c, i) =>
               c.code === "__"
-                ? <div key={i} style={{ borderTop: "1px solid var(--border, #1E2535)", margin: "3px 0" }} />
+                ? <div key={i} style={{ borderTop: "1px solid var(--border, #E8E8ED)", margin: "3px 0" }} />
                 : (
-                  <button key={c.code} type="button" onClick={() => handleCountrySelect(c)}
+                  <button key={c.code + i} type="button" onClick={() => handleCountrySelect(c)}
                     style={{
                       width: "100%", display: "flex", alignItems: "center", gap: 10,
-                      padding: "9px 14px", border: "none", cursor: "pointer", textAlign: "left",
-                      background: country.code === c.code ? "rgba(34,211,238,.08)" : "transparent",
-                      transition: "background .1s",
+                      padding: "10px 14px", border: "none", cursor: "pointer", textAlign: "left",
+                      background: country.code === c.code ? "var(--accent-dim, #F0F7FF)" : "transparent",
+                      transition: "background .1s", fontFamily: "'Outfit',sans-serif",
                     }}
-                    onMouseEnter={e => { if (country.code !== c.code) e.currentTarget.style.background = "rgba(255,255,255,.04)"; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = country.code === c.code ? "rgba(34,211,238,.08)" : "transparent"; }}
-                  >
+                    onMouseEnter={e => { if (country.code !== c.code) e.currentTarget.style.background = "var(--bg3, #F5F5F7)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = country.code === c.code ? "var(--accent-dim, #F0F7FF)" : "transparent"; }}>
                     <span style={{ fontSize: 18, lineHeight: 1, flexShrink: 0 }}>{c.flag}</span>
-                    <span style={{ fontSize: 13, color: "var(--text, #E2E8F4)", flex: 1, fontFamily: "'Sora',sans-serif" }}>{c.name}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace", color: "var(--text3, #4A5568)" }}>+{c.dial}</span>
+                    <span style={{ fontSize: 13, color: "var(--text, #1D1D1F)", flex: 1 }}>{c.name}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, fontFamily: "'JetBrains Mono',monospace", color: "var(--text3, #86868B)" }}>+{c.dial}</span>
                     {country.code === c.code && (
                       <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-                        <path d="M2 6l2.8 3L10 3" stroke="var(--accent, #22D3EE)" strokeWidth="2" strokeLinecap="round"/>
+                        <path d="M2 6l2.8 3L10 3" stroke="var(--accent, #0071E3)" strokeWidth="2" strokeLinecap="round"/>
                       </svg>
                     )}
                   </button>
                 )
-            )}
-            {filtered.filter(c => c.code !== "__").length === 0 && (
-              <div style={{ padding: 20, textAlign: "center", fontSize: 13, color: "var(--text3, #4A5568)" }}>
-                Sin resultados
-              </div>
             )}
           </div>
         </div>
