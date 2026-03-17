@@ -15,7 +15,7 @@ Cotizador de DTF hecho con `Vite + React`, con un solver híbrido para optimizar
 ## Instalación
 
 ```bash
-cd /Users/danielfuentez/Documents/GitHub/dtf-cotizador
+cd dtf-cotizador
 npm install
 pip3 install -r requirements.txt
 ```
@@ -96,12 +96,12 @@ PYTHONPYCACHEPREFIX=/tmp/python-pyc python3 -m py_compile \
 
 Archivos clave:
 
-- [`src/App.jsx`](/Users/danielfuentez/Documents/GitHub/dtf-cotizador/src/App.jsx)
-- [`src/packing/contracts.mjs`](/Users/danielfuentez/Documents/GitHub/dtf-cotizador/src/packing/contracts.mjs)
-- [`src/packing/maxrects.mjs`](/Users/danielfuentez/Documents/GitHub/dtf-cotizador/src/packing/maxrects.mjs)
-- [`src/packing/client.mjs`](/Users/danielfuentez/Documents/GitHub/dtf-cotizador/src/packing/client.mjs)
-- [`api/packing/solve.py`](/Users/danielfuentez/Documents/GitHub/dtf-cotizador/api/packing/solve.py)
-- [`solver_service/packing_solver.py`](/Users/danielfuentez/Documents/GitHub/dtf-cotizador/solver_service/packing_solver.py)
+- [`src/App.jsx`](src/App.jsx)
+- [`src/packing/contracts.mjs`](src/packing/contracts.mjs)
+- [`src/packing/maxrects.mjs`](src/packing/maxrects.mjs)
+- [`src/packing/client.mjs`](src/packing/client.mjs)
+- [`api/packing/solve.py`](api/packing/solve.py)
+- [`solver_service/packing_solver.py`](solver_service/packing_solver.py)
 
 ## Despliegue en Vercel
 
@@ -123,7 +123,7 @@ Install Command: npm install
 Notas:
 
 - La función Python vive en `api/packing/solve.py`.
-- Las dependencias Python se instalan desde [`requirements.txt`](/Users/danielfuentez/Documents/GitHub/dtf-cotizador/requirements.txt).
+- Las dependencias Python se instalan desde [`requirements.txt`](requirements.txt).
 - El frontend en producción usa `/api/packing/solve`, así que no necesitás definir `VITE_PACKING_SOLVER_URL`.
 
 ### Opción 2: desde CLI
@@ -229,7 +229,7 @@ Debe devolver:
 
 ## Datos de Supabase
 
-El proyecto hoy tiene las credenciales públicas embebidas en [`src/supabase.js`](/Users/danielfuentez/Documents/GitHub/dtf-cotizador/src/supabase.js).
+El proyecto hoy tiene las credenciales públicas embebidas en [`src/supabase.js`](src/supabase.js).
 
 Eso implica:
 
