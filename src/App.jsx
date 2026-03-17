@@ -11,6 +11,20 @@ import { solvePackingRequest } from "./packing/client.mjs";
 import { solvePackingPreview } from "./packing/maxrects.mjs";
 import PhoneInput from "./PhoneInput.jsx";
 import {
+  calculateDocumentAdjustments,
+  createDocumentPayload,
+  createEmptyCharge,
+  DOCUMENT_TYPE_LABEL,
+  extractDocumentItems,
+  formatMoney,
+  getDocumentNextStatuses,
+  inferDocumentType,
+  normalizeDocumentAdjustments,
+  normalizeDocumentStatus,
+  readDocumentPayload,
+  roundCurrency,
+} from "./documents.js";
+import {
   loadConfigRemote, saveConfigRemote,
   loadCotizaciones, createCotizacion, updateCotizacion, updateCotizacionEstado, deleteCotizacion,
   getNextNumero, checkConnection,
@@ -72,6 +86,115 @@ const INIT_PRENDAS = [
 // Fórmula: ancho_in × alto_in × 0.0774
 const calcPoli = (w, h) => parseFloat((w * h * 0.0774).toFixed(2));
 const PACKING_TIMEOUT_MS = 4500;
+const slugSkuPart = (value, fallback = "NA") => {
+  const normalized = String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toUpperCase();
+  return normalized || fallback;
+};
+
+function buildVariantSku({ prendaLabel, color, talla }) {
+  return [
+    slugSkuPart(prendaLabel, "PRENDA"),
+    slugSkuPart(color, "SIN-COLOR"),
+    slugSkuPart(talla, "STD"),
+  ].join("-");
+}
+
+function parseTallasSummary(summary = "") {
+  return [...summary.matchAll(/([^,: ]+):\s*(\d+)/g)].map(match => ({
+    talla: match[1],
+    qty: Number(match[2]) || 0,
+  })).filter(item => item.qty > 0);
+}
+
+function buildLineVariants(line, prendaLabel) {
+  if (Array.isArray(line.variants) && line.variants.length > 0) {
+    return line.variants
+      .map(item => ({
+        sku: item.sku || buildVariantSku({ prendaLabel, color: item.color || line.color, talla: item.talla }),
+        talla: item.talla || "",
+        color: item.color || line.color || "",
+        qty: Number(item.qty) || 0,
+      }))
+      .filter(item => item.qty > 0);
+  }
+
+  const tallaEntries = Array.isArray(line.tallas) && line.tallas.length > 0
+    ? line.tallas.filter(item => Number(item.qty) > 0).map(item => ({ talla: item.talla, qty: Number(item.qty) || 0 }))
+    : parseTallasSummary(line.tallasSummary || "");
+
+  if (tallaEntries.length > 0) {
+    return tallaEntries.map(item => ({
+      sku: buildVariantSku({ prendaLabel, color: line.color, talla: item.talla }),
+      talla: item.talla,
+      color: line.color || "",
+      qty: item.qty,
+    }));
+  }
+
+  const qty = Number(line.qty) || 0;
+  if (qty <= 0) return [];
+
+  return [{
+    sku: buildVariantSku({ prendaLabel, color: line.color, talla: "STD" }),
+    talla: "",
+    color: line.color || "",
+    qty,
+  }];
+}
+
+function buildQuoteGroups(lines = []) {
+  const groups = new Map();
+
+  lines.forEach((line, index) => {
+    const parentLabel = line.groupLabel || line.parentLabel || line.prendaLabel || "Prenda";
+    const groupId = line.groupId || line.parentGroupId || `${parentLabel}::${line.cfgLabel || ""}::${index}`;
+    const variantDetails = buildLineVariants(line, parentLabel);
+    const existing = groups.get(groupId) || {
+      id: groupId,
+      label: parentLabel,
+      cfgLabel: line.cfgLabel || "",
+      quien: line.quien || null,
+      totalQty: 0,
+      totalLine: 0,
+      items: [],
+      variants: [],
+    };
+
+    existing.totalQty += Number(line.qty) || 0;
+    existing.totalLine += Number(line.lineTotal) || 0;
+    existing.items.push(line);
+    existing.variants.push(...variantDetails);
+    groups.set(groupId, existing);
+  });
+
+  return [...groups.values()].map(group => {
+    const mergedVariants = new Map();
+
+    group.variants.forEach(variant => {
+      const key = `${variant.sku}::${variant.color}::${variant.talla}`;
+      const current = mergedVariants.get(key) || { ...variant, qty: 0 };
+      current.qty += Number(variant.qty) || 0;
+      mergedVariants.set(key, current);
+    });
+
+    return {
+      ...group,
+      variants: [...mergedVariants.values()],
+      avgUnitPrice: group.totalQty > 0 ? group.totalLine / group.totalQty : 0,
+    };
+  });
+}
+
+function formatGroupSummaryText(group) {
+  return group.variants
+    .map(variant => `${variant.qty}× ${variant.color || "Sin color"}${variant.talla ? ` / ${variant.talla}` : ""}`)
+    .join(", ");
+}
 
 // ── Pure pricing engine — returns full calc-compatible object for Factura ──
 function calcPrecioSolicitud({ lines, prendas, placements, sheets, volTiers, poliRate, energyCost, margin }) {
@@ -112,6 +235,9 @@ function calcPrecioSolicitud({ lines, prendas, placements, sheets, volTiers, pol
     const pr = prendas.find(p => p.id === line.prendaId || p.name === line.prendaLabel);
     const prendaCost = pr ? pr.cost : 0;
     const prendaLabel = pr ? pr.name : (line.prendaLabel || "Prenda");
+    const variants = buildLineVariants(line, prendaLabel);
+    const groupId = line.groupId || line.parentGroupId || `${prendaLabel}::${line.cfgLabel || ""}`;
+    const groupLabel = line.groupLabel || line.parentLabel || prendaLabel;
 
     for (let u = 0; u < qty; u++) {
       piecesPerUnit.forEach(p => allPieces.push({ ...p, _idx: pidx++ }));
@@ -122,6 +248,9 @@ function calcPrecioSolicitud({ lines, prendas, placements, sheets, volTiers, pol
       prendaLabel, color: line.color || "",
       cfgLabel: posLabels.join(" + ") || line.cfgLabel || "",
       tallasSummary: line.tallasSummary || null,
+      groupId,
+      groupLabel,
+      variants,
       quien: "Yo",
     };
   });
@@ -163,10 +292,12 @@ function calcPrecioSolicitud({ lines, prendas, placements, sheets, volTiers, pol
   const totalPoli = lineDetails.reduce((s, l) => s + l.poli, 0);
   const totalPoliCost = lineDetails.reduce((s, l) => s + l.poliCost, 0);
   const totalEnergyCost = totalQty * energyCost;
+  const groups = buildQuoteGroups(lp);
 
   // Return full calc-compatible object
   return {
     lp, nesting, totalQty, dtfCost,
+    groups,
     sub, disc, total, cost, profit, rm,
     volPct, tier,
     totalPoli, totalPoliCost, totalEnergyCost,
@@ -230,6 +361,9 @@ function buildPackingContext({ lines, placements, prendas, poliRate, sheets, agr
     const prendaCost = line.quien === "Cliente" ? 0 : (prenda ? prenda.cost : Number(line.otroCost) || 0);
     const prendaLabel = prenda ? prenda.name : (line.otroName || "Otro");
     const sinCosto = line.quien !== "Cliente" && line.prendaId === "__otro" && !Number(line.otroCost);
+    const variants = buildLineVariants(line, prendaLabel);
+    const groupId = line.groupId || line.parentGroupId || line.id;
+    const groupLabel = line.groupLabel || line.parentLabel || prendaLabel;
     const cfgLabel = [
       ...line.placementIds.map(pid => placements.find(item => item.id === pid)?.label || "?"),
       ...line.customs.filter(custom => custom.w && custom.h).map(custom => `${custom.label} ${custom.w}×${custom.h}`),
@@ -248,6 +382,9 @@ function buildPackingContext({ lines, placements, prendas, poliRate, sheets, agr
       prendaLabel,
       cfgLabel,
       tallasSummary,
+      groupId,
+      groupLabel,
+      variants,
       sinCosto,
     };
   });
@@ -280,6 +417,7 @@ function buildCalcResult({
   energyCost,
   prensaWatts,
   tarifaKwh,
+  adjustments,
 }) {
   const dtfCost = nesting.totalCost;
   const dtfPU = totalQty > 0 ? dtfCost / totalQty : 0;
@@ -297,23 +435,30 @@ function buildCalcResult({
   const lp = lineDetails.map(line => {
     const unitCost = line.prendaCost + line.poliCost + dtfPU + energyCost;
     const myBase = line.poliCost + dtfPU + energyCost;
-    const sellPrice = line.quien === "Cliente"
+    const autoSellPrice = line.quien === "Cliente"
       ? Math.ceil((myBase * (1 + margin / 100)) / 10) * 10
       : Math.ceil((unitCost * (1 + margin / 100)) / 10) * 10;
+    const manualUnitPrice = line.useManualUnitPrice ? roundCurrency(line.manualUnitPrice) : 0;
+    const sellPrice = manualUnitPrice > 0 ? manualUnitPrice : autoSellPrice;
     return {
       ...line,
       unitCost,
+      autoSellPrice,
+      manualUnitPrice: manualUnitPrice > 0 ? manualUnitPrice : null,
+      unitPriceSource: manualUnitPrice > 0 ? "manual" : "auto",
       sellPrice,
-      lineTotal: sellPrice * line.qty,
-      costTotal: unitCost * line.qty,
+      lineTotal: roundCurrency(sellPrice * line.qty),
+      costTotal: roundCurrency(unitCost * line.qty),
     };
   });
 
-  const sub = lp.reduce((sum, line) => sum + line.lineTotal, 0);
-  const disc = Math.round(sub * volPct / 100);
-  const total = sub - disc + designCharged + fixCharged;
-  const cost = lp.reduce((sum, line) => sum + line.costTotal, 0);
-  const profit = total - cost;
+  const sub = roundCurrency(lp.reduce((sum, line) => sum + line.lineTotal, 0));
+  const disc = roundCurrency(sub * volPct / 100);
+  const baseAfterAutoDiscount = roundCurrency(sub - disc + designCharged + fixCharged);
+  const adjustmentSummary = calculateDocumentAdjustments(baseAfterAutoDiscount, adjustments);
+  const total = roundCurrency(baseAfterAutoDiscount - adjustmentSummary.manualDiscount + adjustmentSummary.extraChargesTotal);
+  const cost = roundCurrency(lp.reduce((sum, line) => sum + line.costTotal, 0));
+  const profit = roundCurrency(total - cost);
   const rm = total > 0 ? (profit / total) * 100 : 0;
 
   const totalPoli = lineDetails.reduce((sum, line) => sum + line.poli, 0);
@@ -323,9 +468,11 @@ function buildCalcResult({
   const warmUpKwh = (prensaWatts / 1000) * (warmUpMinutes / 60);
   const warmUpTotal = warmUpKwh * tarifaKwh;
   const warmUpPerPrenda = totalQty > 0 ? parseFloat((warmUpTotal / totalQty).toFixed(4)) : 0;
+  const groups = buildQuoteGroups(lp);
 
   return {
     lp,
+    groups,
     nesting,
     totalQty,
     dtfCost,
@@ -336,6 +483,10 @@ function buildCalcResult({
     volPct,
     disc,
     sub,
+    baseAfterAutoDiscount,
+    manualDiscount: adjustmentSummary.manualDiscount,
+    adjustments: adjustmentSummary.adjustments,
+    extraChargesTotal: adjustmentSummary.extraChargesTotal,
     total,
     cost,
     profit,
@@ -411,7 +562,167 @@ const emptyLine = () => ({
   color: "",
   tallas: [], // [{ talla: "S", qty: 1 }]
   showTallas: false,
+  useManualUnitPrice: false,
+  manualUnitPrice: "",
 });
+
+function defaultDocumentMeta(status = "Borrador", docType = "cotizacion") {
+  return {
+    docType,
+    status,
+    designWho: "Cliente trae arte",
+    designId: "d0",
+    fixId: "f0",
+    adjustments: normalizeDocumentAdjustments(),
+    internalNotes: "",
+    sourceQuoteId: null,
+    convertedAt: null,
+    createdFrom: "admin",
+  };
+}
+
+function sumTallas(line) {
+  return (line.tallas || []).reduce((sum, item) => sum + (Number(item.qty) || 0), 0);
+}
+
+function syncLineQty(line) {
+  const tallasTotal = sumTallas(line);
+  if (tallasTotal > 0 || line.showTallas) {
+    return {
+      ...line,
+      qty: tallasTotal,
+    };
+  }
+  return {
+    ...line,
+    qty: Math.max(0, Number(line.qty) || 0),
+  };
+}
+
+function parseCfgLabelToPlacementIds(cfgLabel, placements) {
+  return String(cfgLabel || "")
+    .split(" + ")
+    .map(label => label.trim())
+    .filter(Boolean)
+    .map(label => placements.find(item => item.label?.toLowerCase() === label.toLowerCase())?.id)
+    .filter(Boolean);
+}
+
+function buildEditableTallas(item, prenda, tallasCfg) {
+  const variants = buildLineVariants(item, prenda?.name || item.prendaLabel || item.otroName || "Prenda");
+  const totals = new Map();
+  variants.forEach(variant => {
+    const key = variant.talla || "STD";
+    totals.set(key, (totals.get(key) || 0) + (Number(variant.qty) || 0));
+  });
+
+  const baseSizes = prenda?.tallas?.length ? prenda.tallas : tallasCfg;
+  const extraSizes = [...totals.keys()].filter(size => size !== "STD" && !baseSizes.includes(size));
+  const ordered = [...baseSizes, ...extraSizes];
+
+  return ordered.map(talla => ({
+    talla,
+    qty: totals.get(talla) || 0,
+  }));
+}
+
+function buildEditorLineFromStored(item, { prendas, placements, tallasCfg }) {
+  const prenda = prendas.find(entry => entry.id === item.prendaId || entry.name === item.prendaLabel);
+  const tallas = buildEditableTallas(item, prenda, tallasCfg);
+  const showTallas = tallas.some(entry => entry.qty > 0);
+  const placementIds = Array.isArray(item.placementIds) && item.placementIds.length
+    ? item.placementIds
+    : parseCfgLabelToPlacementIds(item.cfgLabel, placements);
+  const customs = Array.isArray(item.customs)
+    ? item.customs.map(custom => ({
+        label: custom.label || "Custom",
+        color: custom.color || "#9B6B8B",
+        w: custom.w || "",
+        h: custom.h || "",
+      }))
+    : [];
+
+  return syncLineQty({
+    ...emptyLine(),
+    id: item.id || uid(),
+    qty: Number(item.qty) || 0,
+    prendaId: prenda?.id || (item.prendaId === "__otro" ? "__otro" : ""),
+    quien: item.quien || "Yo",
+    placementIds,
+    customs,
+    otroName: item.otroName || (!prenda ? item.prendaLabel || "" : ""),
+    otroCost: item.otroCost ?? "",
+    color: item.color || item.variants?.[0]?.color || "",
+    tallas,
+    showTallas,
+    useManualUnitPrice: Number(item.manualUnitPrice) > 0,
+    manualUnitPrice: Number(item.manualUnitPrice) > 0 ? item.manualUnitPrice : "",
+  });
+}
+
+function normalizeDocumentMeta(meta, row) {
+  const status = normalizeDocumentStatus(meta?.status || row.estado || "Borrador");
+  const docType = inferDocumentType(meta?.docType, status);
+  return {
+    ...defaultDocumentMeta(status, docType),
+    ...(meta || {}),
+    status,
+    docType,
+    adjustments: normalizeDocumentAdjustments(meta?.adjustments),
+  };
+}
+
+function hydratePedidoRecord(row, { prendas, placements, tallasCfg }) {
+  const payload = readDocumentPayload(row.lines);
+  const meta = normalizeDocumentMeta(payload.meta, row);
+  const items = extractDocumentItems(row.lines);
+  const lines = items;
+  const editorLines = items.length > 0
+    ? items.map(item => buildEditorLineFromStored(item, { prendas, placements, tallasCfg }))
+    : [{ ...emptyLine(), qty: 1 }];
+
+  return {
+    id: row.id || uid(),
+    num: row.numero || row.num || "",
+    cliente: row.cliente || "",
+    email: row.email || "",
+    telefono: row.telefono || "",
+    fecha: row.created_at || row.fecha || new Date().toISOString(),
+    total: Number(row.total) || 0,
+    estado: meta.status,
+    docType: meta.docType,
+    notas: row.notas || "",
+    lines,
+    editorLines,
+    meta,
+    fromWeb: meta.createdFrom === "web" || row.notas?.includes("Pedido web") || false,
+  };
+}
+
+function serializeLinesFromCalc(calc) {
+  return calc.lp.map(line => ({
+    id: line.id,
+    qty: line.qty,
+    prendaId: line.prendaId,
+    prendaLabel: line.prendaLabel,
+    quien: line.quien,
+    placementIds: line.placementIds,
+    customs: line.customs,
+    otroName: line.otroName,
+    otroCost: line.otroCost,
+    color: line.color,
+    tallas: line.tallas,
+    tallasSummary: line.tallasSummary,
+    groupId: line.groupId,
+    groupLabel: line.groupLabel,
+    variants: line.variants,
+    sellPrice: line.sellPrice,
+    autoSellPrice: line.autoSellPrice,
+    manualUnitPrice: line.manualUnitPrice,
+    lineTotal: line.lineTotal,
+    unitCost: line.unitCost,
+  }));
+}
 
 export default function App() {
   const saved = loadConfig();
@@ -449,15 +760,16 @@ export default function App() {
   const [tipoCambio, setTipoCambio]   = useState(saved?.tipoCambio ?? 25.5);
   const [mostrarUSD, setMostrarUSD]   = useState(saved?.mostrarUSD ?? false);
   const [margenMin, setMargenMin]     = useState(saved?.margenMin ?? 30);
-  const [pedidos, setPedidos]         = useState(() => loadPedidos());
+  const [pedidos, setPedidos] = useState(() => (
+    loadPedidos().map(row => hydratePedidoRecord(row, {
+      prendas: saved?.prendas ?? INIT_PRENDAS,
+      placements: saved?.placements ?? INIT_PLACEMENTS,
+      tallasCfg: saved?.tallasCfg ?? TALLAS_DEFAULT,
+    }))
+  ));
   const [agruparPorColor, setAgruparPorColor] = useState(saved?.agruparPorColor ?? false);
   const [pedidoTab, setPedidoTab]     = useState("Todos");
-  const [cotizModal, setCotizModal]     = useState(null); // { id, cliente, lines, ... }
-  const [modalTotal, setModalTotal]     = useState("");
-  const [modalNota, setModalNota]       = useState("");
-  const [modalMode, setModalMode]       = useState("auto"); // "auto" | "manual"
-  const [modalAutoResult, setModalAutoResult] = useState(null); // full calc object
-  const [modalStep, setModalStep]         = useState("review"); // "review" | "factura"
+  const [selectedPedido, setSelectedPedido] = useState(null);
   const [pedidosPage, setPedidosPage]   = useState(0);
   const PEDIDOS_PER_PAGE = 20;
   const [syncStatus, setSyncStatus]   = useState("idle");
@@ -589,22 +901,17 @@ export default function App() {
         if (remoteCfg.tarifaKwh)    setTarifaKwh(remoteCfg.tarifaKwh);
       }
 
+      const effectivePrendas = remoteCfg?.prendas ?? saved?.prendas ?? INIT_PRENDAS;
+      const effectivePlacements = remoteCfg?.placements ?? saved?.placements ?? INIT_PLACEMENTS;
+      const effectiveTallasCfg = remoteCfg?.tallasCfg ?? saved?.tallasCfg ?? TALLAS_DEFAULT;
+
       // Load remote cotizaciones
       const remoteCots = await loadCotizaciones();
       if (!cancelled && remoteCots !== null) {
-        // Map Supabase rows to app format
-        const mapped = remoteCots.map(row => ({
-          id: row.id,
-          num: row.numero,
-          cliente: row.cliente  ?? "",
-          email: row.email      ?? "",
-          telefono: row.telefono ?? "",
-          fecha: row.created_at ?? row.fecha ?? new Date().toISOString(),
-          total: row.total      ?? 0,
-          estado: row.estado    ?? "Cotizado",
-          notas: row.notas      ?? "",
-          lines: Array.isArray(row.lines) ? row.lines : [],
-          fromWeb: row.notas?.includes("Pedido web") ?? false,
+        const mapped = remoteCots.map(row => hydratePedidoRecord(row, {
+          prendas: effectivePrendas,
+          placements: effectivePlacements,
+          tallasCfg: effectiveTallasCfg,
         }));
         setPedidos(mapped);
         savePedidos(mapped); // update localStorage too
@@ -673,12 +980,16 @@ export default function App() {
     const exists = loadPedidos().some(p => p.num === invoiceNum);
     if (exists) return "duplicate";
 
-    const lines = calc.lp.map(l => ({
-      qty: l.qty, prendaLabel: l.prendaLabel, color: l.color,
-      cfgLabel: l.cfgLabel, tallasSummary: l.tallasSummary,
-      sellPrice: l.sellPrice, lineTotal: l.lineTotal,
-    }));
-    // Tag as admin-created
+    const meta = {
+      ...defaultDocumentMeta("Borrador", "cotizacion"),
+      designWho,
+      designId,
+      fixId,
+      createdFrom: "admin",
+    };
+    const lineItems = serializeLinesFromCalc(calc);
+    const payload = createDocumentPayload(lineItems, meta);
+    const estado = meta.status;
 
     // Save to Supabase if online
     let id = uid();
@@ -688,22 +999,74 @@ export default function App() {
         cliente: clientName || "Sin nombre",
         email, telefono, notas,
         total: calc.total,
-        estado: "Cotizado",
-        lines,
+        estado,
+        lines: payload,
       });
       if (row) id = row.id;
     }
 
-    const nuevo = {
+    const nuevo = hydratePedidoRecord({
       id, num: invoiceNum,
       cliente: clientName || "Sin nombre",
       email, telefono, notas,
       fecha: new Date().toISOString(),
-      total: calc.total, estado: "Cotizado", lines,
-    };
+      total: calc.total,
+      estado,
+      lines: payload,
+    }, { prendas, placements, tallasCfg });
     setPedidos(prev => [nuevo, ...prev]);
     return "ok";
-  }, [supabaseReady]);
+  }, [designId, designWho, fixId, prendas, placements, supabaseReady, tallasCfg]);
+
+  const savePedidoEdits = useCallback(async (pedidoBase, calc, overrides) => {
+    if (!calc) return false;
+
+    const meta = {
+      ...defaultDocumentMeta(overrides.status, overrides.docType),
+      ...(pedidoBase?.meta || {}),
+      docType: overrides.docType,
+      status: overrides.status,
+      designWho: overrides.designWho,
+      designId: overrides.designId,
+      fixId: overrides.fixId,
+      adjustments: normalizeDocumentAdjustments(overrides.adjustments),
+      internalNotes: overrides.internalNotes || "",
+      sourceQuoteId: overrides.sourceQuoteId || pedidoBase?.meta?.sourceQuoteId || null,
+      convertedAt: overrides.convertedAt || pedidoBase?.meta?.convertedAt || null,
+      createdFrom: pedidoBase?.meta?.createdFrom || (pedidoBase?.fromWeb ? "web" : "admin"),
+    };
+    const payload = createDocumentPayload(serializeLinesFromCalc(calc), meta);
+    const normalizedRecord = hydratePedidoRecord({
+      id: pedidoBase.id,
+      numero: overrides.num,
+      cliente: overrides.cliente,
+      email: overrides.email,
+      telefono: overrides.telefono,
+      created_at: pedidoBase.fecha,
+      total: calc.total,
+      estado: overrides.status,
+      notas: overrides.notas,
+      lines: payload,
+    }, { prendas, placements, tallasCfg });
+
+    setPedidos(prev => prev.map(item => item.id === normalizedRecord.id ? normalizedRecord : item));
+    setSelectedPedido(normalizedRecord);
+
+    if (supabaseReady) {
+      await updateCotizacion(pedidoBase.id, {
+        numero: overrides.num,
+        cliente: overrides.cliente,
+        email: overrides.email,
+        telefono: overrides.telefono,
+        total: calc.total,
+        estado: overrides.status,
+        notas: overrides.notas,
+        lines: payload,
+      });
+    }
+
+    return true;
+  }, [placements, prendas, supabaseReady, tallasCfg]);
 
   const poliRate = poliBolsa / poliGramos;
 
@@ -808,6 +1171,7 @@ export default function App() {
       energyCost,
       prensaWatts,
       tarifaKwh,
+      adjustments: undefined,
     });
   }, [
     activeNesting,
@@ -1781,21 +2145,35 @@ export default function App() {
               );
               return (<>
               {paginated.map(p => {
-                  const ec = ESTADO_COLOR[p.estado] || ESTADO_COLOR.Cotizado;
+                  const ec = ESTADO_COLOR[p.estado] || ESTADO_COLOR.Borrador;
+                  const groupedLines = buildQuoteGroups(p.lines || []);
                   return (
                     <div key={p.id} className="card" style={{ marginBottom: 10 }}>
                       <div className="card-head" style={{ flexWrap: "wrap", gap: 8 }}>
                         <div>
                           <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, color: "var(--accent)", fontSize: 13 }}>#{p.num}</span>
                           {p.fromWeb && <span style={{ marginLeft:8, fontSize:9, fontWeight:800, background:"rgba(251,191,36,.15)", border:"1px solid rgba(251,191,36,.3)", color:"var(--warn)", borderRadius:6, padding:"2px 6px", letterSpacing:".05em" }}>WEB</span>}
+                          <span style={{ marginLeft:8, fontSize:9, fontWeight:800, background:"rgba(34,211,238,.12)", border:"1px solid rgba(34,211,238,.22)", color:"var(--accent)", borderRadius:6, padding:"2px 6px", letterSpacing:".05em" }}>
+                            {DOCUMENT_TYPE_LABEL[p.docType] || "Cotización"}
+                          </span>
                           <span style={{ marginLeft: 6, fontWeight: 700, fontSize: 14 }}>{p.cliente}</span>
                         </div>
                         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                          <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 14, color: "var(--accent)" }}>L{p.total.toLocaleString()}</span>
+                          <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 14, color: "var(--accent)" }}>L{formatMoney(p.total)}</span>
+                          <button
+                            onClick={() => setSelectedPedido(p)}
+                            style={{ background:"var(--accent-dim)", border:"1px solid rgba(34,211,238,.24)", borderRadius:8, padding:"5px 12px", fontSize:11, fontWeight:800, color:"var(--accent)", cursor:"pointer", whiteSpace:"nowrap" }}
+                          >
+                            Editar
+                          </button>
                           {p.estado === "Pendiente" && whatsappBiz && (
                             <button onClick={() => {
-                              // Open WhatsApp to send quote to client
-                              const lines = p.lines?.[0];
+                              const groupPreview = groupedLines.map(group =>
+                                `👕 ${group.label}\n` +
+                                `🎨 ${group.cfgLabel || "Sin posiciones"}\n` +
+                                `📦 ${group.totalQty} prendas\n` +
+                                `↳ ${formatGroupSummaryText(group)}`
+                              ).join("\n\n");
                               const msg = encodeURIComponent(
                                 `Hola ${p.cliente}! 👋
 
@@ -1803,19 +2181,15 @@ export default function App() {
                                 `📋 *Cotización #${p.num} — ${businessName}*
 
 ` +
-                                `${lines ? `👕 ${lines.prendaLabel ?? "Prenda"}${lines.color ? " — " + lines.color : ""}
-🎨 ${lines.cfgLabel ?? ""}
-📦 ${p.lines.reduce((s,l)=>s+l.qty,0)} prendas
-` : ""}` +
+                                `${groupPreview ? `${groupPreview}\n\n` : ""}` +
                                 `💰 *Total: L_____*
 
 ` +
                                 `_Confirmame si estás de acuerdo y coordinamos los detalles._`
                               );
                               window.open(`https://wa.me/${p.telefono || p.lines?.[0]?.telefono}?text=${msg}`, "_blank");
-                              // Mark as Cotizado
-                              setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: "Cotizado" } : x));
-                              if (supabaseReady) updateCotizacionEstado(p.id, "Cotizado");
+                              setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: "Enviada", meta: { ...x.meta, status: "Enviada" } } : x));
+                              if (supabaseReady) updateCotizacionEstado(p.id, "Enviada");
                             }}
                               style={{ background:"rgba(37,211,102,.15)", border:"1px solid rgba(37,211,102,.35)", borderRadius:8, padding:"5px 12px", fontSize:11, fontWeight:800, color:"#25D366", cursor:"pointer", whiteSpace:"nowrap" }}>
                               ✓ Aprobar y cotizar
@@ -1823,7 +2197,7 @@ export default function App() {
                           )}
                           <select value={p.estado} onChange={async e => {
                             const newEstado = e.target.value;
-                            setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: newEstado } : x));
+                            setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: newEstado, meta: { ...x.meta, status: newEstado } } : x));
                             if (supabaseReady) await updateCotizacionEstado(p.id, newEstado);
                           }}
                             style={{ background: ec.bg, border: `1px solid ${ec.border}`, color: ec.text, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Sora'" }}>
@@ -1842,15 +2216,26 @@ export default function App() {
                           {p.telefono && <span>📱 {p.telefono}</span>}
                           {p.notas && <span style={{ color:"var(--warn)", fontFamily:"'Sora'", fontSize:10 }}>📝 {p.notas.slice(0,60)}{p.notas.length>60?"…":""}</span>}
                         </div>
-                        {p.lines.map((l, i) => (
-                          <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, padding: "5px 0", borderBottom: "1px solid var(--border)" }}>
-                            <span>
-                              <b style={{ color: "var(--accent)", fontFamily: "'JetBrains Mono'" }}>{l.qty}×</b>
-                              <span style={{ marginLeft: 6 }}>{l.prendaLabel}{l.color ? ` (${l.color})` : ""}</span>
-                              <span style={{ color: "var(--text3)", fontSize: 11, marginLeft: 6 }}>{l.cfgLabel}</span>
-                              {l.tallasSummary && <span style={{ color: "var(--text3)", fontSize: 10, fontFamily: "'JetBrains Mono'", marginLeft: 6 }}>[{l.tallasSummary}]</span>}
-                            </span>
-                            <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>L{l.lineTotal ?? (l.qty * l.sellPrice)}</span>
+                        {groupedLines.map(group => (
+                          <div key={group.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, gap: 12 }}>
+                              <span>
+                                <b style={{ color: "var(--accent)", fontFamily: "'JetBrains Mono'" }}>{group.totalQty}×</b>
+                                <span style={{ marginLeft: 6, fontWeight: 700 }}>{group.label}</span>
+                                {group.cfgLabel && <span style={{ color: "var(--text3)", fontSize: 11, marginLeft: 6 }}>{group.cfgLabel}</span>}
+                              </span>
+                              <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>L{group.totalLine || 0}</span>
+                            </div>
+                            <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
+                              {group.variants.map(variant => (
+                                <div key={`${group.id}-${variant.sku}`} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text2)", gap: 8 }}>
+                                  <span style={{ fontFamily: "'JetBrains Mono'" }}>
+                                    {variant.sku} · {variant.color || "Sin color"}{variant.talla ? ` · ${variant.talla}` : ""}
+                                  </span>
+                                  <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>{variant.qty}u</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -2224,24 +2609,31 @@ export default function App() {
                 <div className="card fade-up">
                   <div className="card-head"><StepBadge n={4} /><span style={{ fontWeight: 700, fontSize: 14 }}>Desglose</span></div>
                   <div className="card-body">
-                    {calc.lp.map((l, i) => (
-                      <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", padding: "10px 0", borderBottom: "1px solid var(--border)", gap: 8 }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, color: "var(--accent)", fontSize: 14 }}>{l.qty}×</span>
-                          <span style={{ marginLeft: 6, fontWeight: 600 }}>{l.prendaLabel}</span>
-                          {l.color && <span style={{ marginLeft: 6, fontSize: 11, color: "var(--text3)" }}>· {l.color}</span>}
-                          <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{l.cfgLabel}
-                            {l.quien === "Cliente" && <span className="pill" style={{ background: "rgba(251,191,36,.1)", color: "var(--warn)", marginLeft: 6 }}>cliente pone</span>}
+                    {calc.groups.map(group => (
+                      <div key={group.id} style={{ padding: "12px 0", borderBottom: "1px solid var(--border)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, color: "var(--accent)", fontSize: 14 }}>{group.totalQty}×</span>
+                            <span style={{ marginLeft: 6, fontWeight: 700 }}>{group.label}</span>
+                            {group.cfgLabel && <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>{group.cfgLabel}</div>}
                           </div>
-                          {l.tallasSummary && (
-                            <div style={{ fontSize: 10, color: "var(--text3)", fontFamily: "'JetBrains Mono'", marginTop: 2 }}>
-                              📏 {l.tallasSummary}
-                            </div>
-                          )}
+                          <div style={{ textAlign: "right", flexShrink: 0 }}>
+                            <div style={{ fontSize: 10, color: "var(--text3)", fontFamily: "'JetBrains Mono'" }}>L{group.avgUnitPrice.toFixed(2)}/u</div>
+                            <div style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 14 }}>L{group.totalLine}</div>
+                          </div>
                         </div>
-                        <div style={{ textAlign: "right", flexShrink: 0 }}>
-                          <div style={{ fontSize: 10, color: "var(--text3)", fontFamily: "'JetBrains Mono'" }}>L{l.sellPrice}/u</div>
-                          <div style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 14 }}>L{l.lineTotal}</div>
+                        <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                          {group.variants.map(variant => (
+                            <div key={`${group.id}-${variant.sku}`} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: "var(--bg)", borderRadius: 8, gap: 10 }}>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 11, color: "var(--text2)" }}>{variant.sku}</div>
+                                <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 2 }}>
+                                  {variant.color || "Sin color"}{variant.talla ? ` · Talla ${variant.talla}` : ""}
+                                </div>
+                              </div>
+                              <div style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, color: "var(--accent)", flexShrink: 0 }}>{variant.qty}u</div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ))}
@@ -2328,6 +2720,31 @@ export default function App() {
         )}
       </main>
 
+      {selectedPedido && (
+        <DocumentEditorModal
+          pedido={selectedPedido}
+          onClose={() => setSelectedPedido(null)}
+          onSave={savePedidoEdits}
+          prendas={prendas}
+          placements={placements}
+          sheets={sheets}
+          tallasCfg={tallasCfg}
+          coloresCfg={coloresCfg}
+          designTypes={designTypes}
+          fixTypes={fixTypes}
+          volTiers={volTiers}
+          margin={margin}
+          poliRate={poliRate}
+          energyCost={energyCost}
+          agruparPorColor={agruparPorColor}
+          prensaWatts={prensaWatts}
+          tarifaKwh={tarifaKwh}
+          businessName={businessName}
+          logoB64={logoB64}
+          validezDias={validezDias}
+        />
+      )}
+
       {/* ── MOBILE BOTTOM NAV ── */}
       <nav className="mobile-nav">
         <div className="mobile-nav-inner">
@@ -2358,6 +2775,727 @@ export default function App() {
   );
 }
 
+function DocumentEditorModal({
+  pedido,
+  onClose,
+  onSave,
+  prendas,
+  placements,
+  sheets,
+  tallasCfg,
+  coloresCfg,
+  designTypes,
+  fixTypes,
+  volTiers,
+  margin,
+  poliRate,
+  energyCost,
+  agruparPorColor,
+  prensaWatts,
+  tarifaKwh,
+  businessName,
+  logoB64,
+  validezDias,
+}) {
+  const [cliente, setCliente] = useState(pedido.cliente || "");
+  const [email, setEmail] = useState(pedido.email || "");
+  const [telefono, setTelefono] = useState(pedido.telefono || "");
+  const [num, setNum] = useState(pedido.num || "");
+  const [status, setStatus] = useState(normalizeDocumentStatus(pedido.estado));
+  const [docType, setDocType] = useState(inferDocumentType(pedido.docType, pedido.estado));
+  const [notas, setNotas] = useState(pedido.notas || "");
+  const [internalNotes, setInternalNotes] = useState(pedido.meta?.internalNotes || "");
+  const [designWho, setDesignWho] = useState(pedido.meta?.designWho || "Cliente trae arte");
+  const [designId, setDesignId] = useState(pedido.meta?.designId || "d0");
+  const [fixId, setFixId] = useState(pedido.meta?.fixId || "f0");
+  const [adjustments, setAdjustments] = useState(() => normalizeDocumentAdjustments(pedido.meta?.adjustments));
+  const [editorLines, setEditorLines] = useState(() => pedido.editorLines.map(line => ({ ...line, customs: [...line.customs], tallas: [...line.tallas] })));
+  const [saving, setSaving] = useState(false);
+  const editorPackingCacheRef = useRef(new Map());
+  const [editorPackingState, setEditorPackingState] = useState({
+    requestKey: null,
+    solution: null,
+    loading: false,
+    error: null,
+  });
+
+  useEffect(() => {
+    setCliente(pedido.cliente || "");
+    setEmail(pedido.email || "");
+    setTelefono(pedido.telefono || "");
+    setNum(pedido.num || "");
+    setStatus(normalizeDocumentStatus(pedido.estado));
+    setDocType(inferDocumentType(pedido.docType, pedido.estado));
+    setNotas(pedido.notas || "");
+    setInternalNotes(pedido.meta?.internalNotes || "");
+    setDesignWho(pedido.meta?.designWho || "Cliente trae arte");
+    setDesignId(pedido.meta?.designId || "d0");
+    setFixId(pedido.meta?.fixId || "f0");
+    setAdjustments(normalizeDocumentAdjustments(pedido.meta?.adjustments));
+    setEditorLines(pedido.editorLines.map(line => ({
+      ...line,
+      customs: (line.customs || []).map(custom => ({ ...custom })),
+      tallas: (line.tallas || []).map(size => ({ ...size })),
+    })));
+  }, [pedido]);
+
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, []);
+
+  const updateLine = useCallback((lineId, updater) => {
+    setEditorLines(prev => prev.map(line => {
+      if (line.id !== lineId) return line;
+      const nextLine = typeof updater === "function" ? updater(line) : { ...line, ...updater };
+      return syncLineQty(nextLine);
+    }));
+  }, []);
+
+  const togglePlacement = useCallback((lineId, placementId) => {
+    updateLine(lineId, line => ({
+      ...line,
+      placementIds: line.placementIds.includes(placementId)
+        ? line.placementIds.filter(id => id !== placementId)
+        : [...line.placementIds, placementId],
+    }));
+  }, [updateLine]);
+
+  const addCustomToLine = useCallback((lineId) => {
+    updateLine(lineId, line => ({
+      ...line,
+      customs: [...line.customs, { label: "Custom", color: "#9B6B8B", w: "", h: "" }],
+    }));
+  }, [updateLine]);
+
+  const updateCustomInLine = useCallback((lineId, customIndex, field, value) => {
+    updateLine(lineId, line => ({
+      ...line,
+      customs: line.customs.map((custom, index) => index === customIndex ? { ...custom, [field]: value } : custom),
+    }));
+  }, [updateLine]);
+
+  const removeCustomFromLine = useCallback((lineId, customIndex) => {
+    updateLine(lineId, line => ({
+      ...line,
+      customs: line.customs.filter((_, index) => index !== customIndex),
+    }));
+  }, [updateLine]);
+
+  const availableLineSizes = useCallback((line) => {
+    const prenda = prendas.find(item => item.id === line.prendaId);
+    const baseSizes = prenda?.tallas?.length ? prenda.tallas : tallasCfg;
+    const extras = (line.tallas || []).map(item => item.talla).filter(talla => !baseSizes.includes(talla));
+    return [...baseSizes, ...extras];
+  }, [prendas, tallasCfg]);
+
+  const editorPackingContext = useMemo(() => buildPackingContext({
+    lines: editorLines,
+    placements,
+    prendas,
+    poliRate,
+    sheets,
+    agruparPorColor,
+  }), [agruparPorColor, editorLines, placements, poliRate, prendas, sheets]);
+
+  const editorPreviewSolution = useMemo(() => {
+    if (!editorPackingContext?.packingRequest) return null;
+    return solvePackingPreview(editorPackingContext.packingRequest);
+  }, [editorPackingContext?.requestKey]);
+
+  useEffect(() => {
+    if (!editorPackingContext?.packingRequest) {
+      setEditorPackingState({ requestKey: null, solution: null, loading: false, error: null });
+      return;
+    }
+
+    const cached = editorPackingCacheRef.current.get(editorPackingContext.requestKey);
+    if (cached) {
+      setEditorPackingState({
+        requestKey: editorPackingContext.requestKey,
+        solution: cached,
+        loading: false,
+        error: cached.error || null,
+      });
+      return;
+    }
+
+    const controller = new AbortController();
+    setEditorPackingState(prev => ({
+      requestKey: editorPackingContext.requestKey,
+      solution: prev.requestKey === editorPackingContext.requestKey ? prev.solution : null,
+      loading: true,
+      error: null,
+    }));
+
+    solvePackingRequest(editorPackingContext.packingRequest, { signal: controller.signal })
+      .then(solution => {
+        editorPackingCacheRef.current.set(editorPackingContext.requestKey, solution);
+        setEditorPackingState({
+          requestKey: editorPackingContext.requestKey,
+          solution,
+          loading: false,
+          error: solution.error || null,
+        });
+      })
+      .catch(error => {
+        if (error?.name === "AbortError") return;
+        setEditorPackingState({
+          requestKey: editorPackingContext.requestKey,
+          solution: null,
+          loading: false,
+          error: error?.message || "No se pudo recalcular el packing exacto.",
+        });
+      });
+
+    return () => controller.abort();
+  }, [editorPackingContext?.requestKey]);
+
+  const editorActiveSolution = useMemo(() => {
+    if (!editorPackingContext?.packingRequest) return null;
+    if (editorPackingState.requestKey === editorPackingContext.requestKey && editorPackingState.solution) {
+      return editorPackingState.solution;
+    }
+    return editorPreviewSolution;
+  }, [editorPackingContext?.requestKey, editorPackingState.requestKey, editorPackingState.solution, editorPreviewSolution]);
+
+  const editorActiveNesting = useMemo(() => (
+    editorActiveSolution ? legacyNestingFromSolution(editorActiveSolution) : null
+  ), [editorActiveSolution]);
+
+  const calc = useMemo(() => {
+    if (!editorPackingContext || !editorActiveNesting) return null;
+    return buildCalcResult({
+      lineDetails: editorPackingContext.lineDetails,
+      totalQty: editorPackingContext.totalQty,
+      nesting: editorActiveNesting,
+      designWho,
+      designId,
+      fixId,
+      designTypes,
+      fixTypes,
+      volTiers,
+      margin,
+      energyCost,
+      prensaWatts,
+      tarifaKwh,
+      adjustments,
+    });
+  }, [
+    adjustments,
+    designId,
+    designTypes,
+    designWho,
+    editorActiveNesting,
+    editorPackingContext,
+    energyCost,
+    fixId,
+    fixTypes,
+    margin,
+    prensaWatts,
+    tarifaKwh,
+    volTiers,
+  ]);
+
+  const packingModeLabel = useMemo(
+    () => formatPackingMode(editorActiveSolution, editorPackingState.loading),
+    [editorActiveSolution, editorPackingState.loading]
+  );
+  const nextStatuses = getDocumentNextStatuses(status);
+  const canConvert = docType === "cotizacion" && status === "Aprobada";
+
+  const persist = useCallback(async (nextValues = {}) => {
+    if (!calc) return;
+    setSaving(true);
+    const finalDocType = nextValues.docType || docType;
+    const finalStatus = normalizeDocumentStatus(nextValues.status || status);
+    await onSave(pedido, calc, {
+      num,
+      cliente,
+      email,
+      telefono,
+      notas,
+      internalNotes,
+      status: finalStatus,
+      docType: finalDocType,
+      designWho,
+      designId,
+      fixId,
+      adjustments,
+      sourceQuoteId: nextValues.sourceQuoteId || pedido.meta?.sourceQuoteId || null,
+      convertedAt: nextValues.convertedAt || pedido.meta?.convertedAt || null,
+    });
+    setStatus(finalStatus);
+    setDocType(finalDocType);
+    setSaving(false);
+  }, [adjustments, calc, cliente, designId, designTypes, designWho, docType, email, fixId, internalNotes, notas, num, onSave, pedido, status, telefono]);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 240, background: "rgba(8,10,16,.82)", backdropFilter: "blur(14px)", overflowY: "auto", padding: "20px 14px 40px" }}>
+      <div style={{ maxWidth: 1180, margin: "0 auto", background: "var(--bg2)", border: "1px solid var(--border)", borderRadius: 20, boxShadow: "0 24px 80px rgba(0,0,0,.45)", overflow: "hidden" }}>
+        <div style={{ padding: "18px 20px", borderBottom: "1px solid var(--border)", background: "linear-gradient(135deg, rgba(34,211,238,.12), rgba(34,211,238,0) 60%)", display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 11, letterSpacing: ".12em", textTransform: "uppercase", color: "var(--text3)", fontWeight: 700 }}>Panel documental</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
+              <div style={{ fontWeight: 800, fontSize: 22 }}>#{num || pedido.num}</div>
+              <span className="pill" style={{ background: "rgba(34,211,238,.1)", border: "1px solid rgba(34,211,238,.2)", color: "var(--accent)" }}>
+                {DOCUMENT_TYPE_LABEL[docType]}
+              </span>
+              <span className="pill" style={{ background: ESTADO_COLOR[status]?.bg, border: `1px solid ${ESTADO_COLOR[status]?.border}`, color: ESTADO_COLOR[status]?.text }}>
+                {status}
+              </span>
+            </div>
+          </div>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={onClose} style={{ background: "transparent", border: "1px solid var(--border2)", borderRadius: 10, padding: "10px 14px", color: "var(--text2)", cursor: "pointer", fontWeight: 700 }}>
+              Cerrar
+            </button>
+            {canConvert && (
+              <button
+                disabled={!calc || saving}
+                onClick={() => persist({
+                  docType: "factura",
+                  status: "Facturada",
+                  sourceQuoteId: pedido.meta?.sourceQuoteId || pedido.id,
+                  convertedAt: new Date().toISOString(),
+                })}
+                style={{ background: "rgba(96,165,250,.14)", border: "1px solid rgba(96,165,250,.32)", borderRadius: 10, padding: "10px 14px", color: "#60A5FA", cursor: "pointer", fontWeight: 800 }}
+              >
+                Convertir a factura
+              </button>
+            )}
+            <button
+              disabled={!calc || saving}
+              onClick={() => persist()}
+              style={{ background: "var(--accent)", border: "none", borderRadius: 10, padding: "10px 16px", color: "var(--bg)", cursor: "pointer", fontWeight: 800 }}
+            >
+              {saving ? "Guardando…" : "Guardar cambios"}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ padding: 20, display: "grid", gap: 18 }}>
+          <div className="grid2">
+            <div className="card" style={{ marginBottom: 0 }}>
+              <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Datos del documento</span></div>
+              <div className="card-body" style={{ display: "grid", gap: 10 }}>
+                <div className="grid2">
+                  <div>
+                    <div className="lbl">Número</div>
+                    <input className="inp inp-sm" value={num} onChange={e => setNum(e.target.value)} />
+                  </div>
+                  <div>
+                    <div className="lbl">Tipo</div>
+                    <select className="sel sel-sm" value={docType} onChange={e => setDocType(e.target.value)}>
+                      <option value="cotizacion">Cotización</option>
+                      <option value="factura">Factura</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid2">
+                  <div>
+                    <div className="lbl">Estado</div>
+                    <select className="sel sel-sm" value={status} onChange={e => setStatus(e.target.value)}>
+                      {ESTADOS.map(option => <option key={option} value={option}>{option}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <div className="lbl">Siguiente acción</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", minHeight: 38, alignItems: "center" }}>
+                      {nextStatuses.length === 0 && <span style={{ color: "var(--text3)", fontSize: 12 }}>Sin transición sugerida</span>}
+                      {nextStatuses.map(nextStatus => (
+                        <button
+                          key={nextStatus}
+                          onClick={() => setStatus(nextStatus)}
+                          style={{ background: "var(--bg3)", border: "1px solid var(--border)", borderRadius: 999, padding: "7px 12px", color: "var(--text2)", cursor: "pointer", fontSize: 11, fontWeight: 800 }}
+                        >
+                          {nextStatus}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ background: "var(--bg)", borderRadius: 12, padding: "12px 14px", border: "1px solid var(--border)" }}>
+                  <div className="lbl">Lógica comercial</div>
+                  <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.6 }}>
+                    El recalculo es automático. Cada cambio de prenda, cantidad o diseño vuelve a correr el packing DTF y actualiza costos, subtotales y margen.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginBottom: 0 }}>
+              <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Cliente y notas</span></div>
+              <div className="card-body" style={{ display: "grid", gap: 10 }}>
+                <div>
+                  <div className="lbl">Cliente</div>
+                  <input className="inp" value={cliente} onChange={e => setCliente(e.target.value)} />
+                </div>
+                <div className="grid2">
+                  <div>
+                    <div className="lbl">Correo</div>
+                    <input className="inp inp-sm" value={email} onChange={e => setEmail(e.target.value)} />
+                  </div>
+                  <div>
+                    <div className="lbl">Teléfono</div>
+                    <input className="inp inp-sm" value={telefono} onChange={e => setTelefono(e.target.value)} />
+                  </div>
+                </div>
+                <div>
+                  <div className="lbl">Nota visible para cliente</div>
+                  <textarea className="inp inp-sm" rows={3} value={notas} onChange={e => setNotas(e.target.value)} style={{ resize: "vertical", minHeight: 72 }} />
+                </div>
+                <div>
+                  <div className="lbl">Nota interna</div>
+                  <textarea className="inp inp-sm" rows={2} value={internalNotes} onChange={e => setInternalNotes(e.target.value)} style={{ resize: "vertical", minHeight: 60 }} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid2">
+            <div className="card" style={{ marginBottom: 0 }}>
+              <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Diseño y corrección</span></div>
+              <div className="card-body" style={{ display: "grid", gap: 10 }}>
+                <div className="grid2">
+                  <div>
+                    <div className="lbl">¿Quién diseña?</div>
+                    <select className="sel sel-sm" value={designWho} onChange={e => setDesignWho(e.target.value)}>
+                      <option>Cliente trae arte</option>
+                      <option>Nosotros diseñamos</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div className="lbl">Tipo de diseño</div>
+                    <select className="sel sel-sm" value={designId} onChange={e => setDesignId(e.target.value)} disabled={designWho === "Cliente trae arte"} style={{ opacity: designWho === "Cliente trae arte" ? .45 : 1 }}>
+                      {designTypes.map(item => <option key={item.id} value={item.id}>{item.label}{item.price ? ` (L${item.price})` : ""}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <div className="lbl">Corrección</div>
+                  <select className="sel sel-sm" value={fixId} onChange={e => setFixId(e.target.value)} disabled={designWho === "Nosotros diseñamos"} style={{ opacity: designWho === "Nosotros diseñamos" ? .45 : 1 }}>
+                    {fixTypes.map(item => <option key={item.id} value={item.id}>{item.label}{item.price ? ` (L${item.price})` : ""}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginBottom: 0 }}>
+              <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Overrides</span></div>
+              <div className="card-body" style={{ display: "grid", gap: 10 }}>
+                <div className="grid2">
+                  <div>
+                    <div className="lbl">Descuento manual</div>
+                    <select className="sel sel-sm" value={adjustments.discountMode} onChange={e => setAdjustments(prev => ({ ...prev, discountMode: e.target.value }))}>
+                      <option value="percent">Porcentaje</option>
+                      <option value="fixed">Monto fijo</option>
+                    </select>
+                  </div>
+                  <div>
+                    <div className="lbl">Valor</div>
+                    <input className="inp inp-sm" type="number" step="0.01" value={adjustments.discountValue} onChange={e => setAdjustments(prev => ({ ...prev, discountValue: e.target.value }))} />
+                  </div>
+                </div>
+                <div>
+                  <div className="lbl">Cargos adicionales</div>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {adjustments.extraCharges.map(charge => (
+                      <div key={charge.id} style={{ display: "grid", gridTemplateColumns: "1fr 110px 40px", gap: 8 }}>
+                        <input className="inp inp-sm" value={charge.label} onChange={e => setAdjustments(prev => ({ ...prev, extraCharges: prev.extraCharges.map(item => item.id === charge.id ? { ...item, label: e.target.value } : item) }))} />
+                        <input className="inp inp-sm" type="number" step="0.01" value={charge.amount} onChange={e => setAdjustments(prev => ({ ...prev, extraCharges: prev.extraCharges.map(item => item.id === charge.id ? { ...item, amount: e.target.value } : item) }))} />
+                        <button className="btn-del" onClick={() => setAdjustments(prev => ({ ...prev, extraCharges: prev.extraCharges.filter(item => item.id !== charge.id) }))}>×</button>
+                      </div>
+                    ))}
+                    <button className="btn-add" onClick={() => setAdjustments(prev => ({ ...prev, extraCharges: [...prev.extraCharges, createEmptyCharge()] }))}>
+                      + Agregar cargo
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="card" style={{ marginBottom: 0 }}>
+            <div className="card-head" style={{ justifyContent: "space-between" }}>
+              <span style={{ fontWeight: 700, fontSize: 14 }}>Líneas editables</span>
+              <button className="btn-save" onClick={() => setEditorLines(prev => [...prev, { ...emptyLine(), qty: 1 }])} style={{ background: "transparent", border: "1px solid var(--border2)", color: "var(--text2)" }}>
+                + Agregar producto
+              </button>
+            </div>
+            <div className="card-body">
+              {editorLines.map((line, index) => {
+                const prenda = prendas.find(item => item.id === line.prendaId);
+                const colorOptions = prenda?.colores?.length ? prenda.colores : coloresCfg;
+                const totalSizes = sumTallas(line);
+                const sizes = availableLineSizes(line);
+                return (
+                  <div key={line.id} className="line-card">
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+                      <div style={{ fontWeight: 800, fontSize: 14 }}>Producto {index + 1}</div>
+                      <button className="btn-del" onClick={() => setEditorLines(prev => prev.length === 1 ? prev : prev.filter(item => item.id !== line.id))}>×</button>
+                    </div>
+                    <div className="grid3" style={{ marginBottom: 12 }}>
+                      <div>
+                        <div className="lbl">Prenda</div>
+                        <select className="sel sel-sm" value={line.prendaId} onChange={e => updateLine(line.id, current => ({ ...current, prendaId: e.target.value, otroName: e.target.value === "__otro" ? current.otroName : "", tallas: buildEditableTallas({ ...current, prendaId: e.target.value }, prendas.find(item => item.id === e.target.value), tallasCfg) }))}>
+                          <option value="">Selecciona</option>
+                          {prendas.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
+                          <option value="__otro">Otra prenda</option>
+                        </select>
+                      </div>
+                      <div>
+                        <div className="lbl">Color</div>
+                        <input className="inp inp-sm" list={`colors-${line.id}`} value={line.color} onChange={e => updateLine(line.id, { color: e.target.value })} />
+                        <datalist id={`colors-${line.id}`}>
+                          {colorOptions.map(color => <option key={color} value={color} />)}
+                        </datalist>
+                      </div>
+                      <div>
+                        <div className="lbl">Proveedor de prenda</div>
+                        <select className="sel sel-sm" value={line.quien} onChange={e => updateLine(line.id, { quien: e.target.value })}>
+                          <option>Yo</option>
+                          <option>Cliente</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {(line.prendaId === "__otro" || !line.prendaId) && (
+                      <div className="grid2" style={{ marginBottom: 12 }}>
+                        <div>
+                          <div className="lbl">Nombre visible</div>
+                          <input className="inp inp-sm" value={line.otroName} onChange={e => updateLine(line.id, { otroName: e.target.value })} />
+                        </div>
+                        {line.quien !== "Cliente" && (
+                          <div>
+                            <div className="lbl">Costo prenda</div>
+                            <input className="inp inp-sm" type="number" step="0.01" value={line.otroCost} onChange={e => updateLine(line.id, { otroCost: e.target.value })} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="grid2" style={{ marginBottom: 12 }}>
+                      <div>
+                        <div className="lbl">Cantidad total</div>
+                        <input className="inp inp-sm" type="number" min="0" value={line.showTallas ? totalSizes : line.qty} disabled={line.showTallas} onChange={e => updateLine(line.id, { qty: e.target.value })} />
+                      </div>
+                      <div>
+                        <div className="lbl">Precio unitario final</div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text2)", minWidth: 118 }}>
+                            <input type="checkbox" checked={line.useManualUnitPrice} onChange={e => updateLine(line.id, { useManualUnitPrice: e.target.checked })} />
+                            Override manual
+                          </label>
+                          <input className="inp inp-sm" type="number" step="0.01" value={line.manualUnitPrice} disabled={!line.useManualUnitPrice} onChange={e => updateLine(line.id, { manualUnitPrice: e.target.value })} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div className="lbl">Tallas</div>
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                        <button className="cfg-pill active" onClick={() => updateLine(line.id, { showTallas: !line.showTallas })}>
+                          {line.showTallas ? "Ocultar desglose" : "Usar tallas"}
+                        </button>
+                      </div>
+                      {line.showTallas && (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(82px,1fr))", gap: 8 }}>
+                          {sizes.map(size => {
+                            const qty = line.tallas.find(item => item.talla === size)?.qty || 0;
+                            return (
+                              <div key={`${line.id}-${size}`} style={{ background: "var(--bg)", border: `1px solid ${qty > 0 ? "rgba(34,211,238,.3)" : "var(--border)"}`, borderRadius: 10, padding: 10 }}>
+                                <div style={{ fontSize: 11, fontWeight: 800, color: qty > 0 ? "var(--accent)" : "var(--text3)", marginBottom: 6 }}>{size}</div>
+                                <input
+                                  className="inp inp-sm"
+                                  type="number"
+                                  min="0"
+                                  value={qty || ""}
+                                  onChange={e => updateLine(line.id, current => ({
+                                    ...current,
+                                    tallas: sizes.map(talla => ({
+                                      talla,
+                                      qty: talla === size ? (Number(e.target.value) || 0) : (current.tallas.find(item => item.talla === talla)?.qty || 0),
+                                    })),
+                                    showTallas: true,
+                                  }))}
+                                  style={{ textAlign: "center", fontFamily: "'JetBrains Mono'" }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <div className="lbl">Posiciones / diseños</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {placements.map(placement => {
+                          const active = line.placementIds.includes(placement.id);
+                          return (
+                            <button
+                              key={placement.id}
+                              className={`pl-chip ${active ? "on" : ""}`}
+                              style={active ? { background: placement.color, borderColor: placement.color } : {}}
+                              onClick={() => togglePlacement(line.id, placement.id)}
+                            >
+                              <span style={{ fontSize: 9, opacity: .7, fontFamily: "'JetBrains Mono'" }}>{placement.w}×{placement.h}</span> {placement.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="lbl">Customs</div>
+                      {line.customs.map((custom, customIndex) => (
+                        <div key={`${line.id}-custom-${customIndex}`} className="row" style={{ marginBottom: 8, gap: 6, flexWrap: "wrap" }}>
+                          <input className="inp inp-sm" placeholder="Nombre" style={{ width: 110 }} value={custom.label} onChange={e => updateCustomInLine(line.id, customIndex, "label", e.target.value)} />
+                          <input className="inp inp-sm" placeholder='W"' type="number" step="0.5" style={{ width: 70, textAlign: "center" }} value={custom.w} onChange={e => updateCustomInLine(line.id, customIndex, "w", e.target.value)} />
+                          <input className="inp inp-sm" placeholder='H"' type="number" step="0.5" style={{ width: 70, textAlign: "center" }} value={custom.h} onChange={e => updateCustomInLine(line.id, customIndex, "h", e.target.value)} />
+                          <button className="btn-del" onClick={() => removeCustomFromLine(line.id, customIndex)}>×</button>
+                        </div>
+                      ))}
+                      <button className="btn-add" onClick={() => addCustomToLine(line.id)}>+ Agregar diseño custom</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid2">
+            <div className="card" style={{ marginBottom: 0 }}>
+              <div className="card-head">
+                <span style={{ fontWeight: 700, fontSize: 14 }}>Recálculo y costos</span>
+                <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: editorActiveSolution?.source === "cp_sat" ? "var(--green)" : "var(--text3)" }}>
+                  {packingModeLabel}
+                </span>
+              </div>
+              <div className="card-body" style={{ display: "grid", gap: 10 }}>
+                {!calc && (
+                  <div style={{ background: "rgba(248,113,113,.08)", border: "1px solid rgba(248,113,113,.2)", borderRadius: 12, padding: "12px 14px", color: "#FCA5A5", fontSize: 13 }}>
+                    Agrega al menos una línea con cantidad y una posición o diseño custom para recalcular el costo.
+                  </div>
+                )}
+                {calc && (
+                  <>
+                    {(editorPackingState.error || calc.nesting?.unplaced?.length > 0) && (
+                      <div style={{ background: "rgba(251,191,36,.08)", border: "1px solid rgba(251,191,36,.18)", borderRadius: 12, padding: "12px 14px", color: "var(--warn)", fontSize: 13 }}>
+                        {editorPackingState.error || "Hay diseños sin ubicar. Se muestra preview local mientras se estabiliza el cálculo."}
+                      </div>
+                    )}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8 }}>
+                      <div style={{ background: "var(--bg)", borderRadius: 10, padding: "12px 14px", border: "1px solid var(--border)" }}>
+                        <div className="lbl">Hojas DTF</div>
+                        <div style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 22 }}>L{formatMoney(calc.dtfCost)}</div>
+                      </div>
+                      <div style={{ background: "var(--bg)", borderRadius: 10, padding: "12px 14px", border: "1px solid var(--border)" }}>
+                        <div className="lbl">Subtotal</div>
+                        <div style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 22 }}>L{formatMoney(calc.sub)}</div>
+                      </div>
+                      <div style={{ background: "var(--bg)", borderRadius: 10, padding: "12px 14px", border: "1px solid var(--border)" }}>
+                        <div className="lbl">Margen real</div>
+                        <div style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 22, color: calc.rm < 25 ? "#F87171" : "var(--accent)" }}>{calc.rm.toFixed(1)}%</div>
+                      </div>
+                      <div style={{ background: "rgba(34,211,238,.08)", borderRadius: 10, padding: "12px 14px", border: "1px solid rgba(34,211,238,.2)" }}>
+                        <div className="lbl">Total final</div>
+                        <div style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 22, color: "var(--accent)" }}>L{formatMoney(calc.total)}</div>
+                      </div>
+                    </div>
+                    <div style={{ background: "var(--bg)", borderRadius: 12, padding: "12px 14px", border: "1px solid var(--border)" }}>
+                      {[
+                        ["Descuento volumen", calc.disc > 0 ? `-L${formatMoney(calc.disc)}` : "No aplica"],
+                        ["Diseño", calc.designCharged > 0 ? `L${formatMoney(calc.designCharged)}` : "Incluido / no aplica"],
+                        ["Corrección", calc.fixCharged > 0 ? `L${formatMoney(calc.fixCharged)}` : "Incluida / no aplica"],
+                        ["Descuento manual", calc.manualDiscount > 0 ? `-L${formatMoney(calc.manualDiscount)}` : "No aplica"],
+                        ["Cargos adicionales", calc.extraChargesTotal > 0 ? `L${formatMoney(calc.extraChargesTotal)}` : "No aplica"],
+                      ].map(([label, value]) => (
+                        <div key={label} style={{ display: "flex", justifyContent: "space-between", gap: 12, padding: "6px 0", fontSize: 13, color: "var(--text2)", borderBottom: "1px solid var(--border)" }}>
+                          <span>{label}</span>
+                          <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>{value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="card" style={{ marginBottom: 0 }}>
+              <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Vista documental</span></div>
+              <div className="card-body">
+                <div style={{ background: "white", borderRadius: 16, padding: 18, border: "1px solid var(--border)", color: "#111" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, borderBottom: "2px solid #111", paddingBottom: 14, marginBottom: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      {logoB64 && <img src={logoB64} alt="Logo" style={{ height: 44, maxWidth: 96, objectFit: "contain" }} />}
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 22 }}>{businessName}</div>
+                        <div style={{ fontSize: 10, color: "#666", textTransform: "uppercase", letterSpacing: ".1em" }}>{DOCUMENT_TYPE_LABEL[docType]}</div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 11, color: "#666" }}>#{num || pedido.num}</div>
+                      <div style={{ fontSize: 11, color: "#666" }}>Válida {validezDias} días</div>
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontWeight: 700, fontSize: 16 }}>{cliente || "Cliente sin nombre"}</div>
+                    {email && <div style={{ fontSize: 12, color: "#666" }}>{email}</div>}
+                    {telefono && <div style={{ fontSize: 12, color: "#666" }}>{telefono}</div>}
+                  </div>
+                  {calc ? (
+                    <>
+                      <div style={{ display: "grid", gap: 10 }}>
+                        {calc.groups.map(group => (
+                          <div key={group.id} style={{ borderBottom: "1px solid #eee", paddingBottom: 10 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                              <div>
+                                <div style={{ fontWeight: 700 }}>{group.label}</div>
+                                <div style={{ fontSize: 11, color: "#666" }}>{group.cfgLabel || "Sin posiciones"}</div>
+                              </div>
+                              <div style={{ textAlign: "right" }}>
+                                <div style={{ fontSize: 11, color: "#666" }}>{group.totalQty} u</div>
+                                <div style={{ fontWeight: 800 }}>L{formatMoney(group.totalLine)}</div>
+                              </div>
+                            </div>
+                            <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
+                              {group.variants.map(variant => (
+                                <div key={`${group.id}-${variant.sku}`} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#666", gap: 8 }}>
+                                  <span>{variant.color || "Sin color"}{variant.talla ? ` / ${variant.talla}` : ""}</span>
+                                  <span>{variant.qty} u</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ marginTop: 14, paddingTop: 12, borderTop: "2px solid #111", display: "grid", gap: 6 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>Subtotal</span><span>L{formatMoney(calc.sub)}</span></div>
+                        {calc.disc > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#16a34a" }}><span>Descuento volumen</span><span>-L{formatMoney(calc.disc)}</span></div>}
+                        {calc.manualDiscount > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "#16a34a" }}><span>Descuento manual</span><span>-L{formatMoney(calc.manualDiscount)}</span></div>}
+                        {calc.extraChargesTotal > 0 && <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}><span>Cargos extra</span><span>L{formatMoney(calc.extraChargesTotal)}</span></div>}
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 17, fontWeight: 800 }}><span>Total</span><span>L{formatMoney(calc.total)}</span></div>
+                      </div>
+                      {notas && <div style={{ marginTop: 14, fontSize: 11, color: "#666", lineHeight: 1.6 }}>{notas}</div>}
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 12, color: "#666" }}>El preview aparecerá cuando el documento tenga líneas calculables.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido, whatsappBiz,
   prefillCliente = "", prefillPhone = "", prefillEmail = "", prefillNum = null }) {
   const today = new Date();
@@ -2377,6 +3515,7 @@ function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido, 
   const [notes, setNotes] = useState("");
   const [pdfLoading, setPdfLoading] = useState(false);
   const dateStr = today.toLocaleDateString("es-HN", { year: "numeric", month: "long", day: "numeric" });
+  const groupedLines = useMemo(() => buildQuoteGroups(calc.lp), [calc.lp]);
 
   // FIX 10: Real PDF via html2canvas + jsPDF (no window.print())
   const handlePrint = async () => {
@@ -2425,9 +3564,10 @@ function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido, 
   };
 
   const handleEmail = () => {
-    const lines = calc.lp.map(l =>
-      `${l.qty}× ${l.prendaLabel}${l.color ? ` (${l.color})` : ""}${l.tallasSummary ? ` [${l.tallasSummary}]` : ""} — L${l.sellPrice}/u = L${l.lineTotal}`
-    ).join("\n");
+    const lines = groupedLines.map(group => (
+      `${group.totalQty}× ${group.label} — L${group.avgUnitPrice.toFixed(2)}/u = L${group.totalLine}\n` +
+      `${group.variants.map(variant => `  - ${variant.sku}: ${variant.color || "Sin color"}${variant.talla ? ` / ${variant.talla}` : ""} · ${variant.qty}u`).join("\n")}`
+    )).join("\n");
     const body = encodeURIComponent(
 `Estimado/a ${clientName || "cliente"},
 
@@ -2558,17 +3698,24 @@ ${businessName}`
               </tr>
             </thead>
             <tbody>
-              {calc.lp.map((l, i) => (
-                <tr key={i}>
+              {groupedLines.map((group) => (
+                <tr key={group.id}>
                   <td style={{ padding: "10px", fontSize: 13, borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>
-                    <div style={{ fontWeight: 600, color: "#111" }}>{l.prendaLabel}{l.color ? <span style={{ fontWeight: 400, color: "#666" }}> — {l.color}</span> : ""}</div>
-                    <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>Pos: {l.cfgLabel}</div>
-                    {l.tallasSummary && <div style={{ fontSize: 10, color: "#aaa", fontFamily: "'JetBrains Mono'", marginTop: 2 }}>Tallas: {l.tallasSummary}</div>}
-                    {l.quien === "Cliente" && <div style={{ fontSize: 10, color: "#d97706", marginTop: 2 }}>⚠ Cliente provee prenda</div>}
+                    <div style={{ fontWeight: 600, color: "#111" }}>{group.label}</div>
+                    <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>Pos: {group.cfgLabel || "Sin posiciones"}</div>
+                    <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
+                      {group.variants.map(variant => (
+                        <div key={`${group.id}-${variant.sku}`} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 10, color: "#777" }}>
+                          <span style={{ fontFamily: "'JetBrains Mono'" }}>{variant.sku}</span>
+                          <span>{variant.color || "Sin color"}{variant.talla ? ` / ${variant.talla}` : ""} · {variant.qty}u</span>
+                        </div>
+                      ))}
+                    </div>
+                    {group.items.some(item => item.quien === "Cliente") && <div style={{ fontSize: 10, color: "#d97706", marginTop: 4 }}>⚠ Cliente provee prenda</div>}
                   </td>
-                  <td style={{ padding: "10px", textAlign: "center", fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 14, color: "#111", borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>{l.qty}</td>
-                  <td style={{ padding: "10px", textAlign: "right", fontFamily: "'JetBrains Mono'", fontSize: 13, color: "#555", borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>L{l.sellPrice}</td>
-                  <td style={{ padding: "10px", textAlign: "right", fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 14, color: "#111", borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>L{l.lineTotal}</td>
+                  <td style={{ padding: "10px", textAlign: "center", fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 14, color: "#111", borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>{group.totalQty}</td>
+                  <td style={{ padding: "10px", textAlign: "right", fontFamily: "'JetBrains Mono'", fontSize: 13, color: "#555", borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>L{group.avgUnitPrice.toFixed(2)}</td>
+                  <td style={{ padding: "10px", textAlign: "right", fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 14, color: "#111", borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>L{group.totalLine}</td>
                 </tr>
               ))}
             </tbody>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import PhoneInput from "./PhoneInput.jsx";
 import { loadConfigRemote, createCotizacion, getNextNumero } from "./supabase.js";
 
@@ -16,6 +16,25 @@ const PLACEMENTS_INFO = [
 
 const TALLAS_DEFAULT = ["XS","S","M","L","XL","XXL","XXXL"];
 const inToCm = in_ => (in_ * 2.54).toFixed(1);
+const buildVariantKey = (color, talla) => JSON.stringify([color, talla]);
+const uniqueValues = (items = []) => [...new Set(items.filter(Boolean))];
+const skuPart = (value, fallback = "NA") => {
+  const normalized = String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .toUpperCase();
+  return normalized || fallback;
+};
+const buildVariantSku = ({ prendaLabel, color, talla }) => [
+  skuPart(prendaLabel, "PRENDA"),
+  skuPart(color, "SIN-COLOR"),
+  skuPart(talla, "STD"),
+].join("-");
+const formatVariantSummary = (groups) => groups
+  .map(group => `${group.color}: ${group.items.map(item => `${item.talla}:${item.qty}`).join(", ")}`)
+  .join(" · ");
 
 // ── SHIRT DIAGRAM SVG ──
 function ShirtDiagram({ side, selected, onToggle }) {
@@ -52,7 +71,7 @@ function ShirtDiagram({ side, selected, onToggle }) {
   );
 }
 
-const STEPS = ["Tus datos", "Prenda y tallas", "Posiciones", "Confirmar"];
+const STEPS = ["Tus datos", "Prenda y variantes", "Posiciones", "Confirmar"];
 
 export default function ClientApp() {
   const [step, setStep] = useState(0);
@@ -71,8 +90,9 @@ export default function ClientApp() {
 
   // Step 1
   const [prendaId, setPrendaId] = useState("");
-  const [color, setColor] = useState("");
-  const [tallas, setTallas] = useState({});
+  const [colorRows, setColorRows] = useState([]);
+  const [variantQuantities, setVariantQuantities] = useState({});
+  const [customColor, setCustomColor] = useState("");
   const [notas, setNotas] = useState("");
 
   // Step 2
@@ -94,21 +114,105 @@ export default function ClientApp() {
   const whatsappBiz = cfg?.whatsappBiz ?? "";
   const validezDias = cfg?.validezDias ?? 15;
   const prenda = prendas.find(p => p.id === prendaId);
-  const totalQty = Object.values(tallas).reduce((s, q) => s + (parseInt(q) || 0), 0);
-  const tallaResumen = Object.entries(tallas).filter(([,v])=>v>0).map(([t,v])=>`${t}:${v}`).join(", ");
+  const availableTallas = prenda?.tallas ?? TALLAS_DEFAULT;
+  const baseColors = useMemo(() => uniqueValues(prenda?.colores ?? []), [prenda]);
+  const matrixColors = useMemo(
+    () => (colorRows.length > 0 ? colorRows : baseColors),
+    [baseColors, colorRows]
+  );
+  const variantsByColor = useMemo(() => (
+    matrixColors.map(color => {
+      const items = availableTallas
+        .map(talla => {
+          const qty = Number(variantQuantities[buildVariantKey(color, talla)]) || 0;
+          return qty > 0 ? { talla, qty } : null;
+        })
+        .filter(Boolean);
+
+      return {
+        color,
+        items,
+        total: items.reduce((sum, item) => sum + item.qty, 0),
+      };
+    }).filter(group => group.total > 0)
+  ), [availableTallas, matrixColors, variantQuantities]);
+  const selectedVariants = useMemo(() => (
+    variantsByColor.flatMap(group => group.items.map(item => ({
+      color: group.color,
+      talla: item.talla,
+      qty: item.qty,
+    })))
+  ), [variantsByColor]);
+  const totalQty = selectedVariants.reduce((sum, item) => sum + item.qty, 0);
+  const colorResumen = formatVariantSummary(variantsByColor);
+  const tallaTotals = useMemo(() => (
+    availableTallas.reduce((acc, talla) => {
+      acc[talla] = matrixColors.reduce(
+        (sum, color) => sum + (Number(variantQuantities[buildVariantKey(color, talla)]) || 0),
+        0
+      );
+      return acc;
+    }, {})
+  ), [availableTallas, matrixColors, variantQuantities]);
+  const activeColorCount = variantsByColor.length;
+
+  const resetVariantSelection = useCallback(() => {
+    setColorRows([]);
+    setVariantQuantities({});
+    setCustomColor("");
+  }, []);
+
+  const handleSelectPrenda = useCallback((nextPrenda) => {
+    setPrendaId(nextPrenda.id);
+    setColorRows(uniqueValues(nextPrenda.colores ?? []));
+    setVariantQuantities({});
+    setCustomColor("");
+  }, []);
+
+  const handleVariantQtyChange = useCallback((color, talla, rawValue) => {
+    const nextQty = Math.max(0, Math.min(999, Number.parseInt(rawValue, 10) || 0));
+    setVariantQuantities(prev => {
+      const next = { ...prev };
+      const key = buildVariantKey(color, talla);
+      if (nextQty === 0) delete next[key];
+      else next[key] = nextQty;
+      return next;
+    });
+  }, []);
+
+  const handleAddCustomColor = useCallback(() => {
+    const nextColor = customColor.trim();
+    if (!nextColor) return;
+    const exists = matrixColors.some(color => color.toLowerCase() === nextColor.toLowerCase());
+    if (!exists) setColorRows(prev => [...prev, nextColor]);
+    setCustomColor("");
+  }, [customColor, matrixColors]);
+
+  const handleRemoveColorRow = useCallback((colorToRemove) => {
+    setColorRows(prev => prev.filter(color => color !== colorToRemove));
+  }, []);
 
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const lines = [{
-        qty: totalQty,
+      const groupId = `${prendaId || "prenda"}-${quoteNum}`;
+      const lines = variantsByColor.map(group => ({
+        qty: group.total,
         prendaLabel: prenda?.name ?? "Prenda",
-        color,
+        color: group.color,
         cfgLabel: selectedPos.join(" + "),
-        tallasSummary: tallaResumen,
+        tallasSummary: group.items.map(item => `${item.talla}:${item.qty}`).join(", "),
+        groupId,
+        groupLabel: prenda?.name ?? "Prenda",
+        variants: group.items.map(item => ({
+          sku: buildVariantSku({ prendaLabel: prenda?.name ?? "Prenda", color: group.color, talla: item.talla }),
+          color: group.color,
+          talla: item.talla,
+          qty: item.qty,
+        })),
         sellPrice: 0,
         lineTotal: 0,
-      }];
+      }));
       await createCotizacion({
         numero: quoteNum,
         cliente: nombre.trim(),
@@ -116,7 +220,7 @@ export default function ClientApp() {
         telefono: whatsapp.trim(),
         total: 0,
         estado: "Pendiente",
-        notas: `Pedido web | ${prenda?.name ?? "?"} ${color} | ${selectedPos.join(", ")}${notas ? " | Nota: " + notas : ""}`,
+        notas: `Pedido web | ${prenda?.name ?? "?"} | Variantes: ${colorResumen}${notas ? " | Nota: " + notas : ""}`,
         lines,
       });
 
@@ -127,9 +231,9 @@ export default function ClientApp() {
           `📋 Solicitud #${quoteNum}\n` +
           `👤 *${nombre}*\n` +
           `📱 ${whatsapp || "No indicado"}\n` +
-          `👕 ${prenda?.name ?? "?"} — ${color}\n` +
+          `👕 ${prenda?.name ?? "?"}\n` +
+          `🎽 Variantes: ${colorResumen}\n` +
           `🎨 Posiciones: ${selectedPos.join(", ")}\n` +
-          `📏 Tallas: ${tallaResumen}\n` +
           `📦 Total prendas: ${totalQty}\n` +
           (notas ? `📝 Nota: ${notas}\n` : "") +
           `\n_Revisa el panel admin para aprobar y cotizar._`
@@ -175,9 +279,10 @@ export default function ClientApp() {
           {[
             ["Referencia", `#${quoteNum}`],
             ["Nombre", nombre],
-            ["Prenda", `${prenda?.name ?? "?"} — ${color}`],
+            ["Prenda", prenda?.name ?? "?"],
+            ["Variantes", colorResumen || "—"],
             ["Posiciones", selectedPos.join(", ")],
-            ["Tallas", tallaResumen || "—"],
+            ["Colores activos", `${activeColorCount}`],
             ["Total prendas", `${totalQty}`],
             ...(notas ? [["Nota", notas]] : []),
           ].map(([k,v]) => (
@@ -190,7 +295,7 @@ export default function ClientApp() {
         <div style={{ fontSize:12, color:"#4A5568", marginBottom:20 }}>
           Tiempo de respuesta: generalmente el mismo día hábil.
         </div>
-        <button onClick={() => { setSubmitted(false); setStep(0); setNombre(""); setWhatsapp(""); setEmail(""); setPrendaId(""); setColor(""); setTallas({}); setSelectedPos([]); setNotas(""); }}
+        <button onClick={() => { setSubmitted(false); setStep(0); setNombre(""); setWhatsapp(""); setEmail(""); setPrendaId(""); resetVariantSelection(); setSelectedPos([]); setNotas(""); }}
           style={{ background:"#22D3EE", border:"none", borderRadius:12, padding:"13px 28px", fontSize:14, fontWeight:800, color:"#080A10", cursor:"pointer", width:"100%" }}>
           Nueva solicitud
         </button>
@@ -215,9 +320,22 @@ export default function ClientApp() {
         .chip.on{background:rgba(34,211,238,.15);border-color:#22D3EE;color:#22D3EE}
         .chip.off{background:transparent;border-color:#252D3F;color:#64748B}
         .lbl{font-size:11px;font-weight:700;color:#94A3B8;margin-bottom:8px;text-transform:uppercase;letter-spacing:.06em}
+        .matrix-wrap{overflow:auto;border:1px solid #1E2535;border-radius:14px;background:#080A10}
+        .matrix-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0}
+        .matrix-table th,.matrix-table td{padding:10px 8px;border-right:1px solid #131720;border-bottom:1px solid #131720;text-align:center}
+        .matrix-table thead th{position:sticky;top:0;background:#131720;z-index:2}
+        .matrix-table th:first-child,.matrix-table td:first-child{position:sticky;left:0;text-align:left;background:#0D1018;z-index:1}
+        .matrix-table thead th:first-child{z-index:3}
+        .matrix-table th{font-size:11px;font-weight:800;color:#94A3B8;text-transform:uppercase;letter-spacing:.06em}
+        .matrix-table td{font-size:13px}
+        .matrix-table tr:last-child td,.matrix-table tr:last-child th{border-bottom:none}
+        .matrix-table th:last-child,.matrix-table td:last-child{border-right:none}
+        .matrix-cell-input{width:60px;background:#0D1018;border:1.5px solid #252D3F;border-radius:10px;padding:10px 6px;text-align:center;font-size:16px;font-weight:800;font-family:'JetBrains Mono';color:#E2E8F4;outline:none;transition:border-color .15s, box-shadow .15s}
+        .matrix-cell-input:focus{border-color:#22D3EE;box-shadow:0 0 0 3px rgba(34,211,238,.12)}
+        .matrix-total-cell{background:rgba(34,211,238,.08);font-family:'JetBrains Mono';font-weight:800;color:#22D3EE}
         @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
         .fade-up{animation:fadeUp .3s ease forwards}
-        @media(max-width:480px){.card{padding:14px}}
+        @media(max-width:480px){.card{padding:14px}.matrix-cell-input{width:54px;padding:9px 4px;font-size:15px}}
       `}</style>
 
       {/* HEADER */}
@@ -314,7 +432,7 @@ export default function ClientApp() {
               <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
                 {prendas.map(p=>(
                   <button key={p.id} className={`chip ${prendaId===p.id?"on":"off"}`}
-                    onClick={()=>{ setPrendaId(p.id); setColor(""); setTallas({}); }}>
+                    onClick={()=>handleSelectPrenda(p)}>
                     {p.name}
                   </button>
                 ))}
@@ -322,38 +440,118 @@ export default function ClientApp() {
               </div>
             </div>
 
-            {/* Color */}
+            {/* Variantes */}
             {prenda && (
               <div className="card fade-up">
-                <div className="lbl">Color de prenda *</div>
-                <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:10 }}>
-                  {(prenda.colores ?? []).map(c=>(
-                    <button key={c} className={`chip ${color===c?"on":"off"}`} onClick={()=>setColor(c)}>{c}</button>
-                  ))}
+                <div className="lbl">Matriz de tallas y colores *</div>
+                <div style={{ fontSize:13, color:"#94A3B8", lineHeight:1.6, marginBottom:14 }}>
+                  Capturá todas las combinaciones desde una sola vista. Escribí cantidades en cada cruce de color y talla.
                 </div>
-                <input className="cinp" placeholder="O escribe otro color…" value={color} onChange={e=>setColor(e.target.value)} style={{ marginTop:4 }}/>
-              </div>
-            )}
 
-            {/* Tallas */}
-            {prenda && color && (
-              <div className="card fade-up">
-                <div className="lbl">Tallas y cantidades *</div>
-                <div style={{ fontSize:12, color:"#4A5568", marginBottom:12 }}>Ingresá cuántas prendas necesitás por talla</div>
-                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(90px,1fr))", gap:8 }}>
-                  {(prenda.tallas ?? TALLAS_DEFAULT).map(t=>(
-                    <div key={t} style={{ background:"#080A10", border:`1.5px solid ${(tallas[t]??0)>0?"#22D3EE":"#1E2535"}`, borderRadius:10, padding:"10px 8px", textAlign:"center" }}>
-                      <div style={{ fontSize:13, fontWeight:800, color:(tallas[t]??0)>0?"#22D3EE":"#64748B", marginBottom:6, fontFamily:"'JetBrains Mono'" }}>{t}</div>
-                      <input type="number" min={0} max={999} value={tallas[t]??""} placeholder="0"
-                        onChange={e=>setTallas(prev=>({...prev,[t]:parseInt(e.target.value)||0}))} aria-label={`Cantidad talla ${t}`}
-                        style={{ width:"100%", textAlign:"center", background:"transparent", border:"none", outline:"none", fontSize:18, fontWeight:800, fontFamily:"'JetBrains Mono'", color:"#E2E8F4" }}/>
-                    </div>
-                  ))}
+                <div style={{ display:"flex", gap:8, marginBottom:14, flexWrap:"wrap" }}>
+                  <input
+                    className="cinp"
+                    placeholder="Agregar otro color a la matriz"
+                    value={customColor}
+                    onChange={e=>setCustomColor(e.target.value)}
+                    onKeyDown={e=>{ if (e.key === "Enter") { e.preventDefault(); handleAddCustomColor(); } }}
+                    style={{ flex:"1 1 220px" }}
+                  />
+                  <button className="cbtn-out" onClick={handleAddCustomColor}>+ Agregar color</button>
                 </div>
-                {totalQty>0 && (
-                  <div style={{ marginTop:12, padding:"10px 14px", background:"rgba(34,211,238,.08)", border:"1px solid rgba(34,211,238,.2)", borderRadius:10, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                    <span style={{ fontSize:13, color:"#94A3B8" }}>Total prendas</span>
-                    <span style={{ fontFamily:"'JetBrains Mono'", fontWeight:800, fontSize:22, color:"#22D3EE" }}>{totalQty}</span>
+
+                {matrixColors.length === 0 ? (
+                  <div style={{ background:"rgba(251,191,36,.06)", border:"1px solid rgba(251,191,36,.18)", borderRadius:12, padding:14, fontSize:13, color:"#FBBF24" }}>
+                    Esta prenda no tiene colores configurados todavía. Agregá uno manualmente para comenzar.
+                  </div>
+                ) : (
+                  <div className="matrix-wrap">
+                    <table className="matrix-table" aria-label="Matriz de tallas y colores">
+                      <thead>
+                        <tr>
+                          <th>Color</th>
+                          {availableTallas.map(talla => (
+                            <th key={talla}>{talla}</th>
+                          ))}
+                          <th>Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {matrixColors.map(color => {
+                          const rowTotal = availableTallas.reduce(
+                            (sum, talla) => sum + (Number(variantQuantities[buildVariantKey(color, talla)]) || 0),
+                            0
+                          );
+                          const isBaseColor = baseColors.some(item => item.toLowerCase() === color.toLowerCase());
+
+                          return (
+                            <tr key={color}>
+                              <td>
+                                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8, minWidth:110 }}>
+                                  <span style={{ fontWeight:700, color: rowTotal > 0 ? "#22D3EE" : "#E2E8F4" }}>{color}</span>
+                                  {!isBaseColor && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveColorRow(color)}
+                                      style={{ border:"none", background:"transparent", color:"#4A5568", cursor:"pointer", fontSize:16, lineHeight:1 }}
+                                      aria-label={`Quitar color ${color}`}
+                                    >
+                                      ×
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                              {availableTallas.map(talla => {
+                                const qty = Number(variantQuantities[buildVariantKey(color, talla)]) || 0;
+                                return (
+                                  <td key={`${color}-${talla}`}>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      max={999}
+                                      value={qty || ""}
+                                      placeholder="0"
+                                      className="matrix-cell-input"
+                                      aria-label={`Cantidad ${color} talla ${talla}`}
+                                      style={{
+                                        borderColor: qty > 0 ? "#22D3EE" : "#252D3F",
+                                        background: qty > 0 ? "rgba(34,211,238,.08)" : "#0D1018",
+                                      }}
+                                      onChange={e => handleVariantQtyChange(color, talla, e.target.value)}
+                                    />
+                                  </td>
+                                );
+                              })}
+                              <td className="matrix-total-cell">{rowTotal}</td>
+                            </tr>
+                          );
+                        })}
+                        <tr>
+                          <td style={{ fontWeight:800, color:"#94A3B8", textTransform:"uppercase", letterSpacing:".06em" }}>Total</td>
+                          {availableTallas.map(talla => (
+                            <td key={`total-${talla}`} className="matrix-total-cell">{tallaTotals[talla] || 0}</td>
+                          ))}
+                          <td className="matrix-total-cell">{totalQty}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))", gap:10, marginTop:14 }}>
+                  <div style={{ padding:"12px 14px", borderRadius:12, background:"#080A10", border:"1px solid #1E2535" }}>
+                    <div style={{ fontSize:11, color:"#4A5568", textTransform:"uppercase", letterSpacing:".08em", marginBottom:4 }}>Colores activos</div>
+                    <div style={{ fontFamily:"'JetBrains Mono'", fontWeight:800, fontSize:22, color:"#E2E8F4" }}>{activeColorCount}</div>
+                  </div>
+                  <div style={{ padding:"12px 14px", borderRadius:12, background:"rgba(34,211,238,.08)", border:"1px solid rgba(34,211,238,.2)" }}>
+                    <div style={{ fontSize:11, color:"#94A3B8", textTransform:"uppercase", letterSpacing:".08em", marginBottom:4 }}>Total prendas</div>
+                    <div style={{ fontFamily:"'JetBrains Mono'", fontWeight:800, fontSize:22, color:"#22D3EE" }}>{totalQty}</div>
+                  </div>
+                </div>
+
+                {colorResumen && (
+                  <div style={{ marginTop:12, padding:"10px 12px", background:"rgba(34,211,238,.05)", border:"1px solid rgba(34,211,238,.15)", borderRadius:12, fontSize:12, color:"#94A3B8", lineHeight:1.6 }}>
+                    <b style={{ color:"#E2E8F4" }}>Resumen actual:</b> {colorResumen}
                   </div>
                 )}
               </div>
@@ -464,8 +662,9 @@ export default function ClientApp() {
                   ["Nombre",    nombre],
                   ["WhatsApp",  whatsapp || "—"],
                   ["Correo",    email    || "—"],
-                  ["Prenda",    `${prenda?.name ?? "?"} — ${color}`],
-                  ["Tallas",    tallaResumen || "—"],
+                  ["Prenda",    prenda?.name ?? "?"],
+                  ["Variantes", colorResumen || "—"],
+                  ["Colores activos", `${activeColorCount}`],
                   ["Total prendas", `${totalQty}`],
                   ["Posiciones", selectedPos.join(", ")],
                   ...(notas ? [["Notas", notas]] : []),
@@ -491,7 +690,7 @@ export default function ClientApp() {
               <button className="cbtn-out" onClick={()=>setStep(2)}>← Atrás</button>
               <button className="cbtn" disabled={submitting} onClick={handleSubmit}
                 style={{ flex:1 }}>
-                {submitting ? "Enviando…" : "✓ Enviar solicitud"}
+                {submitting ? "Enviando…" : "✓ Añadir a la cotización"}
               </button>
             </div>
           </div>
