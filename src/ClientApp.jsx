@@ -76,10 +76,10 @@ function InfoPage({ businessName, onCotizar }) {
     <div className="fade-up">
       {/* Hero */}
       <div style={{ textAlign: "center", padding: "48px 20px 36px" }}>
-        <h1 style={{ fontSize: 40, fontWeight: 800, letterSpacing: "-.05em", lineHeight: 1.05, marginBottom: 14 }}>
+        <h1 style={{ fontSize: "clamp(32px, 5vw, 56px)", fontWeight: 800, letterSpacing: "-.05em", lineHeight: 1.05, marginBottom: 14 }}>
           Estampado DTF{"\n"}de alta calidad.
         </h1>
-        <p style={{ fontSize: 17, color: "#6E6E73", lineHeight: 1.6, maxWidth: 400, margin: "0 auto 24px" }}>
+        <p style={{ fontSize: 17, color: "#6E6E73", lineHeight: 1.6, maxWidth: 520, margin: "0 auto 24px" }}>
           Personalizá cualquier prenda con tecnología Direct-to-Film. Colores vibrantes, durabilidad profesional.
         </p>
         <button onClick={onCotizar} style={{ background: "#0071E3", border: "none", borderRadius: 28, padding: "14px 36px", fontSize: 15, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "'Outfit'" }}>
@@ -88,8 +88,8 @@ function InfoPage({ businessName, onCotizar }) {
       </div>
 
       {/* Feature strips */}
-      <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 20px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 24 }}>
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 clamp(20px, 4vw, 40px)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, marginBottom: 24 }}>
           {[
             ["💧", "+50 lavados", "Resistente al uso diario y lavados industriales"],
             ["🎨", "Colores ilimitados", "CMYK completo, degradados, fotos y más"],
@@ -147,7 +147,7 @@ function InfoPage({ businessName, onCotizar }) {
                 ["Costo por unidad", "Medio", "Bajo", "Bajo (en volumen)"],
                 ["Setup", "Sin setup", "Sin setup", "Requiere marcos"],
               ].map((row, ri) => (
-                <div key={ri} style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr 1fr 1fr", gap: 0, fontSize: ri === 0 ? 10 : 12, fontWeight: ri === 0 ? 700 : 400,
+                <div key={ri} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", gap: 0, fontSize: ri === 0 ? 11 : 14, fontWeight: ri === 0 ? 700 : 400,
                   color: ri === 0 ? "#86868B" : "#1D1D1F", textTransform: ri === 0 ? "uppercase" : "none", letterSpacing: ri === 0 ? ".06em" : 0,
                   borderBottom: "1px solid #F5F5F7", padding: ri === 0 ? "0 0 8px" : "10px 0" }}>
                   {row.map((cell, ci) => (
@@ -189,8 +189,8 @@ function InfoPage({ businessName, onCotizar }) {
                 </tbody>
               </table>
             </div>
-            <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-              {PLACEMENTS_INFO.slice(0, 4).map(p => (
+            <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
+              {PLACEMENTS_INFO.map(p => (
                 <div key={p.key} style={{ background: "#F5F5F7", borderRadius: 10, padding: "10px 12px" }}>
                   <div style={{ fontSize: 12, fontWeight: 700 }}>{p.label}</div>
                   <div style={{ fontSize: 11, color: "#86868B", fontFamily: "'JetBrains Mono'" }}>Máx: {p.maxW}″ × {p.maxH}″</div>
@@ -319,7 +319,7 @@ export default function ClientApp() {
 
   const headerNav = (
     <header style={{ background: "rgba(245,245,247,.8)", backdropFilter: "blur(20px)", borderBottom: "1px solid #E8E8ED", position: "sticky", top: 0, zIndex: 50 }}>
-      <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 20px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 clamp(20px, 4vw, 40px)", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ cursor: "pointer" }} onClick={() => { setPage("info"); setSubmitted(false); }}>
           <h1 style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-.02em", margin: 0 }}>{businessName}</h1>
           <p style={{ fontSize: 10, color: "#86868B", letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 600, margin: 0 }}>{cfg?.seoSlogan || "Estampado DTF"}</p>
@@ -341,7 +341,7 @@ export default function ClientApp() {
     <div style={{ minHeight: "100vh", background: "#F5F5F7", fontFamily: "'Outfit',sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
       {headerNav}
-      <div style={{ maxWidth: 400, margin: "0 auto", padding: "48px 20px", textAlign: "center" }}>
+      <div style={{ maxWidth: 520, margin: "0 auto", padding: "48px 20px", textAlign: "center" }}>
         <div style={{ width: 72, height: 72, borderRadius: "50%", background: "#E8F5E9", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
           <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2E7D32" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg>
         </div>
@@ -371,7 +371,7 @@ export default function ClientApp() {
       {page === "info" && <InfoPage businessName={businessName} onCotizar={() => setPage("cotizar")} />}
 
       {page === "cotizar" && (
-        <div style={{ maxWidth: 560, margin: "0 auto", padding: "0 20px" }}>
+        <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 clamp(20px, 4vw, 40px)" }}>
           {/* Steps */}
           <div style={{ padding: "20px 0 0" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 24 }}>

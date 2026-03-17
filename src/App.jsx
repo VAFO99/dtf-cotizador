@@ -1513,8 +1513,11 @@ export default function App() {
         @media (min-width: 960px) {
           .mobile-nav { display: none !important; }
           .desktop-tabs { display: flex !important; }
-          .grid2 { grid-template-columns: 1fr 1fr; }
-          .card { margin-bottom: 14px; }
+          .grid2 { grid-template-columns: 1fr 1fr; gap: 14px; }
+          .grid3 { grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+          .card { margin-bottom: 16px; }
+          .card-body { padding: 20px; }
+          .card-head { padding: 16px 20px; }
         }
       `}</style>
 
@@ -1526,7 +1529,7 @@ export default function App() {
         borderBottom: "1px solid var(--border)",
         position: "sticky", top: 0, zIndex: 100,
       }}>
-        <div style={{ maxWidth: 760, margin: "0 auto", padding: "0 16px" }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 clamp(16px, 3vw, 40px)" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 60 }}>
             {/* Logo */}
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1585,7 +1588,7 @@ export default function App() {
       </header>
 
       {/* ── MAIN ── */}
-      <main style={{ maxWidth: 760, margin: "0 auto", padding: "16px 16px 80px" }} className="page-pad">
+      <main style={{ maxWidth: 1080, margin: "0 auto", padding: "20px clamp(16px, 3vw, 40px) 80px" }} className="page-pad">
 
         {/* ══ CONFIG ══ */}
         {tab === "config" && (
