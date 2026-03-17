@@ -109,6 +109,23 @@ export default function ClientApp() {
     init();
   }, []);
 
+  // ── Dynamic SEO: sync browser tab + meta tags with config ──
+  useEffect(() => {
+    if (!cfg) return;
+    const title = cfg.seoTitle || `${cfg.businessName || "DTF"} — Cotizador`;
+    document.title = title;
+    const ogTitle = document.querySelector('meta[property="og:title"]');
+    if (ogTitle) ogTitle.setAttribute("content", title);
+    const twTitle = document.querySelector('meta[name="twitter:title"]');
+    if (twTitle) twTitle.setAttribute("content", title);
+    if (cfg.seoDesc) {
+      const desc = document.querySelector('meta[name="description"]');
+      if (desc) desc.setAttribute("content", cfg.seoDesc);
+      const ogDesc = document.querySelector('meta[property="og:description"]');
+      if (ogDesc) ogDesc.setAttribute("content", cfg.seoDesc);
+    }
+  }, [cfg]);
+
   const prendas = cfg?.prendas ?? [];
   const businessName = cfg?.businessName ?? "ARTAMPA";
   const whatsappBiz = cfg?.whatsappBiz ?? "";

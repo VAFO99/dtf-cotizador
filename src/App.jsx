@@ -816,6 +816,12 @@ export default function App() {
     return () => document.head.removeChild(meta);
   }, []);
 
+  // ── Dynamic title: sync browser tab with config ──
+  useEffect(() => {
+    const title = seoTitle || `${businessName || "DTF"} — Admin`;
+    document.title = title;
+  }, [seoTitle, businessName]);
+
   // Track unsaved changes (just the indicator dot, no auto-POST)
   useEffect(() => {
     if (isFirstRender.current) { isFirstRender.current = false; return; }
