@@ -2152,7 +2152,16 @@ export default function App() {
               return (<>
               {paginated.map(p => {
                   const ec = ESTADO_COLOR[p.estado] || ESTADO_COLOR.Borrador;
-                  const groupedLines = buildQuoteGroups(p.lines || []);
+                  // ── Auto-estimate pricing for web orders without total ──
+                  const autoCalc = (!p.total && p.lines?.length)
+                    ? calcPrecioSolicitud({ lines: p.lines, prendas, placements, sheets, volTiers, poliRate, energyCost: prensaWatts * (prensaSeg / 3600) * tarifaKwh, margin })
+                    : null;
+                  const displayTotal = p.total || autoCalc?.total || 0;
+                  const displayCost = autoCalc?.cost || 0;
+                  const displayProfit = autoCalc ? (autoCalc.total - autoCalc.cost) : 0;
+                  const isEstimated = !p.total && autoCalc;
+                  const enrichedLines = autoCalc ? autoCalc.lp : (p.lines || []);
+                  const groupedLines = buildQuoteGroups(enrichedLines);
                   return (
                     <div key={p.id} className="card" style={{ marginBottom: 10 }}>
                       <div className="card-head" style={{ flexWrap: "wrap", gap: 8 }}>
@@ -2165,7 +2174,10 @@ export default function App() {
                           <span style={{ marginLeft: 6, fontWeight: 700, fontSize: 14 }}>{p.cliente}</span>
                         </div>
                         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                          <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 14, color: "var(--accent)" }}>L{formatMoney(p.total)}</span>
+                          <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 14, color: isEstimated ? "var(--warn)" : "var(--accent)" }}>
+                            L{formatMoney(displayTotal)}
+                            {isEstimated && <span style={{ fontSize: 9, fontWeight: 600, marginLeft: 4, opacity: .7 }}>≈</span>}
+                          </span>
                           <button
                             onClick={() => setSelectedPedido(p)}
                             style={{ background:"var(--accent-dim)", border:"1px solid rgba(34,211,238,.24)", borderRadius:8, padding:"5px 12px", fontSize:11, fontWeight:800, color:"var(--accent)", cursor:"pointer", whiteSpace:"nowrap" }}
@@ -2188,7 +2200,7 @@ export default function App() {
 
 ` +
                                 `${groupPreview ? `${groupPreview}\n\n` : ""}` +
-                                `💰 *Total: L_____*
+                                `💰 *Total: L${displayTotal ? formatMoney(displayTotal) : "_____"}*
 
 ` +
                                 `_Confirmame si estás de acuerdo y coordinamos los detalles._`
@@ -2244,6 +2256,42 @@ export default function App() {
                             </div>
                           </div>
                         ))}
+                        {/* ── Cost breakdown (admin only) ── */}
+                        {isEstimated && autoCalc && (
+                          <div style={{ marginTop: 10, padding: "10px 12px", background: "rgba(251,191,36,.06)", border: "1px solid rgba(251,191,36,.15)", borderRadius: 8 }}>
+                            <div style={{ fontSize: 10, fontWeight: 800, color: "var(--warn)", letterSpacing: ".05em", marginBottom: 6 }}>ESTIMADO AUTOMÁTICO</div>
+                            <div style={{ display: "grid", gap: 3, fontSize: 11, fontFamily: "'JetBrains Mono'" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text3)" }}>
+                                <span>DTF ({autoCalc.nesting?.results?.map(r => r.sheet.name).join(" + ") || "—"})</span>
+                                <span>L{formatMoney(autoCalc.dtfCost)}</span>
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text3)" }}>
+                                <span>Prendas en blanco</span>
+                                <span>L{formatMoney(autoCalc.lp.reduce((s, l) => s + l.prendaCost * l.qty, 0))}</span>
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text3)" }}>
+                                <span>Poliamida ({autoCalc.totalPoli?.toFixed(1)}g)</span>
+                                <span>L{formatMoney(autoCalc.totalPoliCost)}</span>
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text3)" }}>
+                                <span>Energía ({autoCalc.totalQty}×)</span>
+                                <span>L{formatMoney(autoCalc.totalEnergyCost)}</span>
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(251,191,36,.2)", paddingTop: 4, marginTop: 2 }}>
+                                <span style={{ color: "#F87171", fontWeight: 700 }}>Mi costo</span>
+                                <span style={{ color: "#F87171", fontWeight: 700 }}>L{formatMoney(displayCost)}</span>
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span style={{ color: "var(--warn)", fontWeight: 700 }}>Cobrar al cliente</span>
+                                <span style={{ color: "var(--warn)", fontWeight: 700 }}>L{formatMoney(displayTotal)}</span>
+                              </div>
+                              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                <span style={{ color: "#34D399", fontWeight: 700 }}>Ganancia</span>
+                                <span style={{ color: "#34D399", fontWeight: 700 }}>L{formatMoney(displayProfit)} ({displayTotal > 0 ? ((displayProfit / displayTotal) * 100).toFixed(0) : 0}%)</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
