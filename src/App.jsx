@@ -1,6 +1,14 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { loadPedidos, savePedidos, nextQuoteNum, ESTADOS, ESTADO_COLOR } from "./store.js";
 import { findBestSheets } from "./nesting.js";
+import {
+  buildPackingRequestFromLegacy,
+  formatPackingMode,
+  legacyNestingFromSolution,
+  stablePackingRequestKey,
+} from "./packing/contracts.mjs";
+import { solvePackingRequest } from "./packing/client.mjs";
+import { solvePackingPreview } from "./packing/maxrects.mjs";
 import PhoneInput from "./PhoneInput.jsx";
 import {
   loadConfigRemote, saveConfigRemote,
@@ -63,6 +71,7 @@ const INIT_PRENDAS = [
 // Polyamida: estándar industria DTF = 120 g/m² = 0.0774 g/in²
 // Fórmula: ancho_in × alto_in × 0.0774
 const calcPoli = (w, h) => parseFloat((w * h * 0.0774).toFixed(2));
+const PACKING_TIMEOUT_MS = 4500;
 
 // ── Pure pricing engine — returns full calc-compatible object for Factura ──
 function calcPrecioSolicitud({ lines, prendas, placements, sheets, volTiers, poliRate, energyCost, margin }) {
@@ -171,6 +180,175 @@ function calcPrecioSolicitud({ lines, prendas, placements, sheets, volTiers, pol
       poliCost: Math.round(totalPoliCost),
       energyCost: parseFloat(totalEnergyCost.toFixed(2)),
     },
+  };
+}
+
+function buildPackingContext({ lines, placements, prendas, poliRate, sheets, agruparPorColor }) {
+  const active = lines.filter(line =>
+    line.qty &&
+    Number(line.qty) > 0 &&
+    (line.placementIds.length > 0 || line.customs.some(custom => custom.w && custom.h))
+  );
+
+  if (!active.length) return null;
+
+  const totalQty = active.reduce((sum, line) => sum + Number(line.qty), 0);
+  let pidx = 0;
+  const allPieces = [];
+
+  const lineDetails = active.map(line => {
+    const qty = Number(line.qty);
+    const piecesPerUnit = [];
+    let poli = 0;
+
+    line.placementIds.forEach(pid => {
+      const placement = placements.find(item => item.id === pid);
+      if (!placement) return;
+      piecesPerUnit.push({ w: placement.w, h: placement.h, label: placement.label, color: placement.color });
+      poli += calcPoli(placement.w, placement.h);
+    });
+
+    line.customs.forEach(custom => {
+      if (!(custom.w && custom.h)) return;
+      const width = Number(custom.w);
+      const height = Number(custom.h);
+      piecesPerUnit.push({ w: width, h: height, label: custom.label || "Custom", color: custom.color || "#22D3EE" });
+      poli += calcPoli(width, height);
+    });
+
+    const prenda = prendas.find(item => item.id === line.prendaId);
+
+    for (let unit = 0; unit < qty; unit++) {
+      piecesPerUnit.forEach(piece => allPieces.push({
+        ...piece,
+        _idx: pidx++,
+        prendaColor: line.color || "",
+        prendaLabel: prenda?.name || line.otroName || "Otro",
+      }));
+    }
+
+    const prendaCost = line.quien === "Cliente" ? 0 : (prenda ? prenda.cost : Number(line.otroCost) || 0);
+    const prendaLabel = prenda ? prenda.name : (line.otroName || "Otro");
+    const sinCosto = line.quien !== "Cliente" && line.prendaId === "__otro" && !Number(line.otroCost);
+    const cfgLabel = [
+      ...line.placementIds.map(pid => placements.find(item => item.id === pid)?.label || "?"),
+      ...line.customs.filter(custom => custom.w && custom.h).map(custom => `${custom.label} ${custom.w}×${custom.h}`),
+    ].join(" + ");
+    const tallasSummary = line.tallas?.length > 0
+      ? (line.tallas || []).filter(item => item.qty > 0).map(item => `${item.talla}:${item.qty}`).join(" ")
+      : null;
+
+    return {
+      ...line,
+      qty,
+      pieces: piecesPerUnit,
+      poli,
+      poliCost: poli * poliRate,
+      prendaCost,
+      prendaLabel,
+      cfgLabel,
+      tallasSummary,
+      sinCosto,
+    };
+  });
+
+  const packingRequest = buildPackingRequestFromLegacy(allPieces, sheets, {
+    separateByGroup: agruparPorColor,
+    timeoutMs: PACKING_TIMEOUT_MS,
+  });
+
+  return {
+    totalQty,
+    allPieces,
+    lineDetails,
+    packingRequest,
+    requestKey: stablePackingRequestKey(packingRequest),
+  };
+}
+
+function buildCalcResult({
+  lineDetails,
+  totalQty,
+  nesting,
+  designWho,
+  designId,
+  fixId,
+  designTypes,
+  fixTypes,
+  volTiers,
+  margin,
+  energyCost,
+  prensaWatts,
+  tarifaKwh,
+}) {
+  const dtfCost = nesting.totalCost;
+  const dtfPU = totalQty > 0 ? dtfCost / totalQty : 0;
+
+  const dType = designTypes.find(item => item.id === designId);
+  const designFee = designWho === "Cliente trae arte" ? 0 : (dType?.price || 0);
+  const fType = fixTypes.find(item => item.id === fixId);
+  const fixFee = designWho === "Nosotros diseñamos" ? 0 : (fType?.price || 0);
+
+  const tier = [...volTiers].sort((a, b) => b.minQty - a.minQty).find(item => totalQty >= item.minQty) || volTiers[0];
+  const designCharged = tier.designDisc >= 100 ? 0 : Math.round(designFee * (1 - tier.designDisc / 100));
+  const fixCharged = tier.fixFree ? 0 : fixFee;
+  const volPct = tier.discPct || 0;
+
+  const lp = lineDetails.map(line => {
+    const unitCost = line.prendaCost + line.poliCost + dtfPU + energyCost;
+    const myBase = line.poliCost + dtfPU + energyCost;
+    const sellPrice = line.quien === "Cliente"
+      ? Math.ceil((myBase * (1 + margin / 100)) / 10) * 10
+      : Math.ceil((unitCost * (1 + margin / 100)) / 10) * 10;
+    return {
+      ...line,
+      unitCost,
+      sellPrice,
+      lineTotal: sellPrice * line.qty,
+      costTotal: unitCost * line.qty,
+    };
+  });
+
+  const sub = lp.reduce((sum, line) => sum + line.lineTotal, 0);
+  const disc = Math.round(sub * volPct / 100);
+  const total = sub - disc + designCharged + fixCharged;
+  const cost = lp.reduce((sum, line) => sum + line.costTotal, 0);
+  const profit = total - cost;
+  const rm = total > 0 ? (profit / total) * 100 : 0;
+
+  const totalPoli = lineDetails.reduce((sum, line) => sum + line.poli, 0);
+  const totalPoliCost = lineDetails.reduce((sum, line) => sum + line.poliCost, 0);
+  const totalEnergyCost = totalQty * energyCost;
+  const warmUpMinutes = Math.round(((165 - 25) * 3.5 * 900) / (prensaWatts * 60) * 1.4 * 10) / 10;
+  const warmUpKwh = (prensaWatts / 1000) * (warmUpMinutes / 60);
+  const warmUpTotal = warmUpKwh * tarifaKwh;
+  const warmUpPerPrenda = totalQty > 0 ? parseFloat((warmUpTotal / totalQty).toFixed(4)) : 0;
+
+  return {
+    lp,
+    nesting,
+    totalQty,
+    dtfCost,
+    designFee,
+    fixFee,
+    designCharged,
+    fixCharged,
+    volPct,
+    disc,
+    sub,
+    total,
+    cost,
+    profit,
+    rm,
+    tier,
+    dType,
+    fType,
+    totalPoli,
+    totalPoliCost,
+    totalEnergyCost,
+    warmUpPerPrenda,
+    warmUpMinutes,
+    warmUpTotal,
   };
 }
 
@@ -303,6 +481,13 @@ export default function App() {
   const [savedSnapshot, setSavedSnapshot] = useState(saved);
   const isFirstRender = useRef(true);
   const isInitializing = useRef(true); // blocks auto-save during Supabase init
+  const packingCacheRef = useRef(new Map());
+  const [packingState, setPackingState] = useState({
+    requestKey: null,
+    solution: null,
+    loading: false,
+    error: null,
+  });
 
   const currentConfig = useMemo(() => ({
     margin, prendas, placements, sheets, designTypes, fixTypes, volTiers,
@@ -535,116 +720,119 @@ export default function App() {
   const updCustom = useCallback((li, ci, f, v) => setLines(p => p.map((l, j) => j !== li ? l : { ...l, customs: l.customs.map((c, k) => k === ci ? { ...c, [f]: v } : c) })), []);
   const delCustom = useCallback((li, ci) => setLines(p => p.map((l, j) => j !== li ? l : { ...l, customs: l.customs.filter((_, k) => k !== ci) })), []);
 
-  const calc = useMemo(() => {
-    const active = lines.filter(l => l.qty && Number(l.qty) > 0 && (l.placementIds.length > 0 || l.customs.some(c => c.w && c.h)));
-    if (!active.length) return null;
-    const totalQty = active.reduce((s, l) => s + Number(l.qty), 0);
-    let pidx = 0; const allPieces = [];
+  const packingContext = useMemo(() => buildPackingContext({
+    lines,
+    placements,
+    prendas,
+    poliRate,
+    sheets,
+    agruparPorColor,
+  }), [lines, placements, prendas, poliRate, sheets, agruparPorColor]);
 
-    const lineDetails = active.map((line) => {
-      const qty = Number(line.qty);
-      const piecesPerUnit = []; let poli = 0;
-      line.placementIds.forEach(pid => {
-        const pl = placements.find(p => p.id === pid);
-        if (pl) { piecesPerUnit.push({ w: pl.w, h: pl.h, label: pl.label, color: pl.color }); poli += calcPoli(pl.w, pl.h); }
-      });
-      line.customs.forEach(c => {
-        if (c.w && c.h) {
-          const cw = Number(c.w), ch = Number(c.h);
-          piecesPerUnit.push({ w: cw, h: ch, label: c.label || "Custom", color: c.color || "#22D3EE" });
-          poli += calcPoli(cw, ch);
-        }
-      });
-      // pr MUST be declared before the forEach below — avoid TDZ (Je before initialization)
-      const pr = prendas.find(p => p.id === line.prendaId);
+  const previewSolution = useMemo(() => {
+    if (!packingContext?.packingRequest) return null;
+    return solvePackingPreview(packingContext.packingRequest);
+  }, [packingContext?.requestKey]);
 
-      // Repeat each piece qty times for nesting
-      for (let u = 0; u < qty; u++) {
-        piecesPerUnit.forEach(p => allPieces.push({ ...p, _idx: pidx++, prendaColor: line.color || "", prendaLabel: pr?.name || line.otroName || "Otro" }));
-      }
-
-      const prendaCost = line.quien === "Cliente" ? 0 : (pr ? pr.cost : Number(line.otroCost) || 0);
-      const prendaLabel = pr ? pr.name : (line.otroName || "Otro");
-      // FIX 9: flag when "Otro" has no cost and client isn't bringing it
-      const sinCosto = line.quien !== "Cliente" && line.prendaId === "__otro" && !Number(line.otroCost);
-      const cfgLabel = [...line.placementIds.map(pid => placements.find(p => p.id === pid)?.label || "?"),
-        ...line.customs.filter(c => c.w && c.h).map(c => `${c.label} ${c.w}×${c.h}`)].join(" + ");
-      const tallasSummary = line.tallas?.length > 0
-        ? (line.tallas||[]).filter(x=>x.qty>0).map(x=>`${x.talla}:${x.qty}`).join(" ")
-        : null;
-      return { ...line, qty, pieces: piecesPerUnit, poli, poliCost: poli * poliRate, prendaCost, prendaLabel, cfgLabel, tallasSummary, sinCosto };
-    });
-
-    // FIX 13: Group by color — run nesting separately per color+prenda group
-    let nesting;
-    if (agruparPorColor) {
-      // Group allPieces by (prendaLabel + color) combination
-      const groups = {};
-      allPieces.forEach(p => {
-        const key = (p.prendaColor || "sin-color") + "|" + (p.prendaLabel || "?");
-        if (!groups[key]) groups[key] = { key, pieces: [] };
-        groups[key].pieces.push(p);
-      });
-      const allResults = [];
-      let totalCostG = 0;
-      Object.values(groups).forEach(g => {
-        const r = findBestSheets(g.pieces, sheets);
-        allResults.push(...r.results.map(sh => ({ ...sh, groupKey: g.key })));
-        totalCostG += r.totalCost;
-      });
-      nesting = { results: allResults, totalCost: totalCostG };
-    } else {
-      nesting = findBestSheets(allPieces, sheets);
+  useEffect(() => {
+    if (!packingContext?.packingRequest) {
+      setPackingState({ requestKey: null, solution: null, loading: false, error: null });
+      return;
     }
-    const dtfCost = nesting.totalCost;
-    const dtfPU = totalQty > 0 ? dtfCost / totalQty : 0;
 
-    const dType = designTypes.find(d => d.id === designId);
-    const designFee = designWho === "Cliente trae arte" ? 0 : (dType?.price || 0);
-    const fType = fixTypes.find(f => f.id === fixId);
-    const fixFee = designWho === "Nosotros diseñamos" ? 0 : (fType?.price || 0);
+    const cached = packingCacheRef.current.get(packingContext.requestKey);
+    if (cached) {
+      setPackingState({
+        requestKey: packingContext.requestKey,
+        solution: cached,
+        loading: false,
+        error: cached.error || null,
+      });
+      return;
+    }
 
-    const tier = volTiers.sort((a, b) => b.minQty - a.minQty).find(t => totalQty >= t.minQty) || volTiers[0];
-    const designCharged = tier.designDisc >= 100 ? 0 : Math.round(designFee * (1 - tier.designDisc / 100));
-    const fixCharged = tier.fixFree ? 0 : fixFee;
-    const volPct = tier.discPct || 0;
+    const controller = new AbortController();
+    setPackingState(prev => ({
+      requestKey: packingContext.requestKey,
+      solution: prev.requestKey === packingContext.requestKey ? prev.solution : null,
+      loading: true,
+      error: null,
+    }));
 
-    const lp = lineDetails.map(ld => {
-      const uc = ld.prendaCost + ld.poliCost + dtfPU + energyCost;
-      // FIX 4: Si cliente pone prenda, base de precio = solo costos DTF (sin prenda)
-      // El margen aplica sobre lo que YO cobro, no sobre costo de prenda del cliente
-      const myBase = ld.poliCost + dtfPU + energyCost; // costos DTF propios
-      const spBase = ld.quien === "Cliente"
-        ? Math.ceil((myBase * (1 + margin / 100)) / 10) * 10
-        : Math.ceil((uc     * (1 + margin / 100)) / 10) * 10;
-      return { ...ld, unitCost: uc, sellPrice: spBase, lineTotal: spBase * ld.qty, costTotal: uc * ld.qty };
+    solvePackingRequest(packingContext.packingRequest, { signal: controller.signal })
+      .then(solution => {
+        packingCacheRef.current.set(packingContext.requestKey, solution);
+        setPackingState({
+          requestKey: packingContext.requestKey,
+          solution,
+          loading: false,
+          error: solution.error || null,
+        });
+      })
+      .catch(error => {
+        if (error?.name === "AbortError") return;
+        setPackingState({
+          requestKey: packingContext.requestKey,
+          solution: null,
+          loading: false,
+          error: error?.message || "No se pudo resolver el packing exacto.",
+        });
+      });
+
+    return () => controller.abort();
+  }, [packingContext?.requestKey]);
+
+  const activePackingSolution = useMemo(() => {
+    if (!packingContext?.packingRequest) return null;
+    if (packingState.requestKey === packingContext.requestKey && packingState.solution) return packingState.solution;
+    return previewSolution;
+  }, [packingContext?.requestKey, packingState.requestKey, packingState.solution, previewSolution]);
+
+  const activeNesting = useMemo(() => (
+    activePackingSolution ? legacyNestingFromSolution(activePackingSolution) : null
+  ), [activePackingSolution]);
+
+  const calc = useMemo(() => {
+    if (!packingContext || !activeNesting) return null;
+    return buildCalcResult({
+      lineDetails: packingContext.lineDetails,
+      totalQty: packingContext.totalQty,
+      nesting: activeNesting,
+      designWho,
+      designId,
+      fixId,
+      designTypes,
+      fixTypes,
+      volTiers,
+      margin,
+      energyCost,
+      prensaWatts,
+      tarifaKwh,
     });
-
-    const sub = lp.reduce((s, l) => s + l.lineTotal, 0);
-    const disc = Math.round(sub * volPct / 100);
-    const total = sub - disc + designCharged + fixCharged;
-    const cost = lp.reduce((s, l) => s + l.costTotal, 0);
-    const profit = total - cost;
-    const rm = total > 0 ? (profit / total) * 100 : 0;
-
-    const totalPoli = lineDetails.reduce((s, l) => s + l.poli, 0);
-    const totalPoliCost = lineDetails.reduce((s, l) => s + l.poliCost, 0);
-    const totalEnergyCost = totalQty * energyCost;
-    // Warm-up cost: 1000W press from 25°C→165°C ≈ 6 min, split across all prendas
-    const warmUpMinutes = Math.round(((165 - 25) * 3.5 * 900) / (prensaWatts * 60) * 1.4 * 10) / 10; // thermal model
-    const warmUpKwh = (prensaWatts / 1000) * (warmUpMinutes / 60);
-    const warmUpTotal = warmUpKwh * tarifaKwh;
-    const warmUpPerPrenda = totalQty > 0 ? parseFloat((warmUpTotal / totalQty).toFixed(4)) : 0;
-
-    return { lp, nesting, totalQty, dtfCost, designFee, fixFee, designCharged, fixCharged, volPct, disc, sub, total, cost, profit, rm, tier, dType, fType, totalPoli, totalPoliCost, totalEnergyCost, warmUpPerPrenda, warmUpMinutes, warmUpTotal };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines, designWho, designId, fixId, margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliRate, energyCost]);
+  }, [
+    activeNesting,
+    designId,
+    designTypes,
+    designWho,
+    energyCost,
+    fixId,
+    fixTypes,
+    margin,
+    packingContext,
+    prensaWatts,
+    tarifaKwh,
+    volTiers,
+  ]);
+  const packingModeLabel = useMemo(
+    () => formatPackingMode(activePackingSolution, packingState.loading),
+    [activePackingSolution, packingState.loading]
+  );
   // Note: energyCost is derived from prensaWatts/prensaSeg/tarifaKwh which ARE in currentConfig
 
 
   // ── RENDER ──
   return (
-    <div className={darkMode ? "dark-theme" : "light-theme"} style={{ background: "var(--bg)", color: "var(--text)", fontFamily: "'Sora',sans-serif", minHeight: "100dvh", minHeight: "100vh" }}>
+    <div className={darkMode ? "dark-theme" : "light-theme"} style={{ background: "var(--bg)", color: "var(--text)", fontFamily: "'Sora',sans-serif", minHeight: "100dvh" }}>
       {/* PIN Gate */}
       {!pinUnlocked && (
         <div style={{ position: "fixed", inset: 0, background: "#080A10", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
@@ -1927,9 +2115,37 @@ export default function App() {
                   <div className="card-head" style={{ background: "rgba(34,211,238,.05)", borderColor: "rgba(34,211,238,.2)" }}>
                     <StepBadge n={3} />
                     <span style={{ fontWeight: 700, fontSize: 14 }}>Hojas DTF</span>
+                    <span style={{
+                      marginLeft: 10,
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: ".08em",
+                      textTransform: "uppercase",
+                      color: activePackingSolution?.source === "cp_sat" ? "var(--green)" : "var(--text3)",
+                      background: activePackingSolution?.source === "cp_sat" ? "rgba(52,211,153,.12)" : "rgba(148,163,184,.08)",
+                      border: "1px solid rgba(148,163,184,.16)",
+                      borderRadius: 999,
+                      padding: "4px 8px",
+                    }}>{packingModeLabel}</span>
                     <span style={{ marginLeft: "auto", fontFamily: "'JetBrains Mono'", fontSize: 20, fontWeight: 800, color: "var(--accent)" }}>L{calc.dtfCost}</span>
                   </div>
                   <div style={{ padding: 16, background: "var(--bg)" }}>
+                    {(packingState.error || calc.nesting?.unplaced?.length > 0) && (
+                      <div style={{
+                        marginBottom: 14,
+                        padding: "10px 12px",
+                        borderRadius: 10,
+                        background: "rgba(251,191,36,.08)",
+                        border: "1px solid rgba(251,191,36,.18)",
+                        color: "var(--warn)",
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                      }}>
+                        {packingState.error
+                          ? `Se mostró el preview local porque el solver exacto no respondió: ${packingState.error}`
+                          : `${calc.nesting.unplaced.length} pieza(s) no caben en las hojas configuradas.`}
+                      </div>
+                    )}
                     {/* Resumen */}
                     {(() => {
                       const counts = {};

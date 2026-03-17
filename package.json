@@ -4,8 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "vite",
+    "dev:web": "VITE_PACKING_SOLVER_URL=http://localhost:3000/api/packing/solve vite",
+    "dev:api": "python3 ./scripts/serve_packing_api.py",
+    "dev:full": "bash ./scripts/dev-full.sh",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.1",
