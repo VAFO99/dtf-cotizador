@@ -756,7 +756,7 @@ export default function App() {
   const [newTalla, setNewTalla] = useState("");
   const [newColor, setNewColor] = useState("");
   // NEW features
-  const [darkMode, setDarkMode]       = useState(saved?.darkMode ?? true);
+  const [darkMode, setDarkMode]       = useState(saved?.darkMode ?? false);
   const [tipoCambio, setTipoCambio]   = useState(saved?.tipoCambio ?? 25.5);
   const [mostrarUSD, setMostrarUSD]   = useState(saved?.mostrarUSD ?? false);
   const [margenMin, setMargenMin]     = useState(saved?.margenMin ?? 30);
@@ -1205,14 +1205,14 @@ export default function App() {
     <div className={darkMode ? "dark-theme" : "light-theme"} style={{ background: "var(--bg)", color: "var(--text)", fontFamily: "'Outfit',sans-serif", minHeight: "100dvh" }}>
       {/* PIN Gate */}
       {!pinUnlocked && (
-        <div style={{ position: "fixed", inset: 0, background: "#1C1C1E", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
+        <div style={{ position: "fixed", inset: 0, background: "#F5F5F7", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
           <div style={{ position: "absolute", top: "-20%", right: "-10%", width: "50vw", height: "50vw", borderRadius: "50%", background: "radial-gradient(circle,rgba(0,113,227,.04) 0%,transparent 70%)", filter: "blur(80px)", pointerEvents: "none" }}/>
           <div style={{ textAlign: "center", marginBottom: 8, position: "relative" }}>
-            <div style={{ fontFamily: "'Outfit'", fontWeight: 800, fontSize: 28, color: "#F5F5F7", letterSpacing: "-.03em" }}>{businessName}</div>
-            <div style={{ fontSize: 10, color: "#6E6E73", letterSpacing: ".14em", textTransform: "uppercase", marginTop: 6, fontWeight: 600 }}>Panel interno · Acceso restringido</div>
+            <div style={{ fontFamily: "'Outfit'", fontWeight: 800, fontSize: 28, color: "#1D1D1F", letterSpacing: "-.03em" }}>{businessName}</div>
+            <div style={{ fontSize: 10, color: "#86868B", letterSpacing: ".14em", textTransform: "uppercase", marginTop: 6, fontWeight: 600 }}>Panel interno · Acceso restringido</div>
           </div>
-          <div style={{ background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)", borderRadius: 22, padding: "28px 32px", width: 280, textAlign: "center", backdropFilter: "blur(12px)", position: "relative" }}>
-            <div style={{ fontSize: 13, color: "#A1A1A6", marginBottom: 16, fontWeight: 600 }}>Ingresa el PIN de acceso</div>
+          <div style={{ background: "#fff", border: "1px solid #E8E8ED", borderRadius: 22, padding: "28px 32px", width: 280, textAlign: "center", boxShadow: "0 2px 12px rgba(0,0,0,.06)", position: "relative" }}>
+            <div style={{ fontSize: 13, color: "#6E6E73", marginBottom: 16, fontWeight: 600 }}>Ingresa el PIN de acceso</div>
             <input
               type="password" inputMode="numeric" maxLength={8}
               value={pinInput} onChange={e => { setPinInput(e.target.value); setPinError(false); }}
@@ -1224,7 +1224,7 @@ export default function App() {
               }}
               placeholder="••••"
               style={{ width: "100%", textAlign: "center", fontSize: 28, letterSpacing: 8, fontFamily: "'JetBrains Mono'", fontWeight: 700,
-                background: "#1C1C1E", border: `2px solid ${pinError ? "#F87171" : "rgba(255,255,255,.1)"}`, borderRadius: 10, padding: "12px", color: "#F5F5F7", outline: "none" }}
+                background: "#fff", border: `2px solid ${pinError ? "#F87171" : "#E8E8ED"}`, borderRadius: 10, padding: "12px", color: "#1D1D1F", outline: "none" }}
               autoFocus
             />
             {pinError && <div style={{ color: "#F87171", fontSize: 12, marginTop: 8, fontWeight: 600 }}>PIN incorrecto</div>}
