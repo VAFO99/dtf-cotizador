@@ -83,8 +83,8 @@ const INIT_PRENDAS = [
 ];
 
 // Polyamida: estándar industria DTF = 120 g/m² = 0.0774 g/in²
-// Fórmula: ancho_in × alto_in × 0.0774
-const calcPoli = (w, h) => parseFloat((w * h * 0.0774).toFixed(2));
+// Fórmula: ancho_in × alto_in × 0.0774 (o cm × cm × 0.012)
+const calcPoli = (w, h, unit = "in") => parseFloat((w * h * (unit === "cm" ? 0.012 : 0.0774)).toFixed(2));
 const PACKING_TIMEOUT_MS = 4500;
 const slugSkuPart = (value, fallback = "NA") => {
   const normalized = String(value ?? "")
@@ -197,7 +197,7 @@ function formatGroupSummaryText(group) {
 }
 
 // ── Pure pricing engine — returns full calc-compatible object for Factura ──
-function calcPrecioSolicitud({ lines, prendas, placements, sheets, volTiers, poliRate, energyCost, margin }) {
+function calcPrecioSolicitud({ lines, prendas, placements, sheets, volTiers, poliRate, energyCost, margin, unitSystem = "in" }) {
   if (!lines?.length) return null;
   let pidx = 0;
   const allPieces = [];
@@ -217,7 +217,7 @@ function calcPrecioSolicitud({ lines, prendas, placements, sheets, volTiers, pol
       );
       if (pl) {
         piecesPerUnit.push({ w: pl.w, h: pl.h, label: pl.label, color: pl.color });
-        poli += calcPoli(pl.w, pl.h);
+        poli += calcPoli(pl.w, pl.h, unitSystem);
       }
     });
 
@@ -227,7 +227,7 @@ function calcPrecioSolicitud({ lines, prendas, placements, sheets, volTiers, pol
         const pl = placements.find(p => p.id === pid);
         if (pl) {
           piecesPerUnit.push({ w: pl.w, h: pl.h, label: pl.label, color: pl.color });
-          poli += calcPoli(pl.w, pl.h);
+          poli += calcPoli(pl.w, pl.h, unitSystem);
         }
       });
     }
@@ -314,7 +314,7 @@ function calcPrecioSolicitud({ lines, prendas, placements, sheets, volTiers, pol
   };
 }
 
-function buildPackingContext({ lines, placements, prendas, poliRate, sheets, agruparPorColor }) {
+function buildPackingContext({ lines, placements, prendas, poliRate, sheets, agruparPorColor, unitSystem = "in" }) {
   const active = lines.filter(line =>
     line.qty &&
     Number(line.qty) > 0 &&
@@ -336,7 +336,7 @@ function buildPackingContext({ lines, placements, prendas, poliRate, sheets, agr
       const placement = placements.find(item => item.id === pid);
       if (!placement) return;
       piecesPerUnit.push({ w: placement.w, h: placement.h, label: placement.label, color: placement.color });
-      poli += calcPoli(placement.w, placement.h);
+      poli += calcPoli(placement.w, placement.h, unitSystem);
     });
 
     line.customs.forEach(custom => {
@@ -344,7 +344,7 @@ function buildPackingContext({ lines, placements, prendas, poliRate, sheets, agr
       const width = Number(custom.w);
       const height = Number(custom.h);
       piecesPerUnit.push({ w: width, h: height, label: custom.label || "Custom", color: custom.color || "#0071E3" });
-      poli += calcPoli(width, height);
+      poli += calcPoli(width, height, unitSystem);
     });
 
     const prenda = prendas.find(item => item.id === line.prendaId);
@@ -760,6 +760,7 @@ export default function App() {
   const [tipoCambio, setTipoCambio]   = useState(saved?.tipoCambio ?? 25.5);
   const [mostrarUSD, setMostrarUSD]   = useState(saved?.mostrarUSD ?? false);
   const [margenMin, setMargenMin]     = useState(saved?.margenMin ?? 30);
+  const [unitSystem, setUnitSystem]   = useState(saved?.unitSystem ?? "in");
   const [pedidos, setPedidos] = useState(() => (
     loadPedidos().map(row => hydratePedidoRecord(row, {
       prendas: saved?.prendas ?? INIT_PRENDAS,
@@ -784,6 +785,8 @@ export default function App() {
   const [seoTitle, setSeoTitle]           = useState(saved?.seoTitle       ?? "");
   const [seoDesc, setSeoDesc]             = useState(saved?.seoDesc        ?? "");
   const [seoSlogan, setSeoSlogan]         = useState(saved?.seoSlogan      ?? "");
+  const [docTerms, setDocTerms]           = useState(saved?.docTerms       ?? "Tiempo de entrega: 2 a 3 días hábiles.\nSe requiere 50% de anticipo para iniciar el trabajo.");
+  const [docShowPrices, setDocShowPrices] = useState(saved?.docShowPrices ?? true);
   // BCH exchange rate (auto-fetched)
   const [bchRate, setBchRate]         = useState(saved?.tipoCambio ?? 25.5);
   const [bchUpdated, setBchUpdated]   = useState(null);
@@ -804,9 +807,9 @@ export default function App() {
   const currentConfig = useMemo(() => ({
     margin, prendas, placements, sheets, designTypes, fixTypes, volTiers,
     poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias,
-    darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, whatsappBiz,
-    seoTitle, seoDesc, seoSlogan
-  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias, darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, whatsappBiz, seoTitle, seoDesc, seoSlogan]);
+    darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, whatsappBiz, unitSystem,
+    seoTitle, seoDesc, seoSlogan, docTerms, docShowPrices
+  }), [margin, prendas, placements, sheets, designTypes, fixTypes, volTiers, poliBolsa, poliGramos, businessName, prensaWatts, prensaSeg, tarifaKwh, tallasCfg, coloresCfg, logoB64, validezDias, darkMode, tipoCambio, mostrarUSD, margenMin, agruparPorColor, whatsappBiz, unitSystem, seoTitle, seoDesc, seoSlogan, docTerms, docShowPrices]);
 
   // Add noindex meta for admin (security — don't let search engines index this)
   useEffect(() => {
@@ -897,9 +900,12 @@ export default function App() {
         if (remoteCfg.seoTitle)     setSeoTitle(remoteCfg.seoTitle);
         if (remoteCfg.seoDesc)      setSeoDesc(remoteCfg.seoDesc);
         if (remoteCfg.seoSlogan)    setSeoSlogan(remoteCfg.seoSlogan);
+        if (remoteCfg.docTerms !== undefined) setDocTerms(remoteCfg.docTerms);
+        if (remoteCfg.docShowPrices !== undefined) setDocShowPrices(remoteCfg.docShowPrices);
         if (remoteCfg.darkMode      !== undefined)  setDarkMode(remoteCfg.darkMode);
         if (remoteCfg.mostrarUSD    !== undefined)  setMostrarUSD(remoteCfg.mostrarUSD);
         if (remoteCfg.margenMin     !== undefined)  setMargenMin(remoteCfg.margenMin);
+        if (remoteCfg.unitSystem)   setUnitSystem(remoteCfg.unitSystem);
         if (remoteCfg.agruparPorColor !== undefined) setAgruparPorColor(remoteCfg.agruparPorColor);
         // adminPin stored separately, not in remote config
         if (remoteCfg.prensaWatts)  setPrensaWatts(remoteCfg.prensaWatts);
@@ -968,12 +974,15 @@ export default function App() {
         if (cfg.tipoCambio) setTipoCambio(cfg.tipoCambio);
         if (cfg.mostrarUSD !== undefined) setMostrarUSD(cfg.mostrarUSD);
         if (cfg.margenMin !== undefined) setMargenMin(cfg.margenMin);
+        if (cfg.unitSystem) setUnitSystem(cfg.unitSystem);
         if (cfg.agruparPorColor !== undefined) setAgruparPorColor(cfg.agruparPorColor);
         // adminPin stored separately
         if (cfg.whatsappBiz) setWhatsappBiz(cfg.whatsappBiz);
         if (cfg.seoTitle)    setSeoTitle(cfg.seoTitle);
         if (cfg.seoDesc)     setSeoDesc(cfg.seoDesc);
         if (cfg.seoSlogan)   setSeoSlogan(cfg.seoSlogan);
+        if (cfg.docTerms !== undefined) setDocTerms(cfg.docTerms);
+        if (cfg.docShowPrices !== undefined) setDocShowPrices(cfg.docShowPrices);
         alert("✅ Configuración importada correctamente");
       } catch { alert("❌ Archivo inválido"); }
     };
@@ -1096,7 +1105,8 @@ export default function App() {
     poliRate,
     sheets,
     agruparPorColor,
-  }), [lines, placements, prendas, poliRate, sheets, agruparPorColor]);
+    unitSystem,
+  }), [lines, placements, prendas, poliRate, sheets, agruparPorColor, unitSystem]);
 
   const previewSolution = useMemo(() => {
     if (!packingContext?.packingRequest) return null;
@@ -1253,20 +1263,24 @@ export default function App() {
           --radius-sm: 10px;
         }
         .dark-theme {
-          --bg: #1C1C1E; --bg2: #2C2C2E; --bg3: #3A3A3C;
-          --border: #38383A; --border2: #48484A;
-          --text: #F5F5F7; --text2: #A1A1A6; --text3: #6E6E73;
+          --bg: #111827; --bg2: #1F2937; --bg3: #374151;
+          --border: #374151; --border2: #4B5563;
+          --text: #F9FAFC; --text2: #D1D5DB; --text3: #9CA3AF;
           --shadow: rgba(0,0,0,.4);
+          --accent: #007AFF;
+          --accent-dim: rgba(0,122,255,0.15);
         }
         .light-theme {
-          --bg: #F5F5F7; --bg2: #FFFFFF; --bg3: #FAFAFA;
-          --border: #E8E8ED; --border2: #D2D2D7;
-          --text: #1D1D1F; --text2: #6E6E73; --text3: #86868B;
-          --shadow: rgba(0,0,0,.04);
+          --bg: #F9FAFC; --bg2: #FFFFFF; --bg3: #F9FAFC;
+          --border: #E8E8ED; --border2: #E8E8ED;
+          --text: #111827; --text2: #4B5563; --text3: #9CA3AF;
+          --shadow: rgba(0,0,0,.03);
+          --accent: #007AFF;
+          --accent-dim: #E5F0FF;
         }
         .light-theme .card { box-shadow: 0 1px 4px var(--shadow); }
         .light-theme .line-card { background: #FAFAFA; }
-        .light-theme header { background: rgba(245,245,247,.8); backdrop-filter: blur(20px); }
+        .light-theme header { background: #ffffff; border-bottom: 1px solid var(--border); }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         html { -webkit-text-size-adjust: 100%; font-size: 16px; }
         body { background: var(--bg); overscroll-behavior-y: none; }
@@ -1618,7 +1632,7 @@ export default function App() {
 
             {/* Config tab pills */}
             <div className="cfg-pills-scroll" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-              {[["negocio","Mi Negocio"],["prendas","Prendas"],["placements","Posiciones"],["tallas","Tallas"],["colores","Colores"],["sheets","Hojas DTF"],["poli","Poliamida"],["design","Diseño"],["fix","Corrección"],["vol","Volumen"]].map(([k,v]) => (
+              {[["negocio","Mi Negocio"],["documento","Documento"],["prendas","Prendas"],["placements","Posiciones"],["tallas","Tallas"],["colores","Colores"],["sheets","Hojas DTF"],["poli","Poliamida"],["design","Diseño"],["fix","Corrección"],["vol","Volumen"]].map(([k,v]) => (
                 <button key={k} className={`cfg-pill ${cfgTab === k ? "active" : ""}`} onClick={() => setCfgTab(k)}>{v}</button>
               ))}
             </div>
@@ -1741,6 +1755,26 @@ export default function App() {
                     </div>
                   </div>
 
+                  {/* Unidad de Medida */}
+                  <div style={{ marginTop: 14 }}>
+                    <div className="lbl">Sistema de Medida</div>
+                    <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
+                      <select className="sel" value={unitSystem} onChange={e => {
+                        const newUnit = e.target.value;
+                        if (newUnit !== unitSystem && confirm(`¿Convertir valores existentes (placements, hojas) de ${unitSystem === "in" ? "pulgadas a centímetros" : "centímetros a pulgadas"}?`)) {
+                          const factor = newUnit === "cm" ? 2.54 : 1 / 2.54;
+                          setPlacements(p => p.map(x => ({ ...x, w: parseFloat((x.w * factor).toFixed(2)), h: parseFloat((x.h * factor).toFixed(2)) })));
+                          setSheets(s => s.map(x => ({ ...x, w: parseFloat((x.w * factor).toFixed(2)), h: parseFloat((x.h * factor).toFixed(2)) })));
+                        }
+                        setUnitSystem(newUnit);
+                      }} style={{ maxWidth: 160, fontWeight: 700 }}>
+                        <option value="in">Pulgadas (in, ″)</option>
+                        <option value="cm">Centímetros (cm)</option>
+                      </select>
+                      <span style={{ fontSize: 12, color: "var(--text3)", flex: 1 }}>Si cambias la unidad, se te preguntará si quieres convertir los valores actuales.</span>
+                    </div>
+                  </div>
+
                   {/* Tipo de cambio */}
                   <div style={{ marginTop: 14 }}>
                     <div className="lbl">Tipo de cambio (L por $1 USD)</div>
@@ -1814,6 +1848,27 @@ export default function App() {
                           }} />
                       </label>
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* DOCUMENTO */}
+            {cfgTab === "documento" && (
+              <div className="card fade-up">
+                <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Configuración de Documentos</span></div>
+                <div className="card-body">
+                  <div style={{ marginBottom: 14 }}>
+                    <div className="lbl">Términos y condiciones por defecto</div>
+                    <textarea className="inp" value={docTerms} onChange={e => setDocTerms(e.target.value)} rows={4} style={{ resize: "vertical", minHeight: 80 }} placeholder="Tiempo de entrega, condiciones de pago..." />
+                    <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 6 }}>Este texto se pre-rellenará en las notas de nuevas cotizaciones y facturas.</div>
+                  </div>
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, color: "var(--text2)" }}>
+                      <input type="checkbox" checked={docShowPrices} onChange={e => setDocShowPrices(e.target.checked)} style={{ width: 16, height: 16 }} />
+                      Mostrar precio unitario y subtotal por línea en el PDF
+                    </label>
+                    <div style={{ fontSize: 11, color: "var(--text3)", marginTop: 4, marginLeft: 24 }}>Si se desmarca, el PDF solo mostrará la cantidad de prendas y el total final.</div>
                   </div>
                 </div>
               </div>
@@ -1896,7 +1951,7 @@ export default function App() {
                 <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Posiciones de Estampado</span></div>
                 <div className="card-body">
                   <div style={{ display: "grid", gridTemplateColumns: "32px 1fr 56px 56px 36px", gap: 6, fontSize: 10, fontWeight: 700, color: "var(--text3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".08em" }}>
-                    <span></span><span>Nombre</span><span>W″</span><span>H″</span><span></span>
+                    <span></span><span>Nombre</span><span>W {unitSystem==="cm"?"cm":"″"}</span><span>H {unitSystem==="cm"?"cm":"″"}</span><span></span>
                   </div>
                   {placements.map(p => (
                     <div key={p.id} style={{ display: "grid", gridTemplateColumns: "32px 1fr 56px 56px 36px", gap: 6, marginBottom: 6, alignItems: "center" }}>
@@ -1993,7 +2048,7 @@ export default function App() {
                 <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Hojas DTF</span></div>
                 <div className="card-body">
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 52px 52px 76px 36px", gap: 6, fontSize: 10, fontWeight: 700, color: "var(--text3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".08em" }}>
-                    <span>Nombre</span><span>W″</span><span>H″</span><span>Precio L</span><span></span>
+                    <span>Nombre</span><span>W {unitSystem==="cm"?"cm":"″"}</span><span>H {unitSystem==="cm"?"cm":"″"}</span><span>Precio L</span><span></span>
                   </div>
                   {sheets.map(s => (
                     <div key={s.id} style={{ display: "grid", gridTemplateColumns: "1fr 52px 52px 76px 36px", gap: 6, marginBottom: 6 }}>
@@ -2166,7 +2221,7 @@ export default function App() {
                   const ec = ESTADO_COLOR[p.estado] || ESTADO_COLOR.Borrador;
                   // ── Auto-estimate pricing for web orders without total ──
                   const autoCalc = (!p.total && p.lines?.length)
-                    ? calcPrecioSolicitud({ lines: p.lines, prendas, placements, sheets, volTiers, poliRate, energyCost: prensaWatts * (prensaSeg / 3600) * tarifaKwh, margin })
+                    ? calcPrecioSolicitud({ lines: p.lines, prendas, placements, sheets, volTiers, poliRate, energyCost: prensaWatts * (prensaSeg / 3600) * tarifaKwh, margin, unitSystem })
                     : null;
                   const displayTotal = p.total || autoCalc?.total || 0;
                   const displayCost = autoCalc?.cost || 0;
@@ -2558,9 +2613,9 @@ export default function App() {
                       {line.customs.map((c, ci) => (
                         <div key={ci} className="row" style={{ marginTop: 8, gap: 6, flexWrap: "wrap" }}>
                           <input className="inp inp-sm" placeholder="Nombre" style={{ width: 90, minWidth: 70 }} value={c.label} onChange={e => updCustom(i, ci, "label", e.target.value)} />
-                          <input type="number" step={0.5} className="inp inp-sm" placeholder='W"' style={{ width: 58, textAlign: "center", fontFamily: "'JetBrains Mono'" }} value={c.w} onChange={e => updCustom(i, ci, "w", e.target.value)} />
+                          <input type="number" step={0.5} className="inp inp-sm" placeholder={unitSystem==="cm" ? 'W cm' : 'W"'} style={{ width: 58, textAlign: "center", fontFamily: "'JetBrains Mono'" }} value={c.w} onChange={e => updCustom(i, ci, "w", e.target.value)} />
                           <span style={{ color: "var(--text3)", fontWeight: 700 }}>×</span>
-                          <input type="number" step={0.5} className="inp inp-sm" placeholder='H"' style={{ width: 58, textAlign: "center", fontFamily: "'JetBrains Mono'" }} value={c.h} onChange={e => updCustom(i, ci, "h", e.target.value)} />
+                          <input type="number" step={0.5} className="inp inp-sm" placeholder={unitSystem==="cm" ? 'H cm' : 'H"'} style={{ width: 58, textAlign: "center", fontFamily: "'JetBrains Mono'" }} value={c.h} onChange={e => updCustom(i, ci, "h", e.target.value)} />
                           <button className="btn-del" onClick={() => delCustom(i, ci)}>×</button>
                         </div>
                       ))}
@@ -2634,7 +2689,7 @@ export default function App() {
                         <div key={ri} style={{ marginBottom: ri < (calc.nesting?.results?.length || 0) - 1 ? 20 : 0 }}>
                           <div className="row" style={{ justifyContent: "space-between", marginBottom: 10 }}>
                             <span style={{ fontSize: 14, fontWeight: 700 }}>{sheet.name}
-                              <span style={{ color: "var(--text3)", fontWeight: 400, fontSize: 11, marginLeft: 8, fontFamily: "'JetBrains Mono'" }}>{sheet.w}″ × {sheet.h}″</span></span>
+                              <span style={{ color: "var(--text3)", fontWeight: 400, fontSize: 11, marginLeft: 8, fontFamily: "'JetBrains Mono'" }}>{sheet.w}{unitSystem==="cm"?"cm":"″"} × {sheet.h}{unitSystem==="cm"?"cm":"″"}</span></span>
                             <span style={{ fontFamily: "'JetBrains Mono'", color: "var(--accent)", fontSize: 18, fontWeight: 800 }}>L{sheet.price}</span>
                           </div>
                           <svg width="100%" viewBox={`${-pd} ${-pd} ${svW + pd * 2} ${svH + pd * 2}`} style={{ display: "block", borderRadius: 8, overflow: "visible" }}>
@@ -2656,19 +2711,19 @@ export default function App() {
                                   {sl && <text x={px + pw / 2} y={py + ph / 2 - (sd ? 5 : 0)} textAnchor="middle" dominantBaseline="central"
                                     fill="white" fontSize={Math.min(11, pw / 5)} fontWeight="700" style={{ fontFamily: "'Outfit'" }}>{p.label}</text>}
                                   {sl && sd && <text x={px + pw / 2} y={py + ph / 2 + 10} textAnchor="middle"
-                                    fill="rgba(255,255,255,.4)" fontSize={Math.min(8, pw / 7)} style={{ fontFamily: "'JetBrains Mono'" }}>{p.w}×{p.h}″</text>}
+                                    fill="rgba(255,255,255,.4)" fontSize={Math.min(8, pw / 7)} style={{ fontFamily: "'JetBrains Mono'" }}>{p.w}×{p.h}{unitSystem==="cm"?"cm":"″"}</text>}
                                 </g>
                               );
                             })}
                             <line x1={0} y1={-10} x2={svW} y2={-10} stroke="var(--border2)" strokeWidth={.6} />
                             <line x1={0} y1={-14} x2={0} y2={-6} stroke="var(--border2)" strokeWidth={.6} />
                             <line x1={svW} y1={-14} x2={svW} y2={-6} stroke="var(--border2)" strokeWidth={.6} />
-                            <text x={svW / 2} y={-15} textAnchor="middle" fill="var(--text3)" fontSize={8} style={{ fontFamily: "'JetBrains Mono'" }}>{sheet.w}″</text>
+                            <text x={svW / 2} y={-15} textAnchor="middle" fill="var(--text3)" fontSize={8} style={{ fontFamily: "'JetBrains Mono'" }}>{sheet.w}{unitSystem==="cm"?"":"″"}</text>
                             <line x1={-10} y1={0} x2={-10} y2={svH} stroke="var(--border2)" strokeWidth={.6} />
                             <line x1={-14} y1={0} x2={-6} y2={0} stroke="var(--border2)" strokeWidth={.6} />
                             <line x1={-14} y1={svH} x2={-6} y2={svH} stroke="var(--border2)" strokeWidth={.6} />
                             <text x={-14} y={svH / 2} textAnchor="middle" fill="var(--text3)" fontSize={8}
-                              transform={`rotate(-90,-14,${svH / 2})`} style={{ fontFamily: "'JetBrains Mono'" }}>{dH.toFixed(1)}″</text>
+                              transform={`rotate(-90,-14,${svH / 2})`} style={{ fontFamily: "'JetBrains Mono'" }}>{dH.toFixed(1)}{unitSystem==="cm"?"":"″"}</text>
                           </svg>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
                             {[...new Map(placed.map(p => [p.label, p.color])).entries()].map(([l, c]) => (
@@ -2781,7 +2836,7 @@ export default function App() {
                 </div>
 
                 {/* ⑤ FACTURA */}
-                <Factura calc={calc} businessName={businessName} logoB64={logoB64} validezDias={validezDias} onSavePedido={savePedido} whatsappBiz={whatsappBiz} />
+                <Factura calc={calc} businessName={businessName} logoB64={logoB64} validezDias={validezDias} onSavePedido={savePedido} whatsappBiz={whatsappBiz} docTerms={docTerms} docShowPrices={docShowPrices} />
               </>
             )}
             {!calc && (
@@ -2821,6 +2876,8 @@ export default function App() {
           businessName={businessName}
           logoB64={logoB64}
           validezDias={validezDias}
+          docShowPrices={docShowPrices}
+          unitSystem={unitSystem}
         />
       )}
 
@@ -2875,6 +2932,8 @@ function DocumentEditorModal({
   businessName,
   logoB64,
   validezDias,
+  docShowPrices,
+  unitSystem,
 }) {
   const [cliente, setCliente] = useState(pedido.cliente || "");
   const [email, setEmail] = useState(pedido.email || "");
@@ -2978,7 +3037,8 @@ function DocumentEditorModal({
     poliRate,
     sheets,
     agruparPorColor,
-  }), [agruparPorColor, editorLines, placements, poliRate, prendas, sheets]);
+    unitSystem,
+  }), [agruparPorColor, editorLines, placements, poliRate, prendas, sheets, unitSystem]);
 
   const editorPreviewSolution = useMemo(() => {
     if (!editorPackingContext?.packingRequest) return null;
@@ -3434,8 +3494,8 @@ function DocumentEditorModal({
                       {line.customs.map((custom, customIndex) => (
                         <div key={`${line.id}-custom-${customIndex}`} className="row" style={{ marginBottom: 8, gap: 6, flexWrap: "wrap" }}>
                           <input className="inp inp-sm" placeholder="Nombre" style={{ width: 110 }} value={custom.label} onChange={e => updateCustomInLine(line.id, customIndex, "label", e.target.value)} />
-                          <input className="inp inp-sm" placeholder='W"' type="number" step="0.5" style={{ width: 70, textAlign: "center" }} value={custom.w} onChange={e => updateCustomInLine(line.id, customIndex, "w", e.target.value)} />
-                          <input className="inp inp-sm" placeholder='H"' type="number" step="0.5" style={{ width: 70, textAlign: "center" }} value={custom.h} onChange={e => updateCustomInLine(line.id, customIndex, "h", e.target.value)} />
+                          <input className="inp inp-sm" placeholder={unitSystem==="cm" ? 'W cm' : 'W"'} type="number" step="0.5" style={{ width: 70, textAlign: "center" }} value={custom.w} onChange={e => updateCustomInLine(line.id, customIndex, "w", e.target.value)} />
+                          <input className="inp inp-sm" placeholder={unitSystem==="cm" ? 'H cm' : 'H"'} type="number" step="0.5" style={{ width: 70, textAlign: "center" }} value={custom.h} onChange={e => updateCustomInLine(line.id, customIndex, "h", e.target.value)} />
                           <button className="btn-del" onClick={() => removeCustomFromLine(line.id, customIndex)}>×</button>
                         </div>
                       ))}
@@ -3539,7 +3599,7 @@ function DocumentEditorModal({
                               </div>
                               <div style={{ textAlign: "right" }}>
                                 <div style={{ fontSize: 11, color: "#666" }}>{group.totalQty} u</div>
-                                <div style={{ fontWeight: 800 }}>L{formatMoney(group.totalLine)}</div>
+                                {docShowPrices && <div style={{ fontWeight: 800 }}>L{formatMoney(group.totalLine)}</div>}
                               </div>
                             </div>
                             <div style={{ marginTop: 8, display: "grid", gap: 4 }}>
@@ -3575,8 +3635,8 @@ function DocumentEditorModal({
   );
 }
 
-function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido, whatsappBiz,
-  prefillCliente = "", prefillPhone = "", prefillEmail = "", prefillNum = null, prefillDocType = "cotizacion" }) {
+function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido, whatsappBiz, docTerms = "", docShowPrices = true,
+  prefillCliente = "", prefillPhone = "", prefillEmail = "", prefillNum = null, prefillDocType = "cotizacion", prefillNotes = "" }) {
   const today = new Date();
   const [clientName, setClientName] = useState(prefillCliente);
   const [clientEmail, setClientEmail] = useState(prefillEmail);
@@ -3594,7 +3654,7 @@ function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido, 
     invoiceNumRef.current = true;
     getNextNumero().then(n => setInvoiceNum(n));
   }, [prefillNum]);
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(prefillNotes || docTerms || "");
   const [pdfLoading, setPdfLoading] = useState(false);
   const dateStr = today.toLocaleDateString("es-HN", { year: "numeric", month: "long", day: "numeric" });
   const groupedLines = useMemo(() => buildQuoteGroups(calc.lp), [calc.lp]);
@@ -3647,7 +3707,7 @@ function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido, 
 
   const handleEmail = () => {
     const lines = groupedLines.map(group => (
-      `${group.totalQty}× ${group.label} — L${group.avgUnitPrice.toFixed(2)}/u = L${group.totalLine}\n` +
+      `${group.totalQty}× ${group.label}${docShowPrices ? ` — L${group.avgUnitPrice.toFixed(2)}/u = L${group.totalLine}` : ""}\n` +
       `${group.variants.map(variant => `  - ${variant.sku}: ${variant.color || "Sin color"}${variant.talla ? ` / ${variant.talla}` : ""} · ${variant.qty}u`).join("\n")}`
     )).join("\n");
     const body = encodeURIComponent(
@@ -3756,63 +3816,62 @@ ${businessName}`
         </div>
 
         {/* Preview de factura */}
-        <div id="factura-print" style={{ background: "white", borderRadius: 12, padding: "28px 28px 20px", border: "1px solid var(--border)", color: "#111" }}>
+        <div id="factura-print" style={{ background: "white", padding: "40px", color: "#000", fontFamily: "Helvetica, Arial, sans-serif" }}>
           {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28, paddingBottom: 18, borderBottom: "2px solid #111" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              {logoB64 && <img src={logoB64} alt="Logo" style={{ height: 56, maxWidth: 120, objectFit: "contain" }} />}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 30, paddingBottom: 20, borderBottom: "1px solid #000" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+              {logoB64 && <img src={logoB64} alt="Logo" style={{ height: 60, maxWidth: 140, objectFit: "contain" }} />}
               <div>
-                <div style={{ fontFamily: "'Outfit'", fontSize: 26, fontWeight: 800, letterSpacing: "-1px", color: "#111" }}>{businessName}</div>
-                <div style={{ fontSize: 10, color: "#999", letterSpacing: ".1em", textTransform: "uppercase", marginTop: 2 }}>DTF · Estampado Digital</div>
+                <div style={{ fontSize: 24, fontWeight: "bold", color: "#000", margin: 0, padding: 0 }}>{businessName}</div>
+                <div style={{ fontSize: 11, color: "#555", textTransform: "uppercase", letterSpacing: "1px", marginTop: 4 }}>Impresión DTF y Personalización</div>
               </div>
             </div>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 11, color: "#999", textTransform: "uppercase", letterSpacing: ".1em" }}>{docLabel}</div>
-              <div style={{ fontFamily: "'JetBrains Mono'", fontSize: 22, fontWeight: 800, color: "#111" }}>#{invoiceNum}</div>
-              <div style={{ fontSize: 12, color: "#666", marginTop: 2 }}>{dateStr}</div>
-              {docType === "cotizacion" && <div style={{ fontSize: 11, color: "#999", marginTop: 1 }}>Válida {validezDias} días</div>}
+              <div style={{ fontSize: 24, fontWeight: "bold", color: "#000", textTransform: "uppercase", marginBottom: 4 }}>{docLabel}</div>
+              <div style={{ fontSize: 14, color: "#333", fontWeight: "bold" }}>No. {invoiceNum}</div>
+              <div style={{ fontSize: 12, color: "#555", marginTop: 4 }}>Fecha: {dateStr}</div>
+              {docType === "cotizacion" && <div style={{ fontSize: 11, color: "#777", marginTop: 2 }}>Válida por {validezDias} días</div>}
             </div>
           </div>
 
           {/* Cliente */}
           {clientName && (
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".1em", color: "#999", fontWeight: 700, marginBottom: 6 }}>{docLabel} para</div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: "#111" }}>{clientName}</div>
-              {clientEmail && <div style={{ fontSize: 12, color: "#555", marginTop: 3 }}>{clientEmail}</div>}
-              {clientPhone && <div style={{ fontSize: 12, color: "#555", marginTop: 2 }}>{clientPhone}</div>}
+            <div style={{ marginBottom: 30 }}>
+              <div style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "1px", color: "#777", fontWeight: "bold", marginBottom: 8, borderBottom: "1px solid #ddd", paddingBottom: 4, display: "inline-block" }}>Facturar a</div>
+              <div style={{ fontSize: 16, fontWeight: "bold", color: "#000" }}>{clientName}</div>
+              {clientEmail && <div style={{ fontSize: 12, color: "#333", marginTop: 4 }}>Email: {clientEmail}</div>}
+              {clientPhone && <div style={{ fontSize: 12, color: "#333", marginTop: 2 }}>Tel: {clientPhone}</div>}
             </div>
           )}
 
           {/* Tabla de líneas */}
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 30 }}>
             <thead>
               <tr>
-                <th style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "#999", fontWeight: 700, padding: "8px 10px", textAlign: "left", borderBottom: "2px solid #eee" }}>Descripción</th>
-                <th style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "#999", fontWeight: 700, padding: "8px 10px", textAlign: "center", borderBottom: "2px solid #eee", width: 60 }}>Cant.</th>
-                <th style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "#999", fontWeight: 700, padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #eee", width: 90 }}>P/u</th>
-                <th style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: ".08em", color: "#999", fontWeight: 700, padding: "8px 10px", textAlign: "right", borderBottom: "2px solid #eee", width: 100 }}>Subtotal</th>
+                <th style={{ fontSize: 11, textTransform: "uppercase", color: "#000", fontWeight: "bold", padding: "10px 0", textAlign: "left", borderBottom: "1px solid #000" }}>Descripción</th>
+                <th style={{ fontSize: 11, textTransform: "uppercase", color: "#000", fontWeight: "bold", padding: "10px 0", textAlign: "center", borderBottom: "1px solid #000", width: 80 }}>Cantidad</th>
+                {docShowPrices && <th style={{ fontSize: 11, textTransform: "uppercase", color: "#000", fontWeight: "bold", padding: "10px 0", textAlign: "right", borderBottom: "1px solid #000", width: 100 }}>Precio Unit.</th>}
+                {docShowPrices && <th style={{ fontSize: 11, textTransform: "uppercase", color: "#000", fontWeight: "bold", padding: "10px 0", textAlign: "right", borderBottom: "1px solid #000", width: 100 }}>Subtotal</th>}
               </tr>
             </thead>
             <tbody>
               {groupedLines.map((group) => (
                 <tr key={group.id}>
-                  <td style={{ padding: "10px", fontSize: 13, borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>
-                    <div style={{ fontWeight: 600, color: "#111" }}>{group.label}</div>
-                    <div style={{ fontSize: 11, color: "#888", marginTop: 2 }}>Pos: {group.cfgLabel || "Sin posiciones"}</div>
-                    <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
+                  <td style={{ padding: "12px 0", fontSize: 13, borderBottom: "1px solid #ddd", verticalAlign: "top" }}>
+                    <div style={{ fontWeight: "bold", color: "#000" }}>{group.label}</div>
+                    <div style={{ fontSize: 11, color: "#555", marginTop: 4 }}>Posiciones: {group.cfgLabel || "Sin especificar"}</div>
+                    <div style={{ marginTop: 8 }}>
                       {group.variants.map(variant => (
-                        <div key={`${group.id}-${variant.sku}`} style={{ display: "flex", justifyContent: "space-between", gap: 8, fontSize: 10, color: "#777" }}>
-                          <span style={{ fontFamily: "'JetBrains Mono'" }}>{variant.sku}</span>
-                          <span>{variant.color || "Sin color"}{variant.talla ? ` / ${variant.talla}` : ""} · {variant.qty}u</span>
+                        <div key={`${group.id}-${variant.sku}`} style={{ fontSize: 11, color: "#333", marginBottom: 2 }}>
+                          • {variant.color || "Sin color"}{variant.talla ? ` (Talla ${variant.talla})` : ""} - {variant.qty} u.
                         </div>
                       ))}
                     </div>
-                    {group.items.some(item => item.quien === "Cliente") && <div style={{ fontSize: 10, color: "#d97706", marginTop: 4 }}>⚠ Cliente provee prenda</div>}
+                    {group.items.some(item => item.quien === "Cliente") && <div style={{ fontSize: 10, color: "#666", fontStyle: "italic", marginTop: 6 }}>* Prendas provistas por el cliente</div>}
                   </td>
-                  <td style={{ padding: "10px", textAlign: "center", fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 14, color: "#111", borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>{group.totalQty}</td>
-                  <td style={{ padding: "10px", textAlign: "right", fontFamily: "'JetBrains Mono'", fontSize: 13, color: "#555", borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>L{group.avgUnitPrice.toFixed(2)}</td>
-                  <td style={{ padding: "10px", textAlign: "right", fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 14, color: "#111", borderBottom: "1px solid #f0f0f0", verticalAlign: "top" }}>L{group.totalLine}</td>
+                  <td style={{ padding: "12px 0", textAlign: "center", fontWeight: "bold", fontSize: 13, color: "#000", borderBottom: "1px solid #ddd", verticalAlign: "top" }}>{group.totalQty}</td>
+                  {docShowPrices && <td style={{ padding: "12px 0", textAlign: "right", fontSize: 13, color: "#333", borderBottom: "1px solid #ddd", verticalAlign: "top" }}>L {group.avgUnitPrice.toFixed(2)}</td>}
+                  {docShowPrices && <td style={{ padding: "12px 0", textAlign: "right", fontWeight: "bold", fontSize: 13, color: "#000", borderBottom: "1px solid #ddd", verticalAlign: "top" }}>L {group.totalLine.toFixed(2)}</td>}
                 </tr>
               ))}
             </tbody>
@@ -3820,44 +3879,44 @@ ${businessName}`
 
           {/* Totales */}
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <div style={{ width: 300 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 10px", fontSize: 13, color: "#555" }}>
-                <span>Subtotal</span><span style={{ fontFamily: "'JetBrains Mono'" }}>L{calc.sub}</span>
+            <div style={{ width: 320 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13, color: "#333" }}>
+                <span>Subtotal</span><span>L {calc.sub.toFixed(2)}</span>
               </div>
               {calc.disc > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 10px", fontSize: 13, color: "#16a34a" }}>
-                  <span>Descuento {calc.volPct}%</span><span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>-L{calc.disc}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13, color: "#000" }}>
+                  <span>Descuento ({calc.volPct}%)</span><span>-L {calc.disc.toFixed(2)}</span>
                 </div>
               )}
               {calc.designFee > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 10px", fontSize: 13, color: calc.designCharged === 0 ? "#16a34a" : "#555" }}>
-                  <span>Diseño ({calc.dType?.label})</span>
-                  <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>{calc.designCharged === 0 ? "Incluido" : `L${calc.designCharged}`}</span>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13, color: "#333" }}>
+                  <span>Diseño gráfico</span>
+                  <span>{calc.designCharged === 0 ? "Incluido" : `L ${calc.designCharged.toFixed(2)}`}</span>
                 </div>
               )}
               {calc.fixFee > 0 && (
-                <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 10px", fontSize: 13, color: calc.fixCharged === 0 ? "#16a34a" : "#555" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13, color: "#333" }}>
                   <span>Corrección de arte</span>
-                  <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>{calc.fixCharged === 0 ? "Incluida" : `L${calc.fixCharged}`}</span>
+                  <span>{calc.fixCharged === 0 ? "Incluida" : `L ${calc.fixCharged.toFixed(2)}`}</span>
                 </div>
               )}
-              <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 10px", fontSize: 18, fontWeight: 800, borderTop: "2px solid #111", marginTop: 6, color: "#111" }}>
-                <span>TOTAL</span><span style={{ fontFamily: "'JetBrains Mono'" }}>L{calc.total.toLocaleString()}</span>
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "12px 0", fontSize: 18, fontWeight: "bold", borderTop: "2px solid #000", marginTop: 8, color: "#000" }}>
+                <span>TOTAL A PAGAR</span><span>L {calc.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             </div>
           </div>
 
           {/* Notas */}
           {notes && (
-            <div style={{ marginTop: 20, background: "#f8f8f8", borderRadius: 8, padding: "12px 16px", fontSize: 12, color: "#555" }}>
-              <div style={{ fontWeight: 700, marginBottom: 4, fontSize: 11, textTransform: "uppercase", letterSpacing: ".08em", color: "#999" }}>Notas</div>
-              {notes}
+            <div style={{ marginTop: 40, borderTop: "1px solid #ddd", paddingTop: 16 }}>
+              <div style={{ fontWeight: "bold", fontSize: 11, textTransform: "uppercase", color: "#555", marginBottom: 8 }}>Observaciones Adicionales</div>
+              <div style={{ fontSize: 12, color: "#333", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{notes}</div>
             </div>
           )}
 
           {/* Footer */}
-          <div style={{ marginTop: 32, paddingTop: 14, borderTop: "1px solid #eee", fontSize: 11, color: "#aaa", textAlign: "center" }}>
-            {docLabel} generada por {businessName} · {dateStr}{docType === "cotizacion" ? ` · Válida por ${validezDias} días` : ""}
+          <div style={{ marginTop: 60, borderTop: "1px solid #000", paddingTop: 16, fontSize: 10, color: "#777", textAlign: "center", textTransform: "uppercase", letterSpacing: "1px" }}>
+            Documento generado por el sistema de gestión de {businessName}
           </div>
         </div>
       </div>
