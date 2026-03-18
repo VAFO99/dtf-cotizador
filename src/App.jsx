@@ -3575,7 +3575,8 @@ function Factura({ calc, businessName, logoB64, validezDias = 15, onSavePedido, 
   // If we have a pre-existing number (from solicitud), use it; otherwise generate new
   const [invoiceNum, setInvoiceNum] = useState(prefillNum || "....");
   useEffect(() => {
-    if (prefillNum) return; // use existing number from solicitud
+    // use existing number from solicitud
+    if (prefillNum) return;
     if (invoiceNumRef.current) return;
     invoiceNumRef.current = true;
     getNextNumero().then(n => setInvoiceNum(n));
