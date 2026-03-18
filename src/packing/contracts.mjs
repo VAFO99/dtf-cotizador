@@ -113,6 +113,7 @@ export function groupPiecesByKey(pieces, separateByGroup = false) {
   if (!separateByGroup) return [{ groupKey: null, pieces: [...(pieces || [])] }];
   const groups = new Map();
   for (const piece of pieces || []) {
+    if (!piece) continue;
     const key = cleanText(piece.groupKey, "default");
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(piece);
