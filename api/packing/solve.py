@@ -1,4 +1,5 @@
 import json
+import os
 from http.server import BaseHTTPRequestHandler
 
 try:
@@ -10,6 +11,21 @@ except ModuleNotFoundError as error:  # pragma: no cover - depends on deployment
     SOLVER_IMPORT_ERROR = error
 
 
+def _get_allowed_origins():
+    origins = {
+        "http://localhost:5173",
+        "http://localhost:3000",
+    }
+    env_origins = os.environ.get("ALLOWED_ORIGINS")
+    if env_origins:
+        for o in env_origins.split(","):
+            origins.add(o.strip())
+    return origins
+
+
+ALLOWED_ORIGINS = _get_allowed_origins()
+
+
 class handler(BaseHTTPRequestHandler):
     def _send_json(self, status_code, payload):
         body = json.dumps(payload).encode("utf-8")
@@ -17,7 +33,12 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Vary", "Origin")
+
+        origin = self.headers.get("Origin")
+        if origin in ALLOWED_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS, GET")
         self.end_headers()

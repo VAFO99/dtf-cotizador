@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -19,6 +20,20 @@ except ModuleNotFoundError as error:
 HOST = "127.0.0.1"
 PORT = 3000
 
+def _get_allowed_origins():
+    origins = {
+        "http://localhost:5173",
+        "http://localhost:3000",
+    }
+    env_origins = os.environ.get("ALLOWED_ORIGINS")
+    if env_origins:
+        for o in env_origins.split(","):
+            origins.add(o.strip())
+    return origins
+
+
+ALLOWED_ORIGINS = _get_allowed_origins()
+
 
 class PackingDevHandler(BaseHTTPRequestHandler):
     def _send_json(self, status_code, payload):
@@ -27,7 +42,12 @@ class PackingDevHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Vary", "Origin")
+
+        origin = self.headers.get("Origin")
+        if origin in ALLOWED_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Access-Control-Allow-Methods", "POST, OPTIONS, GET")
         self.end_headers()
