@@ -2483,32 +2483,45 @@ export default function App() {
                           );
                         })}
                         {/* Total — FIX 8: clear indicator, auto vs manual */}
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginLeft: 4, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
-                          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: ".08em", color: "var(--text3)", textTransform: "uppercase" }}>
-                            {line.tallas?.some(x=>x.qty>0) ? "Auto ✓" : "Manual"}
-                          </span>
-                          <input
-                            type="number" min={0}
-                            value={line.tallas?.some(x=>x.qty>0)
-                              ? (line.tallas || []).reduce((s,x)=>s+(x.qty||0),0)
-                              : (line.qty || "")}
-                            readOnly={line.tallas?.some(x=>x.qty>0)}
-                            placeholder="0"
-                            onChange={e => { if(!line.tallas?.some(x=>x.qty>0)) updLine(i, "qty", e.target.value); }}
-                            style={{
-                              width: 52, height: 40, textAlign: "center",
-                              fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 16,
-                              background: line.tallas?.some(x=>x.qty>0) ? "var(--accent-dim)" : "var(--bg2)",
-                              border: `2px solid var(--accent)`,
-                              borderRadius: 8, padding: "0 2px",
-                              color: "var(--accent)", outline: "none",
-                              cursor: line.tallas?.some(x=>x.qty>0) ? "default" : "text",
-                            }}
-                          />
-                          {line.tallas?.some(x=>x.qty>0) && Number(line.qty) > 0 && (line.tallas||[]).reduce((s,x)=>s+(x.qty||0),0) !== Number(line.qty) && (
-                            <span style={{ fontSize: 9, color: "var(--warn)", fontWeight: 700 }}>≠ {line.qty}</span>
-                          )}
-                        </div>
+                        {(() => {
+                          const isAuto = line.tallas?.some(x => x.qty > 0);
+                          const autoTotal = (line.tallas || []).reduce((s, x) => s + (x.qty || 0), 0);
+                          const mismatch = isAuto && Number(line.qty) > 0 && autoTotal !== Number(line.qty);
+
+                          return (
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginLeft: 4, paddingLeft: 12, borderLeft: "1px solid var(--border)" }}>
+                              <span style={{
+                                fontSize: 8, fontWeight: 800, letterSpacing: ".05em", textTransform: "uppercase",
+                                padding: "2px 6px", borderRadius: 4,
+                                background: isAuto ? "rgba(46, 125, 50, 0.12)" : "rgba(245, 127, 23, 0.12)",
+                                color: isAuto ? "var(--green)" : "var(--warn)",
+                                border: `1px solid ${isAuto ? "rgba(46, 125, 50, 0.2)" : "rgba(245, 127, 23, 0.2)"}`
+                              }}>
+                                {isAuto ? "Auto ✓" : "Manual"}
+                              </span>
+                              <input
+                                type="number" min={0}
+                                value={isAuto ? autoTotal : (line.qty || "")}
+                                readOnly={isAuto}
+                                placeholder="0"
+                                onChange={e => { if (!isAuto) updLine(i, "qty", e.target.value); }}
+                                style={{
+                                  width: 54, height: 40, textAlign: "center",
+                                  fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 16,
+                                  background: isAuto ? "rgba(46, 125, 50, 0.05)" : "var(--bg2)",
+                                  border: `2px solid ${isAuto ? "var(--green)" : "var(--warn)"}`,
+                                  borderRadius: 8, padding: "0 2px",
+                                  color: isAuto ? "var(--green)" : "var(--warn)", outline: "none",
+                                  cursor: isAuto ? "default" : "text",
+                                  transition: "all .2s ease",
+                                }}
+                              />
+                              {mismatch && (
+                                <span style={{ fontSize: 9, color: "var(--warn)", fontWeight: 700 }}>≠ {line.qty}</span>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                     {line.prendaId === "__otro" && (
