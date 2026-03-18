@@ -58,177 +58,70 @@ const STEPS = ["Tus datos", "Prenda y variantes", "Posiciones", "Confirmar"];
 
 // ── INFO PAGE ──
 function InfoPage({ businessName, onCotizar }) {
-  const [infoTab, setInfoTab] = useState("dtf");
-  const Section = ({ title, children }) => (
-    <div style={{ background: "#fff", borderRadius: 20, padding: "28px 24px", marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,.04)" }}>
-      {title && <h3 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-.02em", marginBottom: 16 }}>{title}</h3>}
-      {children}
-    </div>
-  );
-  const Row = ({ label, value, accent }) => (
-    <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid #F5F5F7", fontSize: 13 }}>
-      <span style={{ color: "#86868B" }}>{label}</span>
-      <span style={{ fontWeight: 600, color: accent || "#1D1D1F" }}>{value}</span>
-    </div>
-  );
-
   return (
-    <div className="fade-up">
+    <div className="fade-up" style={{ paddingBottom: 60 }}>
       {/* Hero */}
-      <div style={{ textAlign: "center", padding: "48px 20px 36px" }}>
-        <h1 style={{ fontSize: "clamp(32px, 5vw, 56px)", fontWeight: 800, letterSpacing: "-.05em", lineHeight: 1.05, marginBottom: 14 }}>
-          Estampado DTF{"\n"}de alta calidad.
+      <div style={{ textAlign: "center", padding: "60px 20px 48px", background: "linear-gradient(to bottom, #F9FAFC, #FFFFFF)" }}>
+        <div style={{ display: "inline-block", background: "#E5F0FF", color: "#007AFF", fontSize: 12, fontWeight: 700, padding: "6px 16px", borderRadius: 20, marginBottom: 20, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+          Honduras Premium Printing
+        </div>
+        <h1 style={{ fontSize: "clamp(40px, 6vw, 64px)", fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.1, color: "#111827", marginBottom: 16, maxWidth: 800, margin: "0 auto 20px" }}>
+          Tus diseños con la mejor <span style={{ color: "#007AFF" }}>calidad industrial.</span>
         </h1>
-        <p style={{ fontSize: 17, color: "#6E6E73", lineHeight: 1.6, maxWidth: 520, margin: "0 auto 24px" }}>
-          Personalizá cualquier prenda con tecnología Direct-to-Film. Colores vibrantes, durabilidad profesional.
+        <p style={{ fontSize: 18, color: "#4B5563", lineHeight: 1.6, maxWidth: 600, margin: "0 auto 32px" }}>
+          Configura tu pedido personalizado y recibe un presupuesto detallado en menos de 24 horas. Expertos en impresión DTF para emprendedores y empresas.
         </p>
-        <button onClick={onCotizar} style={{ background: "#0071E3", border: "none", borderRadius: 28, padding: "14px 36px", fontSize: 15, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "'Outfit'" }}>
-          Solicitar cotización
+        <button onClick={onCotizar} style={{ background: "#007AFF", border: "none", borderRadius: 30, padding: "16px 40px", fontSize: 16, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "'Outfit'", boxShadow: "0 4px 14px rgba(0, 122, 255, 0.3)", transition: "transform 0.2s" }}
+          onMouseOver={e => e.currentTarget.style.transform = "translateY(-2px)"}
+          onMouseOut={e => e.currentTarget.style.transform = "translateY(0)"}>
+          Iniciar Cotización
         </button>
       </div>
 
-      {/* Feature strips */}
-      <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 clamp(20px, 4vw, 40px)" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12, marginBottom: 24 }}>
-          {[
-            ["💧", "+50 lavados", "Resistente al uso diario y lavados industriales"],
-            ["🎨", "Colores ilimitados", "CMYK completo, degradados, fotos y más"],
-            ["⚡", "24–48 horas", "Entrega rápida en días hábiles"],
-            ["👕", "Cualquier tela", "Algodón, poliéster, mezclas, nylon"],
-            ["📏", "Cualquier tamaño", "Desde pecho izquierdo hasta espalda completa"],
-            ["🔥", "155°C × 15s", "Prensado profesional con calidad garantizada"],
-          ].map(([ic, t, d]) => (
-            <div key={t} style={{ background: "#fff", borderRadius: 16, padding: "18px 16px", boxShadow: "0 1px 3px rgba(0,0,0,.03)" }}>
-              <div style={{ fontSize: 22, marginBottom: 8 }}>{ic}</div>
-              <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{t}</div>
-              <div style={{ fontSize: 12, color: "#86868B", lineHeight: 1.5 }}>{d}</div>
+      {/* Feature Section */}
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "60px 20px" }}>
+        <h2 style={{ textAlign: "center", fontSize: 32, fontWeight: 800, color: "#111827", marginBottom: 40 }}>Impresión DTF de Siguiente Nivel</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
+          <div style={{ background: "#fff", borderRadius: 24, padding: "32px", boxShadow: "0 4px 20px rgba(0,0,0,0.03)", border: "1px solid #E8E8ED" }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: "#E5F0FF", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
             </div>
-          ))}
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 12 }}>¿QUÉ ES EL DTF?</h3>
+            <p style={{ color: "#4B5563", lineHeight: 1.6, fontSize: 15 }}>Direct to Film es una tecnología revolucionaria que transfiere tinta directamente a una película para luego aplicarla en cualquier tejido con calor.</p>
+          </div>
+          <div style={{ background: "#fff", borderRadius: 24, padding: "32px", boxShadow: "0 4px 20px rgba(0,0,0,0.03)", border: "1px solid #E8E8ED" }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: "#E5F0FF", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+            </div>
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 12 }}>CALIDAD PRO</h3>
+            <p style={{ color: "#4B5563", lineHeight: 1.6, fontSize: 15 }}>Colores vibrantes, detalles ultra precisos y una resistencia al lavado superior. Tacto suave y elástico que no se agrieta.</p>
+          </div>
+          <div style={{ background: "#fff", borderRadius: 24, padding: "32px", boxShadow: "0 4px 20px rgba(0,0,0,0.03)", border: "1px solid #E8E8ED" }}>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: "#E5F0FF", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 20 }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M8 14h.01"/><path d="M12 14h.01"/><path d="M16 14h.01"/><path d="M8 18h.01"/><path d="M12 18h.01"/><path d="M16 18h.01"/></svg>
+            </div>
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: "#111827", marginBottom: 12 }}>PROCESO SIMPLE</h3>
+            <p style={{ color: "#4B5563", lineHeight: 1.6, fontSize: 15 }}>Configura tu pedido, envía la solicitud y recibe tu cotización. Producción rápida y envíos a todo el territorio nacional.</p>
+          </div>
         </div>
+      </div>
 
-        {/* Info tabs */}
-        <div style={{ display: "flex", gap: 6, marginBottom: 16, overflowX: "auto" }}>
-          {[["dtf", "¿Qué es DTF?"], ["vs", "DTF vs Otros"], ["sizes", "Guía de tallas"], ["files", "Archivos"]].map(([k, l]) => (
-            <button key={k} onClick={() => setInfoTab(k)}
-              style={{ padding: "8px 18px", borderRadius: 24, fontSize: 12, fontWeight: 700, cursor: "pointer", border: "1.5px solid", whiteSpace: "nowrap", transition: "all .2s",
-                background: infoTab === k ? "#1D1D1F" : "#fff", borderColor: infoTab === k ? "#1D1D1F" : "#D2D2D7", color: infoTab === k ? "#fff" : "#6E6E73" }}>
-              {l}
-            </button>
-          ))}
-        </div>
-
-        {/* DTF explained */}
-        {infoTab === "dtf" && (
-          <Section title="¿Qué es el estampado DTF?">
-            <p style={{ fontSize: 14, color: "#6E6E73", lineHeight: 1.8, marginBottom: 16 }}>
-              <b style={{ color: "#1D1D1F" }}>Direct-to-Film (DTF)</b> es la tecnología de estampado más versátil disponible. Tu diseño se imprime en una película especial con tinta CMYK + blanco, se le aplica un adhesivo en polvo, y se transfiere a la prenda con calor y presión.
-            </p>
-            <p style={{ fontSize: 14, color: "#6E6E73", lineHeight: 1.8, marginBottom: 16 }}>
-              El resultado es un estampado con colores vibrantes, tacto suave, y una durabilidad superior a +50 lavados. Funciona en <b style={{ color: "#1D1D1F" }}>cualquier tipo de tela</b>: algodón, poliéster, mezclas, nylon, denim, y más.
-            </p>
-            <div style={{ background: "#F0F7FF", borderRadius: 12, padding: "14px 16px", fontSize: 13, color: "#0071E3", fontWeight: 600 }}>
-              Ideal para: uniformes, merchandising, equipos deportivos, eventos, marcas propias, regalos personalizados.
-            </div>
-          </Section>
-        )}
-
-        {/* DTF vs Others */}
-        {infoTab === "vs" && (
-          <Section title="DTF vs otros métodos">
-            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-              {[
-                ["", "DTF", "Sublimación", "Serigrafía"],
-                ["Telas", "Todas", "Solo poliéster", "Todas"],
-                ["Colores", "Ilimitados", "Ilimitados", "1–6 colores"],
-                ["Mínimo", "1 unidad", "1 unidad", "12+ unidades"],
-                ["Durabilidad", "+50 lavados", "+50 lavados", "+100 lavados"],
-                ["Fotos/degradados", "✅ Sí", "✅ Sí", "❌ No"],
-                ["Telas oscuras", "✅ Sí", "❌ No", "✅ Sí"],
-                ["Costo por unidad", "Medio", "Bajo", "Bajo (en volumen)"],
-                ["Setup", "Sin setup", "Sin setup", "Requiere marcos"],
-              ].map((row, ri) => (
-                <div key={ri} style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", gap: 0, fontSize: ri === 0 ? 11 : 14, fontWeight: ri === 0 ? 700 : 400,
-                  color: ri === 0 ? "#86868B" : "#1D1D1F", textTransform: ri === 0 ? "uppercase" : "none", letterSpacing: ri === 0 ? ".06em" : 0,
-                  borderBottom: "1px solid #F5F5F7", padding: ri === 0 ? "0 0 8px" : "10px 0" }}>
-                  {row.map((cell, ci) => (
-                    <span key={ci} style={{ fontWeight: ci === 0 ? 600 : 400, color: ci === 0 ? "#86868B" : undefined, fontSize: ci === 0 && ri > 0 ? 11 : undefined }}>
-                      {cell}
-                    </span>
-                  ))}
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop: 16, background: "#F0F7FF", borderRadius: 12, padding: "14px 16px", fontSize: 13, color: "#1D1D1F", lineHeight: 1.6 }}>
-              <b>¿Cuándo elegir DTF?</b> Cuando necesitás colores vibrantes en cualquier tela, cantidades pequeñas, o diseños con fotos/degradados en telas oscuras.
-            </div>
-          </Section>
-        )}
-
-        {/* Size guide */}
-        {infoTab === "sizes" && (
-          <Section title="Guía de tallas estándar">
-            <p style={{ fontSize: 13, color: "#86868B", marginBottom: 14 }}>Medidas aproximadas en centímetros. Pueden variar según el fabricante de la prenda.</p>
-            <div style={{ overflowX: "auto", borderRadius: 12, border: "1px solid #E8E8ED" }}>
-              <table style={{ width: "100%", minWidth: 400, borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    {["Talla", "Pecho (cm)", "Cintura (cm)", "Largo (cm)"].map(h => (
-                      <th key={h} style={{ padding: "10px 12px", fontSize: 10, fontWeight: 700, color: "#86868B", textTransform: "uppercase", letterSpacing: ".06em", textAlign: "left", background: "#FAFAFA", borderBottom: "1px solid #E8E8ED" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {SIZE_GUIDE.map(s => (
-                    <tr key={s.talla}>
-                      <td style={{ padding: "10px 12px", fontWeight: 700, fontSize: 13, borderBottom: "1px solid #F5F5F7" }}>{s.talla}</td>
-                      <td style={{ padding: "10px 12px", fontSize: 13, color: "#6E6E73", borderBottom: "1px solid #F5F5F7" }}>{s.pecho}</td>
-                      <td style={{ padding: "10px 12px", fontSize: 13, color: "#6E6E73", borderBottom: "1px solid #F5F5F7" }}>{s.cintura}</td>
-                      <td style={{ padding: "10px 12px", fontSize: 13, color: "#6E6E73", borderBottom: "1px solid #F5F5F7" }}>{s.largo}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-              {PLACEMENTS_INFO.map(p => (
-                <div key={p.key} style={{ background: "#F5F5F7", borderRadius: 10, padding: "10px 12px" }}>
-                  <div style={{ fontSize: 12, fontWeight: 700 }}>{p.label}</div>
-                  <div style={{ fontSize: 11, color: "#86868B", fontFamily: "'JetBrains Mono'" }}>Máx: {p.maxW}″ × {p.maxH}″</div>
-                </div>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        {/* File guide */}
-        {infoTab === "files" && (
-          <Section title="Archivos de diseño">
-            <p style={{ fontSize: 14, color: "#6E6E73", lineHeight: 1.7, marginBottom: 16 }}>
-              Para obtener la mejor calidad de estampado, tu archivo debe cumplir ciertos requisitos.
-            </p>
-            {[
-              ["✅", "PNG sin fondo (transparente)", "Resolución mínima 300 DPI. Este es el formato ideal.", "#E8F5E9", "#2E7D32"],
-              ["✅", "Vector (AI, PDF, SVG, EPS)", "Escala sin perder calidad. Perfecto para logos.", "#E8F5E9", "#2E7D32"],
-              ["⚠️", "JPG de alta resolución", "Mínimo 1500px de ancho. Puede funcionar dependiendo del diseño.", "#FFF8E1", "#F57F17"],
-              ["❌", "Word, PowerPoint, capturas de pantalla", "No son aptos para impresión. Requieren rediseño adicional.", "#FFEBEE", "#C62828"],
-            ].map(([ic, t, d, bg, col]) => (
-              <div key={t} style={{ background: bg, borderRadius: 12, padding: "14px 16px", marginBottom: 8 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: col, marginBottom: 4 }}>{ic} {t}</div>
-                <div style={{ fontSize: 12, color: "#6E6E73", lineHeight: 1.5 }}>{d}</div>
-              </div>
-            ))}
-            <div style={{ marginTop: 12, fontSize: 13, color: "#86868B", lineHeight: 1.6 }}>
-              Si no tenés el arte listo, ofrecemos servicio de diseño por un costo adicional. Indicalo al solicitar tu cotización.
-            </div>
-          </Section>
-        )}
-
-        {/* CTA */}
-        <div style={{ textAlign: "center", padding: "24px 0 48px" }}>
-          <p style={{ fontSize: 14, color: "#86868B", marginBottom: 16 }}>¿Listo para personalizar tus prendas?</p>
-          <button onClick={onCotizar} style={{ background: "#1D1D1F", border: "none", borderRadius: 28, padding: "16px 40px", fontSize: 15, fontWeight: 700, color: "#fff", cursor: "pointer", fontFamily: "'Outfit'" }}>
-            Cotizar ahora
-          </button>
+      {/* Trust Section */}
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 20px" }}>
+        <div style={{ background: "#111827", borderRadius: 32, padding: "60px 40px", color: "#fff", textAlign: "center" }}>
+          <h2 style={{ fontSize: 36, fontWeight: 800, marginBottom: 24 }}>Calidad Industrial en Cada Fibra</h2>
+          <div style={{ display: "flex", justifyContent: "center", gap: 32, marginBottom: 48, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span style={{ fontSize: 15, fontWeight: 500 }}>Tintas Certificadas</span></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span style={{ fontSize: 15, fontWeight: 500 }}>Acabado Mate o Brillante</span></div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg><span style={{ fontSize: 15, fontWeight: 500 }}>Envíos Nacionales</span></div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+             {/* Placeholders for images shown in the design */}
+            <div style={{ aspectRatio: "1/1", background: "#f3f4f6", borderRadius: 16, overflow: "hidden" }}></div>
+            <div style={{ aspectRatio: "1/1", background: "#f3f4f6", borderRadius: 16, overflow: "hidden" }}></div>
+            <div style={{ aspectRatio: "1/1", background: "#f3f4f6", borderRadius: 16, overflow: "hidden" }}></div>
+            <div style={{ aspectRatio: "1/1", background: "#f3f4f6", borderRadius: 16, overflow: "hidden" }}></div>
+          </div>
         </div>
       </div>
     </div>
@@ -257,8 +150,39 @@ export default function ClientApp() {
   const [selectedPos, setSelectedPos] = useState([]);
   const [deliveryPref, setDeliveryPref] = useState("whatsapp");
 
-  useEffect(() => { const init = async () => { const r = await loadConfigRemote(); if (r) setCfg(r); const n = await getNextNumero(); setQuoteNum(n); setLoading(false); }; init(); }, []);
+  useEffect(() => {
+    const init = async () => {
+      // First try to load from Supabase
+      let r = await loadConfigRemote();
+      // If no remote config, try to load from localStorage (same as Admin)
+      if (!r) {
+        try {
+          const raw = localStorage.getItem("dtf_config_v3");
+          if (raw) r = JSON.parse(raw);
+        } catch { /* ignore */ }
+      }
+      if (r) setCfg(r);
+      const n = await getNextNumero();
+      setQuoteNum(n);
+      setLoading(false);
+    };
+    init();
+  }, []);
   useEffect(() => { if (!cfg) return; const t = cfg.seoTitle || `${cfg.businessName || "DTF"} — Cotizador`; document.title = t; const og = document.querySelector('meta[property="og:title"]'); if (og) og.setAttribute("content", t); if (cfg.seoDesc) { const d = document.querySelector('meta[name="description"]'); if (d) d.setAttribute("content", cfg.seoDesc); } }, [cfg]);
+
+  // Set up storage event listener for real-time sync with Admin app in the same browser
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === "dtf_config_v3" && e.newValue) {
+        try {
+          const newCfg = JSON.parse(e.newValue);
+          setCfg(newCfg);
+        } catch { /* ignore */ }
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   const prendas = cfg?.prendas ?? [];
   const businessName = cfg?.businessName ?? "DTF";
@@ -298,37 +222,43 @@ export default function ClientApp() {
   const canStep2 = prendaId && totalQty > 0;
   const canStep3 = selectedPos.length > 0;
 
+  const unitSystem = cfg?.unitSystem ?? "in";
   const C = { // card
-    bg: "#fff", br: 20, p: "28px 24px", mb: 16, bs: "0 1px 4px rgba(0,0,0,.04)"
+    bg: "#fff", br: 20, p: "28px 24px", mb: 16, bs: "0 4px 20px rgba(0,0,0,.03)"
   };
-  const card = { background: C.bg, borderRadius: C.br, padding: C.p, marginBottom: C.mb, boxShadow: C.bs };
-  const lbl = { fontSize: 11, fontWeight: 600, color: "#86868B", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".08em" };
-  const btn = { background: "#1D1D1F", border: "none", borderRadius: 14, padding: "16px 32px", fontSize: 15, fontWeight: 700, color: "#fff", cursor: "pointer", width: "100%", fontFamily: "'Outfit'" };
-  const btnOut = { background: "transparent", border: "1.5px solid #D2D2D7", borderRadius: 14, padding: "15px 22px", fontSize: 14, fontWeight: 600, color: "#6E6E73", cursor: "pointer", fontFamily: "'Outfit'" };
-  const chip = (on) => ({ display: "inline-flex", alignItems: "center", padding: "10px 20px", borderRadius: 28, fontSize: 13, fontWeight: 600, cursor: "pointer", border: "1.5px solid", transition: "all .2s", userSelect: "none", background: on ? "#1D1D1F" : "#fff", borderColor: on ? "#1D1D1F" : "#D2D2D7", color: on ? "#fff" : "#6E6E73" });
-  const radio = (on) => ({ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: on ? "#F0F7FF" : "#FAFAFA", border: `1.5px solid ${on ? "#0071E3" : "#E8E8ED"}`, borderRadius: 14, cursor: "pointer", marginBottom: 8, transition: "all .2s" });
-  const dot = (on) => ({ width: 20, height: 20, borderRadius: 10, border: `2px solid ${on ? "#0071E3" : "#D2D2D7"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 });
+  const card = { background: C.bg, borderRadius: C.br, padding: C.p, marginBottom: C.mb, boxShadow: C.bs, border: "1px solid #E8E8ED" };
+  const lbl = { fontSize: 12, fontWeight: 600, color: "#4B5563", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".05em" };
+  const btn = { background: "#007AFF", border: "none", borderRadius: 14, padding: "16px 32px", fontSize: 15, fontWeight: 700, color: "#fff", cursor: "pointer", width: "100%", fontFamily: "'Outfit'" };
+  const btnOut = { background: "transparent", border: "1.5px solid #D2D2D7", borderRadius: 14, padding: "15px 22px", fontSize: 14, fontWeight: 600, color: "#4B5563", cursor: "pointer", fontFamily: "'Outfit'" };
+  const chip = (on) => ({ display: "inline-flex", alignItems: "center", padding: "10px 20px", borderRadius: 28, fontSize: 13, fontWeight: 600, cursor: "pointer", border: "1.5px solid", transition: "all .2s", userSelect: "none", background: on ? "#E5F0FF" : "#fff", borderColor: on ? "#007AFF" : "#E8E8ED", color: on ? "#007AFF" : "#4B5563" });
+  const radio = (on) => ({ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", background: on ? "#E5F0FF" : "#F9FAFC", border: `1.5px solid ${on ? "#007AFF" : "#E8E8ED"}`, borderRadius: 14, cursor: "pointer", marginBottom: 8, transition: "all .2s" });
+  const dot = (on) => ({ width: 20, height: 20, borderRadius: 10, border: `2px solid ${on ? "#007AFF" : "#D2D2D7"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 });
 
   if (loading) return (
-    <div style={{ minHeight: "100vh", background: "#F5F5F7", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Outfit'" }}>
+    <div style={{ minHeight: "100vh", background: "#F9FAFC", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Outfit'" }}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}} :root{--accent:#0071E3;--accent-dim:#F0F7FF;--bg:#F5F5F7;--bg2:#fff;--bg3:#F5F5F7;--border:#E8E8ED;--border2:#E8E8ED;--text:#1D1D1F;--text2:#6E6E73;--text3:#86868B} @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}} .fade-up{animation:fadeUp .4s ease both} .cinp{width:100%;background:#F5F5F7;border:1.5px solid #E8E8ED;border-radius:12px;padding:13px 16px;font-size:15px;color:#1D1D1F;font-family:'Outfit';outline:none;transition:border .2s} .cinp:focus{border-color:#0071E3;background:#fff} .cinp::placeholder{color:#AEAEB2} .matrix-wrap{overflow:auto;border-radius:16px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.04)} .matrix-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0} .matrix-table th,.matrix-table td{padding:12px 10px;border-right:1px solid #F5F5F7;border-bottom:1px solid #F5F5F7;text-align:center} .matrix-table thead th{position:sticky;top:0;background:#FAFAFA;z-index:2} .matrix-table th:first-child,.matrix-table td:first-child{position:sticky;left:0;text-align:left;background:#fff;z-index:1} .matrix-table thead th:first-child{z-index:3;background:#FAFAFA} .matrix-table th{font-size:10px;font-weight:700;color:#86868B;text-transform:uppercase;letter-spacing:.08em} .mci{width:60px;background:#F5F5F7;border:1.5px solid #E8E8ED;border-radius:10px;padding:10px 6px;text-align:center;font-size:16px;font-weight:700;font-family:'JetBrains Mono';color:#1D1D1F;outline:none;transition:all .2s} .mci:focus{border-color:#0071E3;background:#fff} .mtc{background:#F0F7FF;font-family:'JetBrains Mono';font-weight:700;color:#0071E3}`}</style>
-      <div style={{ width: 36, height: 36, border: "2.5px solid #D2D2D7", borderTopColor: "#1D1D1F", borderRadius: "50%", animation: "spin .7s linear infinite" }}/>
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}} :root{--accent:#007AFF;--accent-dim:#E5F0FF;--bg:#F9FAFC;--bg2:#fff;--bg3:#F5F5F7;--border:#E8E8ED;--border2:#E8E8ED;--text:#111827;--text2:#4B5563;--text3:#9CA3AF} @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}} .fade-up{animation:fadeUp .4s ease both} .cinp{width:100%;background:#F9FAFC;border:1.5px solid #E8E8ED;border-radius:12px;padding:13px 16px;font-size:15px;color:#111827;font-family:'Outfit';outline:none;transition:border .2s} .cinp:focus{border-color:#007AFF;background:#fff} .cinp::placeholder{color:#9CA3AF} .matrix-wrap{overflow:auto;border-radius:16px;background:#fff;border:1px solid #E8E8ED} .matrix-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0} .matrix-table th,.matrix-table td{padding:12px 10px;border-right:1px solid #F5F5F7;border-bottom:1px solid #F5F5F7;text-align:center} .matrix-table thead th{position:sticky;top:0;background:#F9FAFC;z-index:2} .matrix-table th:first-child,.matrix-table td:first-child{position:sticky;left:0;text-align:left;background:#fff;z-index:1} .matrix-table thead th:first-child{z-index:3;background:#F9FAFC} .matrix-table th{font-size:10px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.08em} .mci{width:60px;background:#F9FAFC;border:1.5px solid #E8E8ED;border-radius:10px;padding:10px 6px;text-align:center;font-size:16px;font-weight:700;font-family:'JetBrains Mono';color:#111827;outline:none;transition:all .2s} .mci:focus{border-color:#007AFF;background:#fff} .mtc{background:#E5F0FF;font-family:'JetBrains Mono';font-weight:700;color:#007AFF}`}</style>
+      <div style={{ width: 36, height: 36, border: "2.5px solid #D2D2D7", borderTopColor: "#111827", borderRadius: "50%", animation: "spin .7s linear infinite" }}/>
     </div>
   );
 
   const headerNav = (
     <header style={{ background: "rgba(245,245,247,.8)", backdropFilter: "blur(20px)", borderBottom: "1px solid #E8E8ED", position: "sticky", top: 0, zIndex: 50 }}>
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "0 clamp(20px, 4vw, 40px)", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ cursor: "pointer" }} onClick={() => { setPage("info"); setSubmitted(false); }}>
-          <h1 style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-.02em", margin: 0 }}>{businessName}</h1>
-          <p style={{ fontSize: 10, color: "#86868B", letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 600, margin: 0 }}>{cfg?.seoSlogan || "Estampado DTF"}</p>
+        <div style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }} onClick={() => { setPage("info"); setSubmitted(false); }}>
+          <div style={{ background: "#007AFF", width: 28, height: 28, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          </div>
+          <div>
+            <h1 style={{ fontWeight: 800, fontSize: 18, letterSpacing: "-.02em", margin: 0 }}>{businessName === "DTF" ? "Kromavida" : businessName}</h1>
+            <p style={{ fontSize: 10, color: "#86868B", letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 600, margin: 0 }}>{cfg?.seoSlogan || "Estampado DTF"}</p>
+          </div>
         </div>
         <div style={{ display: "flex", gap: 4 }}>
           {[["info", "Info"], ["cotizar", "Cotizar"]].map(([k, l]) => (
             <button key={k} onClick={() => { setPage(k); if (k === "cotizar") setSubmitted(false); }}
               style={{ padding: "6px 16px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer", border: "1.5px solid", transition: "all .2s",
-                background: page === k ? "#1D1D1F" : "transparent", borderColor: page === k ? "#1D1D1F" : "#D2D2D7", color: page === k ? "#fff" : "#6E6E73" }}>
+                background: page === k ? "#111827" : "transparent", borderColor: page === k ? "#111827" : "#D2D2D7", color: page === k ? "#fff" : "#4B5563" }}>
               {l}
             </button>
           ))}
@@ -338,7 +268,7 @@ export default function ClientApp() {
   );
 
   if (submitted) return (
-    <div style={{ minHeight: "100vh", background: "#F5F5F7", fontFamily: "'Outfit',sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#F9FAFC", fontFamily: "'Outfit',sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
       {headerNav}
       <div style={{ maxWidth: 520, margin: "0 auto", padding: "48px 20px", textAlign: "center" }}>
@@ -362,35 +292,18 @@ export default function ClientApp() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F5F5F7", color: "#1D1D1F", fontFamily: "'Outfit',sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#F9FAFC", color: "#111827", fontFamily: "'Outfit',sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
-      <style>{`:root{--accent:#0071E3;--accent-dim:#F0F7FF;--bg:#F5F5F7;--bg2:#fff;--bg3:#F5F5F7;--border:#E8E8ED;--border2:#E8E8ED;--text:#1D1D1F;--text2:#6E6E73;--text3:#86868B} @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}} .fade-up{animation:fadeUp .4s ease both} .cinp{width:100%;background:#F5F5F7;border:1.5px solid #E8E8ED;border-radius:12px;padding:13px 16px;font-size:15px;color:#1D1D1F;font-family:'Outfit';outline:none;transition:border .2s} .cinp:focus{border-color:#0071E3;background:#fff} .cinp::placeholder{color:#AEAEB2} .matrix-wrap{overflow:auto;border-radius:16px;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.04)} .matrix-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0} .matrix-table th,.matrix-table td{padding:12px 10px;border-right:1px solid #F5F5F7;border-bottom:1px solid #F5F5F7;text-align:center} .matrix-table thead th{position:sticky;top:0;background:#FAFAFA;z-index:2} .matrix-table th:first-child,.matrix-table td:first-child{position:sticky;left:0;text-align:left;background:#fff;z-index:1} .matrix-table thead th:first-child{z-index:3;background:#FAFAFA} .matrix-table th{font-size:10px;font-weight:700;color:#86868B;text-transform:uppercase;letter-spacing:.08em} .matrix-table tr:last-child td{border-bottom:none} .matrix-table th:last-child,.matrix-table td:last-child{border-right:none} .mci{width:60px;background:#F5F5F7;border:1.5px solid #E8E8ED;border-radius:10px;padding:10px 6px;text-align:center;font-size:16px;font-weight:700;font-family:'JetBrains Mono';color:#1D1D1F;outline:none;transition:all .2s} .mci:focus{border-color:#0071E3;background:#fff} .mtc{background:#F0F7FF;font-family:'JetBrains Mono';font-weight:700;color:#0071E3} @media(max-width:480px){.mci{width:52px;font-size:14px}}`}</style>
+      <style>{`:root{--accent:#007AFF;--accent-dim:#E5F0FF;--bg:#F9FAFC;--bg2:#fff;--bg3:#F5F5F7;--border:#E8E8ED;--border2:#E8E8ED;--text:#111827;--text2:#4B5563;--text3:#9CA3AF} @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}} .fade-up{animation:fadeUp .4s ease both} .cinp{width:100%;background:#F9FAFC;border:1px solid #E8E8ED;border-radius:12px;padding:13px 16px;font-size:15px;color:#111827;font-family:'Outfit';outline:none;transition:border .2s} .cinp:focus{border-color:#007AFF;background:#fff;box-shadow: 0 0 0 3px rgba(0,122,255,0.1)} .cinp::placeholder{color:#9CA3AF} .matrix-wrap{overflow:auto;border-radius:16px;background:#fff;border:1px solid #E8E8ED} .matrix-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0} .matrix-table th,.matrix-table td{padding:12px 10px;border-right:1px solid #F5F5F7;border-bottom:1px solid #F5F5F7;text-align:center} .matrix-table thead th{position:sticky;top:0;background:#F9FAFC;z-index:2} .matrix-table th:first-child,.matrix-table td:first-child{position:sticky;left:0;text-align:left;background:#fff;z-index:1} .matrix-table thead th:first-child{z-index:3;background:#F9FAFC} .matrix-table th{font-size:10px;font-weight:700;color:#9CA3AF;text-transform:uppercase;letter-spacing:.08em} .matrix-table tr:last-child td{border-bottom:none} .matrix-table th:last-child,.matrix-table td:last-child{border-right:none} .mci{width:60px;background:#F9FAFC;border:1px solid #E8E8ED;border-radius:10px;padding:10px 6px;text-align:center;font-size:16px;font-weight:700;font-family:'JetBrains Mono';color:#111827;outline:none;transition:all .2s} .mci:focus{border-color:#007AFF;background:#fff;box-shadow: 0 0 0 3px rgba(0,122,255,0.1)} .mtc{background:#E5F0FF;font-family:'JetBrains Mono';font-weight:700;color:#007AFF} .layout-grid { display: grid; grid-template-columns: 1fr 340px; gap: 40px; alignItems: start; } .sidebar-sticky { position: sticky; top: 100px; display: flex; flexDirection: column; gap: 24px; } @media(max-width:960px){ .layout-grid { grid-template-columns: 1fr; } .sidebar-sticky { position: static; } } @media(max-width:480px){.mci{width:52px;font-size:14px}}`}</style>
 
       {headerNav}
 
       {page === "info" && <InfoPage businessName={businessName} onCotizar={() => setPage("cotizar")} />}
 
       {page === "cotizar" && (
-        <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 clamp(20px, 4vw, 40px)" }}>
-          {/* Steps */}
-          <div style={{ padding: "20px 0 0" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 24 }}>
-              {STEPS.map((s,i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", flex: i<3 ? 1 : "none" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, transition: "all .3s",
-                      background: i<step ? "#1D1D1F" : i===step ? "#F0F7FF" : "#F5F5F7",
-                      border: `1.5px solid ${i<step ? "#1D1D1F" : i===step ? "#0071E3" : "#D2D2D7"}`,
-                      color: i<step ? "#fff" : i===step ? "#0071E3" : "#AEAEB2" }}>
-                      {i<step ? "✓" : i+1}
-                    </div>
-                    <span style={{ fontSize: 12, fontWeight: i===step?700:500, color: i===step?"#1D1D1F":"#AEAEB2", whiteSpace: "nowrap", display: window.innerWidth < 420 ? (i===step ? "block" : "none") : "block" }}>{s}</span>
-                  </div>
-                  {i<3 && <div style={{ flex: 1, height: 1, margin: "0 10px", background: i<step?"#1D1D1F":"#E8E8ED", transition: "background .4s" }}/>}
-                </div>
-              ))}
-            </div>
-          </div>
+        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "40px clamp(20px, 4vw, 40px)" }}>
+          <div className="layout-grid">
+            <div style={{ maxWidth: 680, width: "100%", margin: "0 auto" }}>
 
           <div style={{ paddingBottom: 100 }}>
             {/* Step 0 */}
@@ -443,37 +356,62 @@ export default function ClientApp() {
                   <div style={card} className="fade-up">
                     <div style={lbl}>Tallas y colores</div>
                     <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-                      <input className="cinp" placeholder="Agregar color" value={customColor} onChange={e=>setCustomColor(e.target.value)} onKeyDown={e=>{ if (e.key==="Enter") { e.preventDefault(); handleAddCustomColor(); }}} style={{ flex: "1 1 180px" }}/>
-                      <button style={btnOut} onClick={handleAddCustomColor}>+ Color</button>
+                      {/* Suggestion Chips */}
+                      {cfg?.coloresCfg?.filter(c => !matrixColors.includes(c)).map(c => (
+                        <button key={c} onClick={() => setColorRows(prev => [...prev, c])}
+                          style={{ padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: "#F9FAFC", border: "1px solid #E8E8ED", color: "#4B5563", cursor: "pointer", transition: "all 0.2s" }}>
+                          + {c}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+                      <input className="cinp" placeholder="Agregar otro color..." value={customColor} onChange={e=>setCustomColor(e.target.value)} onKeyDown={e=>{ if (e.key==="Enter") { e.preventDefault(); handleAddCustomColor(); }}} style={{ flex: "1 1 180px" }}/>
+                      <button style={btnOut} onClick={handleAddCustomColor}>Añadir</button>
                     </div>
                     {matrixColors.length === 0 ? (
                       <div style={{ background: "#FFF8E1", borderRadius: 12, padding: 16, fontSize: 13, color: "#F57F17" }}>Sin colores. Agregá uno.</div>
                     ) : (
-                      <div className="matrix-wrap">
-                        <table className="matrix-table">
-                          <thead><tr><th>Color</th>{availableTallas.map(t=><th key={t}>{t}</th>)}<th>Total</th></tr></thead>
-                          <tbody>
-                            {matrixColors.map(color => {
-                              const rt = availableTallas.reduce((s,t) => s + (Number(variantQuantities[buildVariantKey(color, t)]) || 0), 0);
-                              const isBase = baseColors.some(x => x.toLowerCase() === color.toLowerCase());
-                              return (
-                                <tr key={color}>
-                                  <td><div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, minWidth: 100 }}><span style={{ fontWeight: 600, color: rt > 0 ? "#0071E3" : "#1D1D1F" }}>{color}</span>{!isBase && <button onClick={()=>setColorRows(p=>p.filter(x=>x!==color))} style={{ border: "none", background: "transparent", color: "#AEAEB2", cursor: "pointer", fontSize: 16 }}>×</button>}</div></td>
-                                  {availableTallas.map(t => { const q = Number(variantQuantities[buildVariantKey(color, t)]) || 0; return (
-                                    <td key={`${color}-${t}`}><input type="number" min={0} max={999} value={q||""} placeholder="0" className="mci" style={{ borderColor: q > 0 ? "#0071E3" : "#E8E8ED", background: q > 0 ? "#F0F7FF" : "#F5F5F7" }} onChange={e=>handleVariantQtyChange(color, t, e.target.value)}/></td>
-                                  );})}
-                                  <td className="mtc">{rt}</td>
-                                </tr>
-                              );
-                            })}
-                            <tr><td style={{ fontWeight: 700, color: "#86868B", textTransform: "uppercase", fontSize: 10 }}>Total</td>{availableTallas.map(t=><td key={`t-${t}`} className="mtc">{tallaTotals[t]||0}</td>)}<td className="mtc" style={{ fontSize: 18 }}>{totalQty}</td></tr>
-                          </tbody>
-                        </table>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                        {matrixColors.map(color => {
+                          const rt = availableTallas.reduce((s,t) => s + (Number(variantQuantities[buildVariantKey(color, t)]) || 0), 0);
+                          const isBase = baseColors.some(x => x.toLowerCase() === color.toLowerCase());
+                          return (
+                            <div key={color} style={{ background: "#fff", border: "1px solid #E8E8ED", borderRadius: 16, padding: 16 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, borderBottom: "1px solid #F5F5F7", paddingBottom: 12 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                  <div style={{ width: 24, height: 24, borderRadius: "50%", background: color.toLowerCase() === "blanco" ? "#fff" : color.toLowerCase() === "negro" ? "#000" : "#ccc", border: "1px solid #D2D2D7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: color.toLowerCase() === "blanco" ? "#000" : "#fff" }}>
+                                    {color[0].toUpperCase()}
+                                  </div>
+                                  <span style={{ fontWeight: 700, fontSize: 16, color: "#111827" }}>{color}</span>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                  <span style={{ fontSize: 14, fontWeight: 700, color: rt > 0 ? "#007AFF" : "#9CA3AF" }}>{rt} u</span>
+                                  {!isBase && <button onClick={()=>setColorRows(p=>p.filter(x=>x!==color))} style={{ background: "rgba(248,113,113,.1)", color: "#F87171", border: "none", width: 28, height: 28, borderRadius: 8, cursor: "pointer", fontWeight: 700 }}>×</button>}
+                                </div>
+                              </div>
+                              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 12 }}>
+                                {availableTallas.map(t => {
+                                  const q = Number(variantQuantities[buildVariantKey(color, t)]) || 0;
+                                  return (
+                                    <div key={`${color}-${t}`} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                      <div style={{ fontSize: 12, fontWeight: 600, color: "#4B5563" }}>Talla {t}</div>
+                                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: q > 0 ? "#E5F0FF" : "#F9FAFC", border: `1px solid ${q > 0 ? "#007AFF" : "#E8E8ED"}`, borderRadius: 10, overflow: "hidden", height: 44 }}>
+                                        <button onClick={() => handleVariantQtyChange(color, t, Math.max(0, q - 1))} style={{ border: "none", background: "transparent", width: 44, height: "100%", cursor: "pointer", color: q > 0 ? "#007AFF" : "#9CA3AF", fontSize: 20, fontWeight: 500 }}>-</button>
+                                        <input type="number" min={0} max={999} value={q||""} placeholder="0" style={{ width: "100%", height: "100%", textAlign: "center", border: "none", background: "transparent", fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 16, color: "#111827", outline: "none" }} onChange={e=>handleVariantQtyChange(color, t, e.target.value)}/>
+                                        <button onClick={() => handleVariantQtyChange(color, t, q + 1)} style={{ border: "none", background: "transparent", width: 44, height: "100%", cursor: "pointer", color: q > 0 ? "#007AFF" : "#9CA3AF", fontSize: 20, fontWeight: 500 }}>+</button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 16 }}>
-                      <div style={{ padding: 16, borderRadius: 16, background: "#F5F5F7" }}><div style={{ fontSize: 10, color: "#86868B", textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700, marginBottom: 4 }}>Colores</div><div style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 26 }}>{activeColorCount}</div></div>
-                      <div style={{ padding: 16, borderRadius: 16, background: "#F0F7FF" }}><div style={{ fontSize: 10, color: "#0071E3", textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700, marginBottom: 4 }}>Prendas</div><div style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 26, color: "#0071E3" }}>{totalQty}</div></div>
+                      <div style={{ padding: 16, borderRadius: 16, background: "#F9FAFC" }}><div style={{ fontSize: 10, color: "#9CA3AF", textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700, marginBottom: 4 }}>Colores</div><div style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 26 }}>{activeColorCount}</div></div>
+                      <div style={{ padding: 16, borderRadius: 16, background: "#E5F0FF" }}><div style={{ fontSize: 10, color: "#007AFF", textTransform: "uppercase", letterSpacing: ".08em", fontWeight: 700, marginBottom: 4 }}>Prendas</div><div style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 26, color: "#007AFF" }}>{totalQty}</div></div>
                     </div>
                   </div>
                 )}
@@ -503,7 +441,7 @@ export default function ClientApp() {
                             <div style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: on?"#0071E3":"#F5F5F7", border: `1.5px solid ${on?"#0071E3":"#D2D2D7"}` }}>
                               {on && <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l2.8 3L10 3" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                             </div>
-                            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14, color: on?"#0071E3":"#1D1D1F" }}>{p.label}</div><div style={{ fontSize: 11, color: "#AEAEB2", fontFamily: "'JetBrains Mono'", marginTop: 1 }}>{p.maxW}″ × {p.maxH}″</div></div>
+                            <div style={{ flex: 1 }}><div style={{ fontWeight: 600, fontSize: 14, color: on?"#0071E3":"#1D1D1F" }}>{p.label}</div><div style={{ fontSize: 11, color: "#AEAEB2", fontFamily: "'JetBrains Mono'", marginTop: 1 }}>{p.maxW}{unitSystem==="cm"?"cm":"″"} × {p.maxH}{unitSystem==="cm"?"cm":"″"}</div></div>
                             <button onClick={e=>{e.stopPropagation();setShowInfoPos(show?null:p.key)}} style={{ background: "#F5F5F7", border: "none", borderRadius: 6, cursor: "pointer", color: "#86868B", fontSize: 13, padding: "3px 7px" }}>ⓘ</button>
                           </div>
                           {show && <div style={{ background: "#F0F7FF", borderRadius: "0 0 12px 12px", padding: "10px 14px", fontSize: 12, color: "#6E6E73", marginTop: -3 }}>{p.desc}</div>}
@@ -519,24 +457,73 @@ export default function ClientApp() {
             {/* Step 3 */}
             {step===3 && (
               <div className="fade-up">
-                <div style={{ textAlign: "center", marginBottom: 20 }}><h3 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-.02em" }}>Revisá tu solicitud</h3></div>
+                <div style={{ textAlign: "center", marginBottom: 20 }}><h3 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-.02em", color: "#111827" }}>Revisá tu solicitud</h3></div>
                 <div style={card}>
                   {[["Nombre",nombre],["WhatsApp",whatsapp||"—"],["Prenda",prenda?.name??"?"],["Prendas provistas por",quienLabel],["Variantes",colorResumen||"—"],["Posiciones",selectedPos.join(", ")],["Total",`${totalQty} prendas`],...(notas?[["Notas",notas]]:[])].map(([k,v])=>(
-                    <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "11px 0", borderBottom: "1px solid #F5F5F7", gap: 12 }}><span style={{ fontSize: 13, color: "#86868B" }}>{k}</span><span style={{ fontSize: 13, fontWeight: 600, textAlign: "right", maxWidth: "60%", wordBreak: "break-word" }}>{v}</span></div>
+                    <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "11px 0", borderBottom: "1px solid #F9FAFC", gap: 12 }}><span style={{ fontSize: 13, color: "#4B5563" }}>{k}</span><span style={{ fontSize: 13, fontWeight: 600, textAlign: "right", maxWidth: "60%", wordBreak: "break-word", color: "#111827" }}>{v}</span></div>
                   ))}
                 </div>
                 <div style={card}>
-                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>¿Cómo querés recibir la cotización?</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: "#111827" }}>¿Cómo querés recibir la cotización?</div>
                   {[["whatsapp","📱","WhatsApp","Directo a tu chat"],["email","📧","Correo",email?`A ${email}`:"Ingresá tu correo"],["download","📄","Descargar","Te notificaremos"]].map(([val,ic,lb,desc])=>(
                     <div key={val} onClick={()=>(val!=="email"||email)&&setDeliveryPref(val)} style={{ ...radio(deliveryPref===val), opacity: val==="email"&&!email?.4:1, cursor: val==="email"&&!email?"not-allowed":"pointer" }}>
-                      <div style={dot(deliveryPref===val)}>{deliveryPref===val && <div style={{ width: 10, height: 10, borderRadius: 5, background: "#0071E3" }}/>}</div>
-                      <div><div style={{ fontWeight: 600, fontSize: 13 }}>{ic} {lb}</div><div style={{ fontSize: 11, color: "#AEAEB2", marginTop: 1 }}>{desc}</div></div>
+                      <div style={dot(deliveryPref===val)}>{deliveryPref===val && <div style={{ width: 10, height: 10, borderRadius: 5, background: "#007AFF" }}/>}</div>
+                      <div><div style={{ fontWeight: 600, fontSize: 13, color: "#111827" }}>{ic} {lb}</div><div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 1 }}>{desc}</div></div>
                     </div>
                   ))}
                 </div>
                 <div style={{ display: "flex", gap: 10 }}><button style={btnOut} onClick={()=>setStep(2)}>← Atrás</button><button style={{ ...btn, flex: 1 }} disabled={submitting} onClick={handleSubmit}>{submitting?"Enviando…":"Enviar solicitud"}</button></div>
               </div>
             )}
+          </div>
+          </div>
+          <div className="sidebar-sticky">
+            {/* Resumen Sidebar */}
+            <div style={card}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "#111827" }}>Solicitud de Presupuesto</h3>
+                <div style={{ display: "flex", gap: 4 }}>
+                  {[0,1,2,3].map(i => (
+                    <div key={i} style={{ height: 4, width: 16, borderRadius: 2, background: i <= step ? "#007AFF" : "#E8E8ED" }} />
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, borderBottom: "1px solid #F9FAFC", paddingBottom: 8 }}>
+                  <span style={{ color: "#4B5563" }}>Prenda</span>
+                  <span style={{ fontWeight: 600, color: "#111827", fontStyle: "italic" }}>{prenda?.name || "—"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, borderBottom: "1px solid #F9FAFC", paddingBottom: 8 }}>
+                  <span style={{ color: "#4B5563" }}>Impresión</span>
+                  <span style={{ fontWeight: 600, color: "#111827", fontStyle: "italic" }}>{selectedPos.length ? selectedPos.join(", ") : "—"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, borderBottom: "1px solid #F9FAFC", paddingBottom: 8 }}>
+                  <span style={{ color: "#4B5563" }}>Cantidad</span>
+                  <span style={{ fontWeight: 600, color: "#111827", fontStyle: "italic" }}>{totalQty > 0 ? `${totalQty} unidades` : "—"}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, borderBottom: "1px solid #F9FAFC", paddingBottom: 8 }}>
+                  <span style={{ color: "#4B5563" }}>Ubicación</span>
+                  <span style={{ fontWeight: 600, color: "#111827", fontStyle: "italic" }}>San Pedro Sula</span>
+                </div>
+              </div>
+              <div style={{ marginTop: 24, background: "#E5F0FF", color: "#007AFF", fontSize: 12, fontWeight: 600, padding: "12px", borderRadius: 12, textAlign: "center" }}>
+                Cotización sujeta a revisión técnica
+              </div>
+            </div>
+
+            {/* Help Widget */}
+            <div style={{ background: "#111827", borderRadius: 20, padding: 24, color: "#fff", position: "relative", overflow: "hidden" }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: "#007AFF", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+              </div>
+              <h4 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>¿Necesitas ayuda?</h4>
+              <p style={{ fontSize: 13, color: "#9CA3AF", lineHeight: 1.5, marginBottom: 20 }}>Nuestro equipo técnico está listo para asesorarte en tu proyecto de impresión.</p>
+              {whatsappBiz && (
+                <a href={`https://wa.me/${whatsappBiz}?text=Hola, necesito ayuda con una cotización.`} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#007AFF", fontSize: 14, fontWeight: 600, textDecoration: "none" }}>
+                  Chatear en WhatsApp ↗
+                </a>
+              )}
+            </div>
           </div>
         </div>
       )}
