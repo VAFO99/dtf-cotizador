@@ -526,6 +526,7 @@ export default function ClientApp() {
             </div>
           </div>
         </div>
+      </div>
       )}
     </div>
   );
