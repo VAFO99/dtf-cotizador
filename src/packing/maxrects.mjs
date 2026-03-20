@@ -63,12 +63,86 @@ function packGroupOnSheet(pieces, sheet) {
   };
 }
 
+/**
+ * Simulate packing ALL pieces using ONLY a single sheet type repeatedly.
+ * Returns { totalCost, sheetsNeeded } — used to find the globally cheapest single-type strategy.
+ */
+function simulateSingleType(pieces, sheet) {
+  let remaining = [...pieces];
+  let totalCost = 0;
+  let sheetsNeeded = 0;
+  const maxSheets = Math.max(10, pieces.length);
+
+  while (remaining.length > 0 && sheetsNeeded < maxSheets) {
+    const packed = packGroupOnSheet(remaining, sheet);
+    if (!packed.placements.length) break; // nothing fits on this sheet type
+    totalCost += sheet.cost || 0;
+    sheetsNeeded++;
+    const usedIds = new Set(packed.placements.map(p => p.pieceId));
+    remaining = remaining.filter(p => !usedIds.has(p.id));
+  }
+
+  return {
+    totalCost,
+    sheetsNeeded,
+    canFitAll: remaining.length === 0,
+  };
+}
+
 function solveGroupPreview(groupPieces, sheetTypes, groupKey, binOffset = 0) {
   const sortedSheets = [...sheetTypes].sort((left, right) => {
     if (left.cost !== right.cost) return left.cost - right.cost;
     return (left.width * left.height) - (right.width * right.height);
   });
 
+  // ── Strategy comparison ──────────────────────────────────────────────────
+  // Before greedy, simulate using EACH sheet type exclusively for all pieces.
+  // If a single-type strategy is cheaper, use that sheet type for ALL iterations.
+  let forcedSheetType = null;
+
+  if (sortedSheets.length > 1) {
+    let bestSingleCost = Number.POSITIVE_INFINITY;
+    let bestSingleSheet = null;
+
+    for (const sheet of sortedSheets) {
+      const sim = simulateSingleType(groupPieces, sheet);
+      if (sim.canFitAll && sim.totalCost < bestSingleCost) {
+        bestSingleCost = sim.totalCost;
+        bestSingleSheet = sheet;
+      }
+    }
+
+    // Now estimate greedy multi-type cost: run through all sheets greedily
+    // (cheap simulation — just count sheets by cost-per-piece logic)
+    if (bestSingleSheet) {
+      let greedyEstimate = 0;
+      let remaining = [...groupPieces];
+      const maxIter = Math.max(10, groupPieces.length);
+      let iter = 0;
+      while (remaining.length > 0 && iter++ < maxIter) {
+        let bestSheet = null;
+        let bestPlacement = null;
+        let bestCPP = Number.POSITIVE_INFINITY;
+        for (const sheet of sortedSheets) {
+          const packed = packGroupOnSheet(remaining, sheet);
+          if (!packed.placements.length) continue;
+          const cpp = (sheet.cost || 1) / packed.placements.length;
+          if (cpp < bestCPP) { bestCPP = cpp; bestSheet = sheet; bestPlacement = packed; }
+        }
+        if (!bestSheet) break;
+        greedyEstimate += bestSheet.cost || 0;
+        const usedIds = new Set(bestPlacement.placements.map(p => p.pieceId));
+        remaining = remaining.filter(p => !usedIds.has(p.id));
+      }
+
+      // If single-type strategy is cheaper than greedy, force that sheet type
+      if (bestSingleCost < greedyEstimate) {
+        forcedSheetType = bestSingleSheet;
+      }
+    }
+  }
+
+  // ── Greedy packing ───────────────────────────────────────────────────────
   let remaining = [...groupPieces];
   const bins = [];
   let guard = Math.max(10, groupPieces.length * Math.max(sortedSheets.length, 1));
@@ -78,11 +152,12 @@ function solveGroupPreview(groupPieces, sheetTypes, groupKey, binOffset = 0) {
     let bestPlacement = null;
     let bestCostPerPiece = Number.POSITIVE_INFINITY;
 
-    for (const sheet of sortedSheets) {
+    const sheetsToEvaluate = forcedSheetType ? [forcedSheetType] : sortedSheets;
+
+    for (const sheet of sheetsToEvaluate) {
       const packed = packGroupOnSheet(remaining, sheet);
       if (!packed.placements.length) continue;
 
-      // Cost per piece placed on this sheet — lower is better
       const sheetCost = sheet.cost || 1;
       const costPerPiece = sheetCost / packed.placements.length;
 
@@ -93,8 +168,6 @@ function solveGroupPreview(groupPieces, sheetTypes, groupKey, binOffset = 0) {
         continue;
       }
 
-      // Prefer the option with lower cost per piece
-      // Tie-break: more pieces placed (fewer iterations), then lower raw cost
       const isBetter =
         costPerPiece < bestCostPerPiece - 0.001 ||
         (Math.abs(costPerPiece - bestCostPerPiece) <= 0.001 &&
