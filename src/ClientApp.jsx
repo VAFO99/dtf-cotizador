@@ -58,258 +58,262 @@ const STEPS = ["Tus datos", "Prenda y variantes", "Posiciones", "Confirmar"];
 
 // ── INFO PAGE ──
 function InfoPage({ businessName, onCotizar }) {
-  const S = {
-    // Layout
-    page: { background: '#fbfbfd', color: '#1d1d1f', fontFamily: "'Inter', sans-serif", overflowX: 'hidden' },
-    // Hero
-    hero: { position: 'relative', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: '120px 24px 60px', overflow: 'hidden' },
-    heroGlow: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: 800, height: 800, background: 'rgba(0,102,204,0.05)', borderRadius: '50%', filter: 'blur(120px)', zIndex: 0, pointerEvents: 'none' },
-    heroBadge: { display: 'inline-block', border: '1px solid #e2e8f0', background: '#fff', padding: '6px 16px', borderRadius: 999, fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#64748b', marginBottom: 24, position: 'relative', zIndex: 1, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' },
-    heroTitle1: { fontSize: 'clamp(48px,8vw,96px)', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1.0, background: 'linear-gradient(90deg,#1d1d1f,#86868b)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', margin: '0 auto', maxWidth: 900, position: 'relative', zIndex: 1 },
-    heroTitle2: { fontSize: 'clamp(36px,6vw,72px)', fontWeight: 700, letterSpacing: '-0.04em', lineHeight: 1.0, background: 'linear-gradient(135deg,#0066cc 0%,#3399ff 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', margin: '8px auto 0', maxWidth: 900, position: 'relative', zIndex: 1 },
-    heroSub: { fontSize: 18, color: '#86868b', maxWidth: 640, margin: '28px auto 0', lineHeight: 1.7, fontWeight: 500, position: 'relative', zIndex: 1 },
-    heroButtons: { display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap', marginTop: 40, position: 'relative', zIndex: 1 },
-    btnPrimary: { background: '#0066cc', color: '#fff', border: 'none', borderRadius: 999, padding: '16px 32px', fontSize: 15, fontWeight: 700, cursor: 'pointer', boxShadow: '0 8px 24px rgba(0,102,204,0.3)', transition: 'all 0.2s', fontFamily: 'inherit' },
-    btnSecondary: { background: '#f5f5f7', color: '#1d1d1f', border: 'none', borderRadius: 999, padding: '16px 32px', fontSize: 15, fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s', fontFamily: 'inherit' },
-    heroImg: { width: '100%', maxWidth: 960, marginTop: 64, borderRadius: 40, border: '1px solid #e2e8f0', boxShadow: '0 20px 60px rgba(0,102,204,0.15)', objectFit: 'cover', height: 480, position: 'relative', zIndex: 1 },
-    // Sections
-    section: (bg) => ({ padding: '96px 24px', background: bg || '#fff' }),
-    sectionInner: { maxWidth: 1120, margin: '0 auto' },
-    grid2: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 80, alignItems: 'center' },
-    sectionImg: { borderRadius: 40, objectFit: 'cover', width: '100%', height: 480, boxShadow: '0 24px 60px rgba(0,0,0,0.08)', border: '1px solid #f1f5f9' },
-    eyebrow: { color: '#0066cc', fontWeight: 700, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 },
-    h2: { fontSize: 'clamp(32px,4vw,56px)', fontWeight: 900, letterSpacing: '-0.04em', lineHeight: 1.1, marginBottom: 24, color: '#1d1d1f' },
-    bodyLarge: { fontSize: 18, color: '#86868b', lineHeight: 1.7, fontWeight: 500, marginBottom: 16 },
-    bodySmall: { fontSize: 16, color: '#94a3b8', lineHeight: 1.7, marginBottom: 0 },
-    // Steps (anatomy)
-    stepRow: { display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 32 },
-    stepNum: (accent) => ({ width: 40, height: 40, borderRadius: '50%', background: accent || '#f1f5f9', color: accent ? '#fff' : '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, flexShrink: 0, fontSize: 15 }),
-    stepTitle: { fontSize: 16, fontWeight: 700, color: '#1d1d1f', marginBottom: 4 },
-    stepDesc: { fontSize: 14, color: '#94a3b8', lineHeight: 1.6 },
-    // Comparison table section
-    tableWrap: { background: '#fff', borderRadius: 32, border: '1px solid #e2e8f0', boxShadow: '0 16px 40px rgba(0,0,0,0.06)', padding: '48px', overflowX: 'auto' },
-    table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: 600 },
-    th: (isPrimary) => ({ paddingBottom: 24, borderBottom: '1px solid #f1f5f9', fontSize: isPrimary ? 18 : 14, fontWeight: isPrimary ? 900 : 700, color: isPrimary ? '#0066cc' : '#94a3b8', letterSpacing: isPrimary ? 0 : '0.05em', textTransform: isPrimary ? 'none' : 'uppercase' }),
-    td: (bold) => ({ padding: '20px 0', borderBottom: '1px solid #f8fafc', fontSize: bold ? 15 : 14, fontWeight: bold ? 700 : 500, color: bold ? '#1d1d1f' : '#64748b', verticalAlign: 'top' }),
-    // Spec cards
-    specGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, marginTop: 48 },
-    specCard: { background: '#fbfbfd', border: '1px solid #f1f5f9', borderRadius: 32, padding: 40, boxShadow: '0 8px 24px rgba(0,0,0,0.04)', transition: 'all 0.3s' },
-    specIcon: { fontSize: 40, marginBottom: 24 },
-    specTitle: { fontSize: 20, fontWeight: 700, marginBottom: 12, color: '#1d1d1f' },
-    specDesc: { fontSize: 15, color: '#94a3b8', lineHeight: 1.7 },
-    // Process
-    processGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 48, position: 'relative', zIndex: 1, marginTop: 48 },
-    processStep: { textAlign: 'center' },
-    processNum: (active) => ({ width: 64, height: 64, borderRadius: '50%', background: '#fff', border: active ? '2px solid #0066cc' : '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', fontSize: 22, fontWeight: 700, color: active ? '#0066cc' : '#1d1d1f', boxShadow: active ? '0 0 20px rgba(0,102,204,0.15)' : '0 2px 8px rgba(0,0,0,0.04)' }),
-    // CTA strip
-    ctaStrip: { background: '#0066cc', borderRadius: 32, padding: '64px 48px', textAlign: 'center', color: '#fff' },
+  const primary = "#0066cc";
+  const primaryHover = "#005bb5";
+  const bg = "#fbfbfd";
+  const textMain = "#1d1d1f";
+  const textGray = "#86868b";
+  const appleGray = "#f5f5f7";
+  const borderLight = "#e2e8f0";
+
+  const btnStyle = {
+    background: primary, border: "none", borderRadius: 50,
+    padding: "16px 40px", fontSize: 16, fontWeight: 700,
+    color: "#fff", cursor: "pointer", fontFamily: "'Inter','Outfit',sans-serif",
+    boxShadow: "0 8px 24px rgba(0,102,204,0.3)", transition: "all 0.2s",
+    display: "inline-flex", alignItems: "center", gap: 8,
+  };
+  const btnSecStyle = {
+    background: appleGray, border: "none", borderRadius: 50,
+    padding: "16px 40px", fontSize: 16, fontWeight: 700,
+    color: textMain, cursor: "pointer", fontFamily: "'Inter','Outfit',sans-serif",
+    transition: "all 0.2s", display: "inline-flex", alignItems: "center", gap: 8,
   };
 
+  const specCard = {
+    background: bg, border: `1px solid ${borderLight}`,
+    borderRadius: 32, padding: 40,
+    boxShadow: "0 4px 20px rgba(0,0,0,0.04)", transition: "all 0.3s",
+  };
+
+  const stepCircle = (active) => ({
+    width: 64, height: 64, borderRadius: "50%", background: "#fff",
+    border: `2px solid ${active ? primary : borderLight}`,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    fontSize: 22, fontWeight: 700, color: active ? primary : textGray,
+    margin: "0 auto 24px",
+    boxShadow: active ? `0 0 20px rgba(0,102,204,0.15)` : "none",
+  });
+
   return (
-    <div style={S.page}>
-      {/* Hero */}
-      <section style={S.hero}>
-        <div style={S.heroGlow}/>
-        <span style={S.heroBadge}>Tecnología de punta ahora en Honduras</span>
-        <h1 style={S.heroTitle1}>Impresión sin límites.</h1>
-        <h1 style={S.heroTitle2}>Calidad Pro.</h1>
-        <p style={S.heroSub}>
-          Ya sea para lanzar tu propia marca de ropa o para imprimir ese diseño único que siempre imaginaste.
-          La tecnología Direct To Film (DTF) opera desde San Pedro Sula para brindarte impresiones de
-          calidad fotográfica y durabilidad extrema, sin mínimos de compra.
+    <div style={{ fontFamily: "'Inter','Outfit',sans-serif", background: bg, color: textMain }}>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+      <style>{`
+        .info-reveal { opacity: 0; transform: translateY(40px); transition: all 1s cubic-bezier(0.16,1,0.3,1); }
+        .info-reveal.active { opacity: 1; transform: translateY(0); }
+        .info-card-hover:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.08) !important; }
+        .info-btn-primary:hover { background: #005bb5 !important; transform: scale(1.02); }
+        .info-btn-sec:hover { background: #e2e8f0 !important; }
+        .info-tr:hover td { background: #f8fafc; }
+        @keyframes infoFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-16px)} }
+        .info-float { animation: infoFloat 6s ease-in-out infinite; }
+        .info-gradient-text {
+          background: linear-gradient(135deg, #0066cc 0%, #3399ff 100%);
+          -webkit-background-clip: text; background-clip: text;
+          -webkit-text-fill-color: transparent;
+        }
+        @media(max-width:768px){
+          .info-two-col { grid-template-columns: 1fr !important; }
+          .info-four-col { grid-template-columns: 1fr 1fr !important; }
+          .info-hero-h { font-size: clamp(38px,8vw,64px) !important; }
+          .info-table { font-size: 13px !important; }
+        }
+      `}</style>
+
+      {/* ── HERO ── */}
+      <section style={{ minHeight: "90vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "100px 24px 60px", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 800, height: 800, background: `${primary}08`, borderRadius: "50%", filter: "blur(120px)", zIndex: 0, pointerEvents: "none" }}/>
+        <span style={{ position: "relative", zIndex: 1, display: "inline-block", background: "#fff", border: `1px solid ${borderLight}`, borderRadius: 50, padding: "6px 20px", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: textGray, marginBottom: 28, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+          Tecnología de punta ahora en Honduras
+        </span>
+        <h1 className="info-hero-h" style={{ position: "relative", zIndex: 1, fontSize: "clamp(40px,6vw,88px)", fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1.05, color: textMain, marginBottom: 8, maxWidth: 960 }}>
+          Impresión sin límites.
+        </h1>
+        <h2 className="info-gradient-text" style={{ position: "relative", zIndex: 1, fontSize: "clamp(32px,5vw,64px)", fontWeight: 800, letterSpacing: "-0.03em", marginBottom: 28, maxWidth: 800 }}>
+          Calidad Pro.
+        </h2>
+        <p style={{ position: "relative", zIndex: 1, fontSize: 18, color: textGray, lineHeight: 1.7, maxWidth: 640, margin: "0 auto 44px", fontWeight: 500 }}>
+          Ya sea para lanzar tu propia marca de ropa o para imprimir ese diseño único que siempre imaginaste. La tecnología DTF opera desde San Pedro Sula para brindarte impresiones de calidad fotográfica, sin mínimos de compra.
         </p>
-        <div style={S.heroButtons}>
-          <button style={S.btnPrimary} onClick={onCotizar}
-            onMouseOver={e => { e.currentTarget.style.background='#005bb5'; e.currentTarget.style.transform='translateY(-2px)'; }}
-            onMouseOut={e => { e.currentTarget.style.background='#0066cc'; e.currentTarget.style.transform='translateY(0)'; }}>
+        <div style={{ position: "relative", zIndex: 1, display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
+          <button className="info-btn-primary" style={btnStyle} onClick={onCotizar}>
             Configurar pedido
           </button>
-          <button style={S.btnSecondary} onClick={onCotizar}
-            onMouseOver={e => e.currentTarget.style.background='#e2e8f0'}
-            onMouseOut={e => e.currentTarget.style.background='#f5f5f7'}>
+          <a href="#descubre-dtf" style={{ ...btnSecStyle, textDecoration: "none" }}>
             Descubrir más ↓
-          </button>
+          </a>
         </div>
-        <img
-          src="https://images.unsplash.com/photo-1604871000636-074fa5117945?q=80&w=2000&auto=format&fit=crop"
-          alt="DTF Printing Vivid Colors"
-          style={S.heroImg}
-        />
+        <div className="info-float" style={{ position: "relative", zIndex: 1, marginTop: 64, width: "100%", maxWidth: 900 }}>
+          <img
+            src="https://images.unsplash.com/photo-1604871000636-074fa5117945?q=80&w=2000&auto=format&fit=crop"
+            alt="Impresión DTF colores vibrantes"
+            style={{ width: "100%", height: 480, objectFit: "cover", borderRadius: 40, border: `1px solid ${borderLight}`, boxShadow: "0 20px 60px rgba(0,102,204,0.12)" }}
+          />
+        </div>
       </section>
 
-      {/* ¿Qué es DTF? */}
-      <section style={S.section('#fff')}>
-        <div style={S.sectionInner}>
-          <div style={S.grid2}>
+      {/* ── QUÉ ES EL DTF ── */}
+      <section id="descubre-dtf" style={{ padding: "120px 24px", background: "#fff" }}>
+        <div className="info-two-col" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
+          <div style={{ order: 2 }}>
             <img
               src="https://images.unsplash.com/photo-1557672172-298e090bd0f1?q=80&w=1000&auto=format&fit=crop"
-              alt="Explosión de colores DTF"
-              style={S.sectionImg}
+              alt="Colores vibrantes DTF"
+              style={{ borderRadius: 40, objectFit: "cover", width: "100%", height: 480, border: `1px solid ${borderLight}`, boxShadow: "0 8px 40px rgba(0,0,0,0.06)" }}
             />
-            <div>
-              <p style={S.eyebrow}>La revolución de la impresión</p>
-              <h2 style={S.h2}>¿Qué es el DTF?</h2>
-              <p style={S.bodyLarge}>
-                Si nunca has escuchado del <strong style={{ color: '#1d1d1f' }}>Direct To Film (DTF)</strong>, imagina poder imprimir cualquier fotografía o diseño digital, con absolutamente todos sus colores, y transferirlo a una prenda con un resultado de calidad comercial.
-              </p>
-              <p style={S.bodySmall}>
-                A diferencia de la serigrafía tradicional (que te cobra por cada color) o la sublimación (que solo funciona en telas blancas de poliéster), el DTF rompe las reglas. Imprimimos tu idea y la estampamos sobre <strong style={{ color: '#1d1d1f' }}>cualquier tipo de tela y cualquier color de fondo</strong>.
-              </p>
-            </div>
+          </div>
+          <div style={{ order: 1 }}>
+            <p style={{ color: primary, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", fontSize: 12, marginBottom: 16 }}>La revolución de la impresión</p>
+            <h2 style={{ fontSize: "clamp(32px,4vw,52px)", fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 24, color: textMain }}>¿Qué es el DTF?</h2>
+            <p style={{ fontSize: 18, color: textGray, lineHeight: 1.8, marginBottom: 20, fontWeight: 500 }}>
+              Imagina poder imprimir cualquier fotografía o diseño digital, con todos sus colores, y transferirlo a una prenda con un resultado de calidad comercial.
+            </p>
+            <p style={{ fontSize: 16, color: "#64748b", lineHeight: 1.8 }}>
+              A diferencia de la serigrafía (que cobra por color) o la sublimación (que solo funciona en poliéster blanco), el <strong style={{ color: textMain }}>Direct To Film</strong> rompe las reglas. Imprimimos sobre <strong style={{ color: textMain }}>cualquier tipo de tela y cualquier color de fondo</strong>.
+            </p>
           </div>
         </div>
       </section>
 
-      {/* Anatomía */}
-      <section style={{ ...S.section('#fff'), borderTop: '1px solid #f1f5f9' }}>
-        <div style={S.sectionInner}>
-          <div style={S.grid2}>
-            <div>
-              <p style={S.eyebrow}>Ingeniería en capas</p>
-              <h2 style={S.h2}>Anatomía de una impresión indestructible.</h2>
-              <p style={{ ...S.bodyLarge, marginBottom: 40 }}>
-                Cada transfer DTF no es una simple calcomanía. Es un sándwich de tecnología compuesto por capas microscópicas que garantizan colores reales y resistencia a docenas de lavadas.
-              </p>
-              <div style={S.stepRow}>
-                <div style={S.stepNum('#0066cc')}>1</div>
-                <div>
-                  <p style={S.stepTitle}>Tintas CMYK de Alta Densidad</p>
-                  <p style={S.stepDesc}>Imprimimos primero los colores sobre el Film PET para lograr degradados perfectos y calidad fotográfica real.</p>
-                </div>
-              </div>
-              <div style={S.stepRow}>
-                <div style={S.stepNum()}>2</div>
-                <div>
-                  <p style={S.stepTitle}>Máscara de Tinta Blanca (White)</p>
-                  <p style={S.stepDesc}>Una capa sólida de blanco puro cubre los colores. Garantiza que tu diseño mantenga su vitalidad incluso en camisetas negras.</p>
-                </div>
-              </div>
-              <div style={S.stepRow}>
-                <div style={{ ...S.stepNum(), background: '#fefce8', color: '#92400e' }}>3</div>
-                <div>
-                  <p style={S.stepTitle}>Polvo Adhesivo de Poliamida</p>
-                  <p style={S.stepDesc}>Se esparce y hornea sobre la tinta húmeda. Actúa como un puente ultra-resistente que fusiona el diseño permanentemente con las fibras.</p>
-                </div>
-              </div>
-            </div>
-            <div style={{ position: 'relative' }}>
-              <div style={{ position: 'relative', maxWidth: 440, margin: '0 auto', aspectRatio: '1/1' }}>
-                <div style={{ position: 'absolute', inset: 0, borderRadius: 40, background: '#f1f5f9', transform: 'rotate(6deg)', border: '1px solid #e2e8f0' }}/>
-                <div style={{ position: 'absolute', inset: 0, borderRadius: 40, background: 'rgba(0,102,204,0.08)', transform: 'rotate(-3deg)', border: '1px solid rgba(0,102,204,0.15)' }}/>
-                <div style={{ position: 'absolute', inset: 0, borderRadius: 40, background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 24px 60px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-                  <img src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop" alt="Detalle de capas" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)' }}/>
-                  <div style={{ position: 'absolute', bottom: 40, left: 40, color: '#fff' }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#60a5fa', marginBottom: 8 }}>Resultado Final</p>
-                    <p style={{ fontSize: 24, fontWeight: 700 }}>Acabado Premium</p>
+      {/* ── ANATOMÍA ── */}
+      <section style={{ padding: "120px 24px", background: bg, borderTop: `1px solid ${borderLight}` }}>
+        <div className="info-two-col" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
+          <div>
+            <p style={{ color: primary, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", fontSize: 12, marginBottom: 16 }}>Ingeniería en capas</p>
+            <h2 style={{ fontSize: "clamp(28px,3.5vw,48px)", fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 24, color: textMain }}>Anatomía de una impresión indestructible.</h2>
+            <p style={{ fontSize: 18, color: textGray, lineHeight: 1.8, marginBottom: 40, fontWeight: 500 }}>
+              Cada transfer DTF es un sándwich de tecnología con capas microscópicas que garantizan colores reales y resistencia a docenas de lavadas.
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+              {[
+                { n: "1", bg: "#dbeafe", c: primary, title: "Tintas CMYK de Alta Densidad", desc: "Imprimimos los colores sobre el Film PET para lograr degradados perfectos y calidad fotográfica real." },
+                { n: "2", bg: "#f1f5f9", c: "#475569", title: "Máscara de Tinta Blanca (White)", desc: "Una capa sólida de blanco garantiza que tu diseño mantenga su vitalidad incluso en camisetas negras." },
+                { n: "3", bg: "#fef3c7", c: "#d97706", title: "Polvo Adhesivo de Poliamida", desc: "Se hornea sobre la tinta húmeda. Fusiona el diseño permanentemente con las fibras de tu prenda." },
+              ].map(({ n, bg: nbg, c, title, desc }) => (
+                <div key={n} style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+                  <div style={{ width: 40, height: 40, borderRadius: "50%", background: nbg, color: c, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: 15, flexShrink: 0 }}>{n}</div>
+                  <div>
+                    <h4 style={{ fontSize: 16, fontWeight: 700, color: textMain, marginBottom: 4 }}>{title}</h4>
+                    <p style={{ fontSize: 14, color: "#64748b", lineHeight: 1.7 }}>{desc}</p>
                   </div>
                 </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ position: "relative" }}>
+            <div style={{ position: "absolute", inset: 0, borderRadius: 40, background: appleGray, transform: "rotate(6deg)", border: `1px solid ${borderLight}` }}/>
+            <div style={{ position: "absolute", inset: 0, borderRadius: 40, background: `linear-gradient(135deg,${primary}18,transparent)`, transform: "rotate(-3deg)", border: `1px solid ${primary}30` }}/>
+            <div style={{ position: "relative", borderRadius: 40, background: "#fff", border: `1px solid ${borderLight}`, boxShadow: "0 20px 60px rgba(0,0,0,0.08)", overflow: "hidden", aspectRatio: "1/1" }}>
+              <img
+                src="https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000&auto=format&fit=crop"
+                alt="Detalle de capas impresas"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.15) 50%, transparent 100%)" }}/>
+              <div style={{ position: "absolute", bottom: 32, left: 32, color: "#fff" }}>
+                <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#60a5fa", marginBottom: 6 }}>Resultado Final</p>
+                <p style={{ fontSize: 22, fontWeight: 800 }}>Acabado Premium</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Comparativa */}
-      <section style={{ ...S.section('#f5f5f7'), borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
-        <div style={{ maxWidth: 960, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 64 }}>
-            <h2 style={{ ...S.h2, fontSize: 'clamp(28px,3.5vw,48px)' }}>Por qué DTF es el nuevo estándar.</h2>
-            <p style={{ ...S.bodyLarge, maxWidth: 560, margin: '16px auto 0' }}>La mejor decisión tecnológica, ya sea que necesites una sola prenda para un regalo o cientos para tu empresa.</p>
+      {/* ── COMPARATIVA ── */}
+      <section style={{ padding: "120px 24px", background: appleGray, borderTop: `1px solid ${borderLight}`, borderBottom: `1px solid ${borderLight}` }}>
+        <div style={{ maxWidth: 900, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 64 }}>
+            <h2 style={{ fontSize: "clamp(28px,4vw,48px)", fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 16, color: textMain }}>Por qué DTF es el nuevo estándar.</h2>
+            <p style={{ fontSize: 18, color: textGray, fontWeight: 500, maxWidth: 560, margin: "0 auto" }}>La mejor decisión tecnológica, ya sea que necesites una sola prenda o producir cientos para tu empresa.</p>
           </div>
-          <div style={S.tableWrap}>
-            <table style={S.table}>
-              <thead>
-                <tr>
-                  <th style={{ ...S.th(false), width: '25%' }}>Característica</th>
-                  <th style={{ ...S.th(true), width: '25%' }}>DTF (Nosotros)</th>
-                  <th style={{ ...S.th(false), width: '25%' }}>Serigrafía</th>
-                  <th style={{ ...S.th(false), width: '25%' }}>Sublimación</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  ['Límites de color', 'Sin límites / Fotográfico', 'Limitado (precio por color)', 'Sin límites'],
-                  ['Telas compatibles', 'Algodón, Poly, Mezclas, Cuero', 'Mayoría de telas', 'Solo Poliéster (+70%)'],
-                  ['Prendas oscuras', '✅ Excelente', '✅ Bueno', '❌ No funciona'],
-                  ['Logística', '✅ 24-48h Nacional', 'Sujeto a taller', 'Sujeto a taller'],
-                  ['Pedido mínimo', '✅ Desde 1 unidad', '❌ Alto (50+ unid.)', '✅ Desde 1 unidad'],
-                ].map(([feat, dtf, seri, sub]) => (
-                  <tr key={feat}>
-                    <td style={S.td(true)}>{feat}</td>
-                    <td style={S.td(true)}>{dtf}</td>
-                    <td style={S.td(false)}>{seri}</td>
-                    <td style={S.td(false)}>{sub}</td>
+          <div style={{ overflowX: "auto", paddingBottom: 16 }}>
+            <div style={{ minWidth: 700, background: "#fff", borderRadius: 32, border: `1px solid ${borderLight}`, boxShadow: "0 8px 40px rgba(0,0,0,0.06)", padding: "40px 48px" }}>
+              <table className="info-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={{ paddingBottom: 24, textAlign: "left", fontSize: 12, fontWeight: 700, color: textGray, textTransform: "uppercase", letterSpacing: "0.08em", borderBottom: `1px solid ${borderLight}`, width: "28%" }}>Característica</th>
+                    <th style={{ paddingBottom: 24, textAlign: "left", fontSize: 18, fontWeight: 900, color: primary, borderBottom: `1px solid ${borderLight}`, width: "24%" }}>DTF (Nosotros)</th>
+                    <th style={{ paddingBottom: 24, textAlign: "left", fontSize: 16, fontWeight: 700, color: "#94a3b8", borderBottom: `1px solid ${borderLight}`, width: "24%" }}>Serigrafía</th>
+                    <th style={{ paddingBottom: 24, textAlign: "left", fontSize: 16, fontWeight: 700, color: "#94a3b8", borderBottom: `1px solid ${borderLight}`, width: "24%" }}>Sublimación</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {[
+                    ["Colores", <span style={{fontWeight:700,color:textMain}}>Sin límites / Fotográfico</span>, <span style={{fontSize:14,color:"#64748b"}}>Limitado (por color)</span>, <span style={{fontSize:14,color:"#64748b"}}>Sin límites</span>],
+                    ["Telas", <span style={{fontWeight:700,color:textMain}}>Algodón, Poly, Mezclas, Cuero</span>, <span style={{fontSize:14,color:"#64748b"}}>Mayoría de telas</span>, <span style={{fontSize:14,color:"#e11d48"}}>Solo Poliéster</span>],
+                    ["Prendas oscuras", <span style={{fontWeight:700,color:textMain}}>✓ Excelente</span>, <span style={{fontSize:14,color:"#64748b"}}>✓ Bueno</span>, <span style={{fontSize:14,color:"#e11d48"}}>✗ No funciona</span>],
+                    ["Entrega", <span style={{fontWeight:700,color:textMain}}>24–48h Nacional</span>, <span style={{fontSize:14,color:"#64748b"}}>Sujeto a taller</span>, <span style={{fontSize:14,color:"#64748b"}}>Sujeto a taller</span>],
+                    ["Pedido mínimo", <span style={{fontWeight:700,color:textMain}}>✓ Desde 1 unidad</span>, <span style={{fontSize:14,color:"#e11d48"}}>✗ Alto (50+ unid.)</span>, <span style={{fontSize:14,color:"#64748b"}}>✓ Desde 1 unidad</span>],
+                  ].map(([feat, dtf, seri, sub], i) => (
+                    <tr className="info-tr" key={i}>
+                      <td style={{ padding: "20px 0", borderBottom: i < 4 ? `1px solid ${borderLight}` : "none", fontWeight: 700, color: textMain, fontSize: 14 }}>{feat}</td>
+                      <td style={{ padding: "20px 0", borderBottom: i < 4 ? `1px solid ${borderLight}` : "none" }}>{dtf}</td>
+                      <td style={{ padding: "20px 0", borderBottom: i < 4 ? `1px solid ${borderLight}` : "none" }}>{seri}</td>
+                      <td style={{ padding: "20px 0", borderBottom: i < 4 ? `1px solid ${borderLight}` : "none" }}>{sub}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Specs */}
-      <section style={S.section('#fff')}>
-        <div style={S.sectionInner}>
-          <div style={{ textAlign: 'center', maxWidth: 720, margin: '0 auto' }}>
-            <h2 style={S.h2}>Especificaciones de grado industrial.</h2>
-            <p style={{ ...S.bodyLarge, marginTop: 0 }}>Tecnología de punta operada por expertos locales. Resultados de nivel internacional, accesibles para proyectos personales y producción a escala.</p>
-          </div>
-          <div style={S.specGrid}>
-            {[
-              { icon: '🎨', title: 'Gama Infinita', desc: 'Impresión CMYK + Blanco puro. Logramos degradados perfectos, tonos neón vibrantes y sombras fotorrealistas sin costos extra por color.' },
-              { icon: '🧵', title: 'Flexibilidad Extrema', desc: 'Tinta elástica que se mueve con la tela. No se agrieta, no se cuartea y soporta más de 50 lavadas industriales manteniendo su vitalidad.' },
-              { icon: '👕', title: 'Cualquier Superficie', desc: 'Algodón 100%, poliéster, nylon, cuero, mezclilla o mezclas. Funciona sobre fondos oscuros o claros con la misma opacidad y brillo.' },
-            ].map(({ icon, title, desc }) => (
-              <div key={title} style={S.specCard}
-                onMouseOver={e => { e.currentTarget.style.boxShadow='0 16px 48px rgba(0,0,0,0.08)'; e.currentTarget.style.transform='translateY(-4px)'; }}
-                onMouseOut={e => { e.currentTarget.style.boxShadow='0 8px 24px rgba(0,0,0,0.04)'; e.currentTarget.style.transform='translateY(0)'; }}>
-                <div style={S.specIcon}>{icon}</div>
-                <h3 style={S.specTitle}>{title}</h3>
-                <p style={S.specDesc}>{desc}</p>
-              </div>
-            ))}
-          </div>
+      {/* ── TECH SPECS ── */}
+      <section style={{ padding: "120px 24px", background: "#fff" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", textAlign: "center", marginBottom: 64 }}>
+          <h2 style={{ fontSize: "clamp(28px,4vw,56px)", fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 20, color: textMain }}>Especificaciones de grado industrial.</h2>
+          <p style={{ fontSize: 18, color: textGray, fontWeight: 500, maxWidth: 560, margin: "0 auto" }}>Tecnología de punta operada por expertos locales. Resultados internacionales accesibles para todos.</p>
+        </div>
+        <div className="info-two-col" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 24 }}>
+          {[
+            { icon: <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={primary} strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path d="M12 2v20M2 12h20M12 2a15 15 0 014 10 15 15 0 01-4 10 15 15 0 01-4-10 15 15 0 014-10z"/></svg>, title: "Gama Infinita", desc: "Impresión CMYK + Blanco puro. Degradados perfectos, tonos neón vibrantes y sombras fotorrealistas sin costo extra por color." },
+            { icon: <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={primary} strokeWidth="1.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>, title: "Flexibilidad Extrema", desc: "Tinta elástica que se mueve con la tela. No se agrieta ni se cuartea. Soporta más de 50 lavadas industriales manteniendo su vitalidad." },
+            { icon: <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke={primary} strokeWidth="1.5"><path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 002-2V10h2.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z"/></svg>, title: "Cualquier Superficie", desc: "Algodón, poliéster, nylon, cuero, mezclilla o mezclas. Funciona sobre fondos oscuros o claros con la misma opacidad y brillo." },
+          ].map(({ icon, title, desc }) => (
+            <div className="info-card-hover" key={title} style={{ ...specCard }}>
+              <div style={{ marginBottom: 24 }}>{icon}</div>
+              <h3 style={{ fontSize: 22, fontWeight: 800, color: textMain, marginBottom: 12 }}>{title}</h3>
+              <p style={{ color: "#64748b", lineHeight: 1.7, fontSize: 15 }}>{desc}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Proceso */}
-      <section style={{ ...S.section('#fff'), borderTop: '1px solid #f1f5f9' }}>
-        <div style={S.sectionInner}>
-          <div style={{ textAlign: 'center', marginBottom: 0 }}>
-            <h2 style={S.h2}>El Proceso Kromavida.</h2>
+      {/* ── EL PROCESO ── */}
+      <section style={{ padding: "120px 24px", background: "#fff", borderTop: `1px solid ${borderLight}` }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 80 }}>
+            <h2 style={{ fontSize: "clamp(28px,4vw,48px)", fontWeight: 900, letterSpacing: "-0.03em", color: textMain }}>El Proceso {businessName || "Kromavida"}.</h2>
           </div>
-          <div style={S.processGrid}>
+          <div className="info-four-col" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 40 }}>
             {[
-              { n: 1, title: 'Diseño', desc: 'Envías tu arte digital en alta resolución (PNG sin fondo).', active: true },
-              { n: 2, title: 'Impresión PET', desc: 'Imprimimos sobre el film con tintas pigmentadas y capa blanca.', active: false },
-              { n: 3, title: 'Curado', desc: 'Aplicamos polvo adhesivo y horneamos para sellar los pigmentos.', active: false },
-              { n: 4, title: 'Logística', desc: 'Retiro en SPS o despachos seguros a los 18 departamentos del país.', active: false },
+              { n: 1, title: "Diseño", desc: "Envías tu arte digital en alta resolución (PNG sin fondo, 300 dpi mínimo).", active: true },
+              { n: 2, title: "Impresión PET", desc: "Imprimimos sobre el film con tintas CMYK + capa blanca pura.", active: false },
+              { n: 3, title: "Curado", desc: "Aplicamos polvo adhesivo y horneamos para sellar los pigmentos definitivamente.", active: false },
+              { n: 4, title: "Logística", desc: "Retiro en nuestra planta en SPS, o despachos seguros a los 18 departamentos del país.", active: false },
             ].map(({ n, title, desc, active }) => (
-              <div key={n} style={S.processStep}>
-                <div style={S.processNum(active)}>{n}</div>
-                <h4 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>{title}</h4>
-                <p style={{ fontSize: 13, color: '#94a3b8', lineHeight: 1.6 }}>{desc}</p>
+              <div key={n} style={{ textAlign: "center" }}>
+                <div style={stepCircle(active)}>{n}</div>
+                <h4 style={{ fontSize: 18, fontWeight: 800, color: textMain, marginBottom: 10 }}>{title}</h4>
+                <p style={{ fontSize: 13, color: textGray, lineHeight: 1.7 }}>{desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA Final */}
-      <section style={{ padding: '64px 24px 96px', background: '#fbfbfd' }}>
-        <div style={{ maxWidth: 800, margin: '0 auto' }}>
-          <div style={S.ctaStrip}>
-            <h2 style={{ fontSize: 'clamp(28px,3.5vw,44px)', fontWeight: 900, letterSpacing: '-0.03em', marginBottom: 16 }}>¿Listo para crear algo increíble?</h2>
-            <p style={{ fontSize: 17, opacity: 0.85, marginBottom: 32, lineHeight: 1.6 }}>Configura tu pedido ahora y recibe tu cotización en menos de 24 horas hábiles.</p>
-            <button style={{ ...S.btnPrimary, background: '#fff', color: '#0066cc', boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}
-              onClick={onCotizar}
-              onMouseOver={e => e.currentTarget.style.background='#f0f7ff'}
-              onMouseOut={e => e.currentTarget.style.background='#fff'}>
-              Crear mi pedido →
-            </button>
-          </div>
-        </div>
+      {/* ── CTA FINAL ── */}
+      <section style={{ padding: "100px 24px", background: bg, borderTop: `1px solid ${borderLight}`, textAlign: "center" }}>
+        <h2 style={{ fontSize: "clamp(28px,4vw,52px)", fontWeight: 900, letterSpacing: "-0.03em", color: textMain, marginBottom: 20 }}>
+          ¿Listo para crear algo increíble?
+        </h2>
+        <p style={{ fontSize: 18, color: textGray, fontWeight: 500, maxWidth: 520, margin: "0 auto 40px" }}>
+          Sin compromisos. Configura tu pedido y recibe una cotización detallada en menos de 24 horas.
+        </p>
+        <button className="info-btn-primary" style={{ ...btnStyle, padding: "18px 56px", fontSize: 18 }} onClick={onCotizar}>
+          Configurar pedido
+        </button>
       </section>
     </div>
   );
