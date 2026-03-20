@@ -76,27 +76,37 @@ function solveGroupPreview(groupPieces, sheetTypes, groupKey, binOffset = 0) {
   while (remaining.length > 0 && guard-- > 0) {
     let bestSheet = null;
     let bestPlacement = null;
+    let bestCostPerPiece = Number.POSITIVE_INFINITY;
 
     for (const sheet of sortedSheets) {
       const packed = packGroupOnSheet(remaining, sheet);
       if (!packed.placements.length) continue;
-      if (packed.fits) {
+
+      // Cost per piece placed on this sheet — lower is better
+      const sheetCost = sheet.cost || 1;
+      const costPerPiece = sheetCost / packed.placements.length;
+
+      if (!bestPlacement) {
         bestSheet = sheet;
         bestPlacement = packed;
-        break;
-      }
-      if (!bestPlacement || packed.placements.length > bestPlacement.placements.length) {
-        bestSheet = sheet;
-        bestPlacement = packed;
+        bestCostPerPiece = costPerPiece;
         continue;
       }
-      if (
-        bestPlacement &&
-        packed.placements.length === bestPlacement.placements.length &&
-        sheet.cost < (bestSheet?.cost ?? Number.POSITIVE_INFINITY)
-      ) {
+
+      // Prefer the option with lower cost per piece
+      // Tie-break: more pieces placed (fewer iterations), then lower raw cost
+      const isBetter =
+        costPerPiece < bestCostPerPiece - 0.001 ||
+        (Math.abs(costPerPiece - bestCostPerPiece) <= 0.001 &&
+          packed.placements.length > bestPlacement.placements.length) ||
+        (Math.abs(costPerPiece - bestCostPerPiece) <= 0.001 &&
+          packed.placements.length === bestPlacement.placements.length &&
+          sheetCost < (bestSheet?.cost ?? Number.POSITIVE_INFINITY));
+
+      if (isBetter) {
         bestSheet = sheet;
         bestPlacement = packed;
+        bestCostPerPiece = costPerPiece;
       }
     }
 
