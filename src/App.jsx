@@ -1900,28 +1900,144 @@ export default function App() {
             {cfgTab === "catalogo" && (
               <div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: 0 }}>
 
-                {/* PRENDAS */}
+                {/* PRENDAS — expandable per-prenda tallas & colores */}
                 <div className="card">
-                  <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Catálogo de Prendas</span></div>
-                  <div className="card-body">
+                  <div className="card-head">
+                    <span style={{ fontWeight: 700, fontSize: 14 }}>Catálogo de Prendas</span>
+                    <span style={{ fontSize: 11, color: "var(--text3)", marginLeft: 8 }}>Tallas y colores por prenda → se aplican en cotizador y cliente</span>
+                  </div>
+                  <div className="card-body" style={{ padding: 0 }}>
                     {prendas.map((p, i) => (
-                      <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 32px", gap: 6, marginBottom: 8, alignItems: "center" }}>
-                        <input className="inp inp-sm" value={p.name} placeholder="Nombre prenda"
-                          onChange={e => setPrendas(pr => pr.map((x,j) => j===i ? {...x, name:e.target.value} : x))} />
-                        <input className="inp inp-sm" type="number" value={p.cost ?? 0} placeholder="Costo L"
-                          onChange={e => setPrendas(pr => pr.map((x,j) => j===i ? {...x, cost:Number(e.target.value)} : x))}
-                          style={{ textAlign: "center" }} />
-                        <input className="inp inp-sm" type="number" value={p.costCliente ?? 0} placeholder="C. cliente"
-                          onChange={e => setPrendas(pr => pr.map((x,j) => j===i ? {...x, costCliente:Number(e.target.value)} : x))}
-                          style={{ textAlign: "center" }} />
-                        <button onClick={() => setPrendas(p => p.filter((_,j) => j!==i))}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1 }}>×</button>
+                      <div key={p.id} style={{ borderBottom: "1px solid var(--border)", padding: "14px 16px" }}>
+                        {/* Row: name + costs + delete */}
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 84px 84px 32px", gap: 8, marginBottom: 12, alignItems: "center" }}>
+                          <input className="inp inp-sm" value={p.name} placeholder="Nombre prenda"
+                            onChange={e => setPrendas(pr => pr.map((x,j) => j===i ? {...x, name:e.target.value} : x))} />
+                          <div>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 3 }}>Costo (Yo)</div>
+                            <input className="inp inp-sm" type="number" value={p.cost ?? 0}
+                              onChange={e => setPrendas(pr => pr.map((x,j) => j===i ? {...x, cost:Number(e.target.value)} : x))}
+                              style={{ textAlign: "center" }} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 3 }}>Costo Cliente</div>
+                            <input className="inp inp-sm" type="number" value={p.costCliente ?? 0}
+                              onChange={e => setPrendas(pr => pr.map((x,j) => j===i ? {...x, costCliente:Number(e.target.value)} : x))}
+                              style={{ textAlign: "center" }} />
+                          </div>
+                          <button onClick={() => setPrendas(prev => prev.filter((_,j) => j!==i))}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1, alignSelf: "flex-end", paddingBottom: 4 }}>×</button>
+                        </div>
+
+                        {/* Per-prenda TALLAS */}
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>
+                            Tallas de esta prenda
+                            <span style={{ fontSize: 10, fontWeight: 400, color: "var(--text3)", marginLeft: 6, textTransform: "none", letterSpacing: 0 }}>
+                              {(p.tallas?.length) ? `${p.tallas.length} tallas configuradas` : "usa globales si está vacío"}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                            {(p.tallas || []).map((t, ti) => (
+                              <div key={t} style={{ display: "flex", alignItems: "center", gap: 3, background: "var(--accent-dim)", border: "1.5px solid var(--accent)", borderRadius: 7, padding: "4px 8px" }}>
+                                <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 12, color: "var(--accent)" }}>{t}</span>
+                                <button onClick={() => setPrendas(pr => pr.map((x,j) => j===i ? {...x, tallas: x.tallas.filter((_,k) => k!==ti)} : x))}
+                                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", fontSize: 13, padding: "0 0 0 2px", lineHeight: 1 }}>×</button>
+                              </div>
+                            ))}
+                            {tallasCfg.filter(t => !(p.tallas||[]).includes(t)).map(t => (
+                              <button key={t} onClick={() => setPrendas(pr => pr.map((x,j) => j===i ? {...x, tallas: [...(x.tallas||[]), t]} : x))}
+                                style={{ background: "var(--bg3)", border: "1.5px dashed var(--border2)", borderRadius: 7, padding: "4px 8px", fontSize: 11, fontWeight: 600, color: "var(--text3)", cursor: "pointer" }}>
+                                + {t}
+                              </button>
+                            ))}
+                          </div>
+                          {/* Custom talla input */}
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <input className="inp inp-sm" placeholder="Talla custom (ej. 4T, 2XL…)"
+                              style={{ maxWidth: 200 }}
+                              onKeyDown={e => {
+                                if (e.key === "Enter" && e.target.value.trim() && !(p.tallas||[]).includes(e.target.value.trim())) {
+                                  const val = e.target.value.trim();
+                                  setPrendas(pr => pr.map((x,j) => j===i ? {...x, tallas: [...(x.tallas||[]), val]} : x));
+                                  e.target.value = "";
+                                }
+                              }} />
+                            <button onClick={e => {
+                              const inp = e.currentTarget.previousSibling;
+                              if (inp.value.trim() && !(p.tallas||[]).includes(inp.value.trim())) {
+                                const val = inp.value.trim();
+                                setPrendas(pr => pr.map((x,j) => j===i ? {...x, tallas: [...(x.tallas||[]), val]} : x));
+                                inp.value = "";
+                              }
+                            }} style={{ background: "var(--accent)", border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 11, fontWeight: 700, color: "var(--bg)", cursor: "pointer" }}>
+                              + Añadir
+                            </button>
+                            {(p.tallas?.length > 0) && (
+                              <button onClick={() => setPrendas(pr => pr.map((x,j) => j===i ? {...x, tallas: []} : x))}
+                                style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 7, padding: "6px 10px", fontSize: 10, color: "var(--text3)", cursor: "pointer" }}>
+                                ↺ Usar globales
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Per-prenda COLORES */}
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "var(--accent)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>
+                            Colores de esta prenda
+                            <span style={{ fontSize: 10, fontWeight: 400, color: "var(--text3)", marginLeft: 6, textTransform: "none", letterSpacing: 0 }}>
+                              {(p.colores?.length) ? `${p.colores.length} colores configurados` : "usa globales si está vacío"}
+                            </span>
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                            {(p.colores || []).map((c, ci) => (
+                              <div key={c} style={{ display: "flex", alignItems: "center", gap: 3, background: "var(--accent-dim)", border: "1.5px solid var(--accent)", borderRadius: 7, padding: "4px 10px" }}>
+                                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>{c}</span>
+                                <button onClick={() => setPrendas(pr => pr.map((x,j) => j===i ? {...x, colores: x.colores.filter((_,k) => k!==ci)} : x))}
+                                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", fontSize: 13, padding: "0 0 0 2px", lineHeight: 1 }}>×</button>
+                              </div>
+                            ))}
+                            {coloresCfg.filter(c => !(p.colores||[]).includes(c)).map(c => (
+                              <button key={c} onClick={() => setPrendas(pr => pr.map((x,j) => j===i ? {...x, colores: [...(x.colores||[]), c]} : x))}
+                                style={{ background: "var(--bg3)", border: "1.5px dashed var(--border2)", borderRadius: 7, padding: "4px 10px", fontSize: 11, fontWeight: 600, color: "var(--text3)", cursor: "pointer" }}>
+                                + {c}
+                              </button>
+                            ))}
+                          </div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <input className="inp inp-sm" placeholder="Color custom (ej. Verde militar…)"
+                              style={{ maxWidth: 220 }}
+                              onKeyDown={e => {
+                                if (e.key === "Enter" && e.target.value.trim() && !(p.colores||[]).includes(e.target.value.trim())) {
+                                  const val = e.target.value.trim();
+                                  setPrendas(pr => pr.map((x,j) => j===i ? {...x, colores: [...(x.colores||[]), val]} : x));
+                                  e.target.value = "";
+                                }
+                              }} />
+                            <button onClick={e => {
+                              const inp = e.currentTarget.previousSibling;
+                              if (inp.value.trim() && !(p.colores||[]).includes(inp.value.trim())) {
+                                const val = inp.value.trim();
+                                setPrendas(pr => pr.map((x,j) => j===i ? {...x, colores: [...(x.colores||[]), val]} : x));
+                                inp.value = "";
+                              }
+                            }} style={{ background: "var(--accent)", border: "none", borderRadius: 7, padding: "6px 12px", fontSize: 11, fontWeight: 700, color: "var(--bg)", cursor: "pointer" }}>
+                              + Añadir
+                            </button>
+                            {(p.colores?.length > 0) && (
+                              <button onClick={() => setPrendas(pr => pr.map((x,j) => j===i ? {...x, colores: []} : x))}
+                                style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 7, padding: "6px 10px", fontSize: 10, color: "var(--text3)", cursor: "pointer" }}>
+                                ↺ Usar globales
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     ))}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 32px", gap: 6, fontSize: 10, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>
-                      <span>Nombre</span><span style={{textAlign:"center"}}>Costo (Yo)</span><span style={{textAlign:"center"}}>Costo Cliente</span><span/>
+                    <div style={{ padding: "12px 16px" }}>
+                      <button className="btn-add" onClick={add(setPrendas, { id: Date.now(), name: "", cost: 0, costCliente: 0, colores: [], tallas: [] })}>+ Agregar prenda</button>
                     </div>
-                    <button className="btn-add" onClick={add(setPrendas, { id: Date.now(), name: "", cost: 0, costCliente: 0, colors: [], tallas: [] })}>+ Agregar prenda</button>
                   </div>
                 </div>
 

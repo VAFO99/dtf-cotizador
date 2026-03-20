@@ -550,7 +550,7 @@ export default function ClientApp() {
                     <div style={lbl}>Tallas y colores</div>
                     <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
                       {/* Suggestion Chips */}
-                      {cfg?.coloresCfg?.filter(c => !matrixColors.includes(c)).map(c => (
+                      {(prenda?.colores?.length ? prenda.colores : cfg?.coloresCfg ?? []).filter(c => !matrixColors.includes(c)).map(c => (
                         <button key={c} onClick={() => setColorRows(prev => [...prev, c])}
                           style={{ padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600, background: "#F9FAFC", border: "1px solid #E8E8ED", color: "#4B5563", cursor: "pointer", transition: "all 0.2s" }}>
                           + {c}
