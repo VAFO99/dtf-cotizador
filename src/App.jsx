@@ -1212,13 +1212,13 @@ export default function App() {
 
   // ── RENDER ──
   return (
-    <div className={darkMode ? "dark-theme" : "light-theme"} style={{ background: "var(--bg)", color: "var(--text)", fontFamily: "'Outfit',sans-serif", minHeight: "100dvh" }}>
+    <div className={darkMode ? "dark-theme" : "light-theme"} style={{ background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,sans-serif", minHeight: "100dvh" }}>
       {/* PIN Gate */}
       {!pinUnlocked && (
         <div style={{ position: "fixed", inset: 0, background: "#F5F5F7", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
           <div style={{ position: "absolute", top: "-20%", right: "-10%", width: "50vw", height: "50vw", borderRadius: "50%", background: "radial-gradient(circle,rgba(0,113,227,.04) 0%,transparent 70%)", filter: "blur(80px)", pointerEvents: "none" }}/>
           <div style={{ textAlign: "center", marginBottom: 8, position: "relative" }}>
-            <div style={{ fontFamily: "'Outfit'", fontWeight: 800, fontSize: 28, color: "#1D1D1F", letterSpacing: "-.03em" }}>{businessName}</div>
+            <div style={{ fontFamily: "'Inter'", fontWeight: 800, fontSize: 28, color: "#1D1D1F", letterSpacing: "-.03em" }}>{businessName}</div>
             <div style={{ fontSize: 10, color: "#86868B", letterSpacing: ".14em", textTransform: "uppercase", marginTop: 6, fontWeight: 600 }}>Panel interno · Acceso restringido</div>
           </div>
           <div style={{ background: "#fff", border: "1px solid #E8E8ED", borderRadius: 22, padding: "28px 32px", width: 280, textAlign: "center", boxShadow: "0 2px 12px rgba(0,0,0,.06)", position: "relative" }}>
@@ -1248,7 +1248,7 @@ export default function App() {
           <a href="/" style={{ fontSize: 12, color: "#6E6E73", textDecoration: "none" }}>← Volver al cotizador público</a>
         </div>
       )}
-      <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
       {/* No ambient effects — clean Apple-like aesthetic */}
       <style>{`
@@ -1271,12 +1271,13 @@ export default function App() {
           --accent-dim: rgba(0,122,255,0.15);
         }
         .light-theme {
-          --bg: #F9FAFC; --bg2: #FFFFFF; --bg3: #F9FAFC;
-          --border: #E8E8ED; --border2: #E8E8ED;
-          --text: #111827; --text2: #4B5563; --text3: #9CA3AF;
-          --shadow: rgba(0,0,0,.03);
+          --bg: #F2F2F7; --bg2: #FFFFFF; --bg3: #F9F9FB;
+          --border: #E5E5EA; --border2: #D1D1D6;
+          --text: #1C1C1E; --text2: #3C3C43; --text3: #8E8E93;
+          --shadow: rgba(0,0,0,.04);
           --accent: #007AFF;
-          --accent-dim: #E5F0FF;
+          --accent-dim: rgba(0,122,255,0.08);
+          --green: #34C759; --red: #FF3B30; --warn: #FF9500;
         }
         .light-theme .card { box-shadow: 0 1px 4px var(--shadow); }
         .light-theme .line-card { background: #FAFAFA; }
@@ -1537,71 +1538,68 @@ export default function App() {
 
       {/* ── TOPBAR ── */}
       <header style={{
-        background: darkMode ? "rgba(28,28,30,.85)" : "rgba(245,245,247,.8)",
+        background: "rgba(242,242,247,0.85)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
-        borderBottom: "1px solid var(--border)",
+        borderBottom: "1px solid rgba(0,0,0,0.05)",
         position: "sticky", top: 0, zIndex: 100,
+        padding: "12px clamp(16px,3vw,40px) 0",
       }}>
-        <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 clamp(16px, 3vw, 40px)" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 60 }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 12 }}>
             {/* Logo */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{
-                width: 34, height: 34, borderRadius: 10,
-                background: "var(--accent-dim)", border: "1px solid rgba(0,113,227,.25)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 0 16px rgba(0,113,227,.08)",
-              }}>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <rect x="1" y="4" width="14" height="9" rx="1.5" stroke="var(--accent)" strokeWidth="1.4"/>
-                  <path d="M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1" stroke="var(--accent)" strokeWidth="1.4"/>
-                  <path d="M4 8h8M6 11h4" stroke="var(--accent)" strokeWidth="1.2" strokeLinecap="round"/>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, width: "33%" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "#007AFF", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 8px rgba(0,122,255,0.3)" }}>
+                <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
+                  <rect x="1" y="4" width="14" height="9" rx="1.5" stroke="#fff" strokeWidth="1.4"/>
+                  <path d="M5 4V3a1 1 0 011-1h4a1 1 0 011 1v1" stroke="#fff" strokeWidth="1.4"/>
+                  <path d="M4 8h8M6 11h4" stroke="#fff" strokeWidth="1.2" strokeLinecap="round"/>
                 </svg>
               </div>
               <div>
-                <h1 style={{ fontWeight: 800, fontSize: 16, letterSpacing: "-.03em", lineHeight: 1.1, margin: 0 }}>{businessName}</h1>
-                <p style={{ fontSize: 10, color: "var(--text3)", fontFamily: "'JetBrains Mono'", letterSpacing: ".1em", margin: 0 }}>DTF · COTIZADOR</p>
+                <h1 style={{ fontWeight: 800, fontSize: 15, letterSpacing: "-.02em", lineHeight: 1.1, margin: 0, color: "#1C1C1E" }}>{businessName}</h1>
+                <p style={{ fontSize: 10, color: "#8E8E93", letterSpacing: ".08em", textTransform: "uppercase", margin: 0, fontWeight: 600 }}>DTF Pro Admin</p>
               </div>
             </div>
-            {/* Save indicator */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {/* Save status indicator */}
-              {saveStatus === "saved" && (
-                <span className="fade-up" style={{ fontSize: 11, color: "var(--green)", fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
-                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="var(--green)" strokeWidth="1.4"/><path d="M3.5 6l1.8 1.8L8.5 4" stroke="var(--green)" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  Guardado
-                </span>
-              )}
-              {saveStatus === "saving" && (
-                <span style={{ fontSize: 11, color: "var(--accent)", fontWeight: 600 }}>Guardando…</span>
-              )}
-              {saveStatus === "error" && (
-                <span className="fade-up" style={{ fontSize: 11, color: "var(--red)", fontWeight: 600 }}>✗ Error al guardar</span>
-              )}
-              {saveStatus === "dirty" && (
-                <span title="Hay cambios sin guardar" style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--warn)", display: "inline-block", marginRight: 2 }} />
-              )}
+
+            {/* Segmented control (center) */}
+            <div style={{ display: "flex", justifyContent: "center", width: "34%" }}>
+              <div style={{ background: "rgba(118,118,128,0.12)", borderRadius: 9, padding: 2, display: "inline-flex", gap: 0 }}>
+                {[["cotizar","Cotizar"],["pedidos","Pedidos"],["config","Ajustes"]].map(([k, label]) => (
+                  <button key={k} onClick={() => setTab(k)} style={{
+                    padding: "5px 16px", borderRadius: 7, fontSize: 13, fontWeight: 600,
+                    border: "none", cursor: "pointer", transition: "all .2s",
+                    background: tab === k ? "#FFFFFF" : "transparent",
+                    color: "#1C1C1E",
+                    boxShadow: tab === k ? "0 3px 8px rgba(0,0,0,0.12),0 1px 3px rgba(0,0,0,0.04)" : "none",
+                    position: "relative",
+                  }}>
+                    {label}
+                    {k === "pedidos" && pedidos.filter(p => p.estado !== "Entregado").length > 0 && (
+                      <span style={{ marginLeft: 5, background: "#FF3B30", color: "#fff", borderRadius: 99, padding: "1px 5px", fontSize: 9, fontWeight: 800, verticalAlign: "middle" }}>
+                        {pedidos.filter(p => p.estado !== "Entregado").length}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: save status + avatar */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, width: "33%" }}>
+              {saveStatus === "saved" && <span style={{ fontSize: 11, color: "#34C759", fontWeight: 600 }}>✓ Guardado</span>}
+              {saveStatus === "saving" && <span style={{ fontSize: 11, color: "#007AFF", fontWeight: 600 }}>Guardando…</span>}
+              {saveStatus === "error" && <span style={{ fontSize: 11, color: "#FF3B30", fontWeight: 600 }}>✗ Error</span>}
+              {saveStatus === "dirty" && <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#FF9500", display: "inline-block" }} />}
+              <div style={{ width: 32, height: 32, borderRadius: "50%", background: "linear-gradient(135deg,#007AFF,#5AC8FA)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, color: "#fff", fontSize: 11, cursor: "pointer" }}>
+                {businessName ? businessName.slice(0,2).toUpperCase() : "VF"}
+              </div>
             </div>
           </div>
-          {/* Desktop tabs */}
-          <nav aria-label="Navegación principal">
-          <div className="desktop-tabs" style={{ display: "flex", borderTop: "1px solid var(--border)", overflowX: "auto" }}>
-            <button className={`tab-btn ${tab === "cotizar" ? "active" : ""}`} onClick={() => setTab("cotizar")}>Cotizar</button>
-            <button className={`tab-btn ${tab === "pedidos" ? "active" : ""}`} onClick={() => setTab("pedidos")}>
-              Pedidos {pedidos.filter(p => p.estado !== "Entregado").length > 0 && (
-                <span style={{ marginLeft: 6, background: "var(--accent)", color: "var(--bg)", borderRadius: 10, padding: "1px 6px", fontSize: 10, fontWeight: 800 }}>
-                  {pedidos.filter(p => p.estado !== "Entregado").length}
-                </span>
-              )}
-            </button>
-            <button className={`tab-btn ${tab === "config" ? "active" : ""}`} onClick={() => setTab("config")}>Configuración</button>
-          </div>
-          </nav>
         </div>
       </header>
 
-      {/* ── MAIN ── */}
+      {/* ── MAIN ── */}}
       <main style={{ maxWidth: 1080, margin: "0 auto", padding: "20px clamp(16px, 3vw, 40px) 80px" }} className="page-pad">
 
         {/* ══ CONFIG ══ */}
@@ -1630,12 +1628,38 @@ export default function App() {
               </button>
             </div>
 
-            {/* Config tab pills */}
-            <div className="cfg-pills-scroll" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-              {[["negocio","Mi Negocio"],["documento","Documento"],["prendas","Prendas"],["placements","Posiciones"],["tallas","Tallas"],["colores","Colores"],["sheets","Hojas DTF"],["poli","Poliamida"],["design","Diseño"],["fix","Corrección"],["vol","Volumen"]].map(([k,v]) => (
-                <button key={k} className={`cfg-pill ${cfgTab === k ? "active" : ""}`} onClick={() => setCfgTab(k)}>{v}</button>
+            {/* Config sidebar nav */}
+            <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 24, alignItems: "start" }}>
+            <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(0,0,0,0.04)", boxShadow: "0 4px 24px rgba(0,0,0,0.04)" }}>
+              {[
+                ["negocio","Mi Negocio","#007AFF","storefront"],
+                ["prendas","Prendas","#8E8E93","checkroom"],
+                ["placements","Posiciones","#8E8E93","place"],
+                ["tallas","Tallas","#8E8E93","straighten"],
+                ["colores","Colores","#8E8E93","palette"],
+                ["sheets","Hojas DTF","#FF9500","format_paint"],
+                ["poli","Poliamida","#FF9500","science"],
+                ["design","Servicios Diseño","#AF52DE","design_services"],
+                ["fix","Corrección Arte","#AF52DE","auto_fix_high"],
+                ["vol","Volumen y Márgenes","#34C759","trending_up"],
+                ["documento","Documento","#3C3C43","receipt_long"],
+              ].map(([k,label,color]) => (
+                <button key={k} onClick={() => setCfgTab(k)} style={{
+                  width: "100%", padding: "11px 16px",
+                  display: "flex", alignItems: "center", gap: 10,
+                  border: "none", borderBottom: "1px solid #E5E5EA",
+                  background: cfgTab === k ? "rgba(0,122,255,0.06)" : "transparent",
+                  borderLeft: cfgTab === k ? "3px solid #007AFF" : "3px solid transparent",
+                  cursor: "pointer", textAlign: "left", transition: "all .15s",
+                }}>
+                  <div style={{ width: 28, height: 28, borderRadius: 7, background: cfgTab === k ? "#007AFF" : color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <span style={{ fontSize: 14, color: "#fff", fontFamily: "'Material Symbols Outlined'", fontWeight: 300 }}>{k === "negocio" ? "storefront" : k === "prendas" ? "checkroom" : k === "placements" ? "place" : k === "tallas" ? "straighten" : k === "colores" ? "palette" : k === "sheets" ? "format_paint" : k === "poli" ? "science" : k === "design" ? "design_services" : k === "fix" ? "auto_fix_high" : k === "vol" ? "trending_up" : "receipt_long"}</span>
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: cfgTab === k ? 700 : 500, color: cfgTab === k ? "#007AFF" : "#1C1C1E" }}>{label}</span>
+                </button>
               ))}
             </div>
+            <div>
 
             {/* NEGOCIO */}
             {cfgTab === "negocio" && (
@@ -2166,6 +2190,8 @@ export default function App() {
                 </div>
               </div>
             )}
+            </div>
+          </div>
           </div>
         )}
 
@@ -2285,7 +2311,7 @@ export default function App() {
                             setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: newEstado, meta: { ...x.meta, status: newEstado } } : x));
                             if (supabaseReady) await updateCotizacionEstado(p.id, newEstado);
                           }}
-                            style={{ background: ec.bg, border: `1px solid ${ec.border}`, color: ec.text, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Outfit'" }}>
+                            style={{ background: ec.bg, border: `1px solid ${ec.border}`, color: ec.text, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter'" }}>
                             {ESTADOS.map(es => <option key={es}>{es}</option>)}
                           </select>
                           <button onClick={async () => { if (confirm("¿Eliminar este pedido?")) {
@@ -2299,7 +2325,7 @@ export default function App() {
                         <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 8, fontFamily: "'JetBrains Mono'", display:"flex", gap:12, flexWrap:"wrap" }}>
                           <span>{new Date(p.fecha).toLocaleDateString("es-HN", { year:"numeric", month:"short", day:"numeric" })}</span>
                           {p.telefono && <span>📱 {p.telefono}</span>}
-                          {p.notas && <span style={{ color:"var(--warn)", fontFamily:"'Outfit'", fontSize:10 }}>📝 {p.notas.slice(0,60)}{p.notas.length>60?"…":""}</span>}
+                          {p.notas && <span style={{ color:"var(--warn)", fontFamily:"'Inter'", fontSize:10 }}>📝 {p.notas.slice(0,60)}{p.notas.length>60?"…":""}</span>}
                         </div>
                         {groupedLines.map(group => (
                           <div key={group.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
@@ -2709,7 +2735,7 @@ export default function App() {
                                   <rect x={px} y={py} width={pw} height={ph} rx={4} fill={`url(#ht${ri})`} />
                                   <rect x={px} y={py} width={pw} height={ph} rx={4} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth={1} />
                                   {sl && <text x={px + pw / 2} y={py + ph / 2 - (sd ? 5 : 0)} textAnchor="middle" dominantBaseline="central"
-                                    fill="white" fontSize={Math.min(11, pw / 5)} fontWeight="700" style={{ fontFamily: "'Outfit'" }}>{p.label}</text>}
+                                    fill="white" fontSize={Math.min(11, pw / 5)} fontWeight="700" style={{ fontFamily: "'Inter'" }}>{p.label}</text>}
                                   {sl && sd && <text x={px + pw / 2} y={py + ph / 2 + 10} textAnchor="middle"
                                     fill="rgba(255,255,255,.4)" fontSize={Math.min(8, pw / 7)} style={{ fontFamily: "'JetBrains Mono'" }}>{p.w}×{p.h}{unitSystem==="cm"?"cm":"″"}</text>}
                                 </g>
@@ -2819,7 +2845,7 @@ export default function App() {
                     <div style={{ marginTop: 16, borderRadius: 14, overflow: "hidden", border: `1px solid ${calc.rm < margenMin ? "rgba(248,113,113,.4)" : "rgba(34,211,238,.25)"}` }}>
                       <div style={{ background: "linear-gradient(135deg, rgba(34,211,238,.08), rgba(34,211,238,.03))", padding: "22px 20px 16px", textAlign: "center" }}>
                         <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: ".18em", color: "var(--text3)", marginBottom: 6 }}>Cobrar al cliente</div>
-                        <div style={{ fontFamily: "'Outfit'", fontSize: 48, fontWeight: 800, color: "var(--accent)", letterSpacing: "-2px", lineHeight: 1 }}>L{calc.total.toLocaleString()}</div>
+                        <div style={{ fontFamily: "'Inter'", fontSize: 48, fontWeight: 800, color: "var(--accent)", letterSpacing: "-2px", lineHeight: 1 }}>L{calc.total.toLocaleString()}</div>
                         {mostrarUSD && tipoCambio > 0 && (
                           <div style={{ fontSize: 18, fontWeight: 600, color: "var(--text2)", marginTop: 4, fontFamily: "'JetBrains Mono'" }}>
                             ≈ ${(calc.total / tipoCambio).toFixed(2)} USD
@@ -3931,7 +3957,7 @@ function StepBadge({ n }) {
       background: "var(--accent)", color: "var(--bg)",
       width: 24, height: 24, borderRadius: "50%",
       display: "inline-flex", alignItems: "center", justifyContent: "center",
-      fontSize: 12, fontWeight: 800, flexShrink: 0, fontFamily: "'Outfit'"
+      fontSize: 12, fontWeight: 800, flexShrink: 0, fontFamily: "'Inter'"
     }}>{n}</span>
   );
 }
