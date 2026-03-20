@@ -756,7 +756,7 @@ export default function App() {
   const [newTalla, setNewTalla] = useState("");
   const [newColor, setNewColor] = useState("");
   // NEW features
-  const [darkMode, setDarkMode]       = useState(saved?.darkMode ?? false);
+  const [darkMode, setDarkMode]       = useState(false); // always light mode
   const [tipoCambio, setTipoCambio]   = useState(saved?.tipoCambio ?? 25.5);
   const [mostrarUSD, setMostrarUSD]   = useState(saved?.mostrarUSD ?? false);
   const [margenMin, setMargenMin]     = useState(saved?.margenMin ?? 30);
@@ -1212,7 +1212,7 @@ export default function App() {
 
   // ── RENDER ──
   return (
-    <div className={darkMode ? "dark-theme" : "light-theme"} style={{ background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,sans-serif", minHeight: "100dvh" }}>
+    <div className="light-theme" style={{ background: "var(--bg)", color: "var(--text)", fontFamily: "'Inter',-apple-system,BlinkMacSystemFont,sans-serif", minHeight: "100dvh" }}>
       {/* PIN Gate */}
       {!pinUnlocked && (
         <div style={{ position: "fixed", inset: 0, background: "#F5F5F7", zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 24 }}>
@@ -2187,55 +2187,86 @@ export default function App() {
                   const isEstimated = !p.total && autoCalc;
                   const enrichedLines = autoCalc ? autoCalc.lp : (p.lines || []);
                   const groupedLines = buildQuoteGroups(enrichedLines);
+                  const badgeColor = p.estado === "Pendiente" ? "#FF9500" : p.estado === "Enviada" ? "#007AFF" : p.estado === "Entregado" ? "#34C759" : "#8E8E93";
                   return (
-                    <div key={p.id} className="card" style={{ marginBottom: 10 }}>
-                      <div className="card-head" style={{ flexWrap: "wrap", gap: 8 }}>
-                        <div>
-                          <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, color: "var(--accent)", fontSize: 13 }}>#{p.num}</span>
-                          {p.fromWeb && <span style={{ marginLeft:8, fontSize:9, fontWeight:800, background:"rgba(251,191,36,.15)", border:"1px solid rgba(251,191,36,.3)", color:"var(--warn)", borderRadius:6, padding:"2px 6px", letterSpacing:".05em" }}>WEB</span>}
-                          <span style={{ marginLeft:8, fontSize:9, fontWeight:800, background:"rgba(34,211,238,.12)", border:"1px solid rgba(34,211,238,.22)", color:"var(--accent)", borderRadius:6, padding:"2px 6px", letterSpacing:".05em" }}>
-                            {DOCUMENT_TYPE_LABEL[p.docType] || "Cotización"}
-                          </span>
-                          <span style={{ marginLeft: 6, fontWeight: 700, fontSize: 14 }}>{p.cliente}</span>
+                    <div key={p.id} style={{ background: "#fff", borderRadius: 24, border: "1px solid #E5E5EA", boxShadow: "0 4px 24px rgba(0,0,0,0.04)", marginBottom: 16, overflow: "hidden", display: "flex" }}>
+                      {/* Left: main content */}
+                      <div style={{ flex: 1, padding: "28px 32px", borderRight: "1px solid #E5E5EA" }}>
+                        {/* Header row */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24 }}>
+                          <div>
+                            <span style={{ display: "inline-block", background: `${badgeColor}18`, color: badgeColor, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".06em", padding: "3px 10px", borderRadius: 6, marginBottom: 8 }}>
+                              {p.estado}
+                            </span>
+                            {p.fromWeb && <span style={{ marginLeft: 8, background: "rgba(251,191,36,.12)", color: "#FF9500", fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6, letterSpacing: ".05em" }}>WEB</span>}
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <h3 style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-.02em", color: "#1C1C1E", margin: 0 }}>
+                                #{p.num} <span style={{ fontWeight: 500, fontSize: 20, color: "#8E8E93" }}>{p.cliente}</span>
+                              </h3>
+                            </div>
+                            <p style={{ fontSize: 13, color: "#8E8E93", marginTop: 4 }}>
+                              {new Date(p.fecha).toLocaleDateString("es-HN", { year:"numeric", month:"short", day:"numeric" })}
+                              {p.telefono && ` · ${p.telefono}`}
+                            </p>
+                          </div>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button onClick={() => setSelectedPedido(p)}
+                              style={{ width: 36, height: 36, borderRadius: "50%", background: "#F2F2F7", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#007AFF", fontSize: 16 }}>
+                              ✏️
+                            </button>
+                            <button onClick={async () => { if (confirm("¿Eliminar este pedido?")) {
+                              setPedidos(prev => prev.filter(x => x.id !== p.id));
+                              if (supabaseReady) await deleteCotizacion(p.id);
+                            }}}
+                              style={{ width: 36, height: 36, borderRadius: "50%", background: "#F2F2F7", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#8E8E93", fontSize: 18 }}>
+                              ×
+                            </button>
+                          </div>
                         </div>
-                        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                          <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 800, fontSize: 14, color: isEstimated ? "var(--warn)" : "var(--accent)" }}>
-                            L{formatMoney(displayTotal)}
-                            {isEstimated && <span style={{ fontSize: 9, fontWeight: 600, marginLeft: 4, opacity: .7 }}>≈</span>}
-                          </span>
-                          <button
-                            onClick={() => setSelectedPedido(p)}
-                            style={{ background:"var(--accent-dim)", border:"1px solid rgba(34,211,238,.24)", borderRadius:8, padding:"5px 12px", fontSize:11, fontWeight:800, color:"var(--accent)", cursor:"pointer", whiteSpace:"nowrap" }}
-                          >
-                            Editar
-                          </button>
+
+                        {/* Line items */}
+                        <div style={{ marginBottom: 24 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "#8E8E93", textTransform: "uppercase", letterSpacing: ".08em", borderBottom: "1px solid #F2F2F7", paddingBottom: 8, marginBottom: 12 }}>Artículos del Pedido</div>
+                          {groupedLines.map(group => (
+                            <div key={group.id} style={{ display: "flex", alignItems: "flex-start", gap: 16, padding: "10px 12px", borderRadius: 12, marginBottom: 4 }}
+                              onMouseOver={e => e.currentTarget.style.background="#F9F9FB"}
+                              onMouseOut={e => e.currentTarget.style.background="transparent"}>
+                              <div style={{ width: 44, height: 44, background: "#fff", border: "1px solid #E5E5EA", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 16, color: "#1C1C1E", flexShrink: 0, boxShadow: "0 2px 6px rgba(0,0,0,0.04)" }}>
+                                {group.totalQty}
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontWeight: 700, fontSize: 14, color: "#1C1C1E" }}>{group.label}</div>
+                                {group.cfgLabel && <div style={{ fontSize: 12, color: "#8E8E93", marginTop: 2 }}>Estampado: {group.cfgLabel}</div>}
+                                <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+                                  {group.variants?.slice(0,3).map(v => (
+                                    <span key={v.sku} style={{ fontSize: 10, background: "#fff", border: "1px solid #E5E5EA", padding: "2px 6px", borderRadius: 4, color: "#8E8E93", fontFamily: "'JetBrains Mono'" }}>
+                                      {v.color || ""}{v.talla ? ` ${v.talla}` : ""}{v.qty > 1 ? ` ×${v.qty}` : ""}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                              <div style={{ fontWeight: 700, fontSize: 14, color: "#1C1C1E" }}>L{formatMoney(group.totalLine || 0)}</div>
+                            </div>
+                          ))}
+                          {p.notas && <div style={{ marginTop: 8, fontSize: 12, color: "#FF9500", fontStyle: "italic" }}>📝 {p.notas.slice(0,80)}{p.notas.length>80?"…":""}</div>}
+                        </div>
+
+                        {/* Approve button */}
+                        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
                           {p.estado === "Pendiente" && whatsappBiz && (
                             <button onClick={() => {
                               const groupPreview = groupedLines.map(group =>
-                                `👕 ${group.label}\n` +
-                                `🎨 ${group.cfgLabel || "Sin posiciones"}\n` +
-                                `📦 ${group.totalQty} prendas\n` +
-                                `↳ ${formatGroupSummaryText(group)}`
+                                `👕 ${group.label}\n🎨 ${group.cfgLabel || "Sin posiciones"}\n📦 ${group.totalQty} prendas\n↳ ${formatGroupSummaryText(group)}`
                               ).join("\n\n");
                               const msg = encodeURIComponent(
-                                `Hola ${p.cliente}! 👋
-
-` +
-                                `📋 *Cotización #${p.num} — ${businessName}*
-
-` +
-                                `${groupPreview ? `${groupPreview}\n\n` : ""}` +
-                                `💰 *Total: L${displayTotal ? formatMoney(displayTotal) : "_____"}*
-
-` +
-                                `_Confirmame si estás de acuerdo y coordinamos los detalles._`
+                                `Hola ${p.cliente}! 👋\n\n📋 *Cotización #${p.num} — ${businessName}*\n\n${groupPreview ? `${groupPreview}\n\n` : ""}💰 *Total: L${displayTotal ? formatMoney(displayTotal) : "_____"}*\n\n_Confirmame si estás de acuerdo y coordinamos los detalles._`
                               );
                               window.open(`https://wa.me/${p.telefono || p.lines?.[0]?.telefono}?text=${msg}`, "_blank");
                               setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: "Enviada", meta: { ...x.meta, status: "Enviada" } } : x));
                               if (supabaseReady) updateCotizacionEstado(p.id, "Enviada");
                             }}
-                              style={{ background:"rgba(37,211,102,.15)", border:"1px solid rgba(37,211,102,.35)", borderRadius:8, padding:"5px 12px", fontSize:11, fontWeight:800, color:"#25D366", cursor:"pointer", whiteSpace:"nowrap" }}>
-                              ✓ Aprobar y cotizar
+                              style={{ background: "#34C759", color: "#fff", border: "none", borderRadius: 12, padding: "12px 20px", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, flex: 1, justifyContent: "center" }}>
+                              ✓ Aprobar y Enviar WhatsApp
                             </button>
                           )}
                           <select value={p.estado} onChange={async e => {
@@ -2243,80 +2274,51 @@ export default function App() {
                             setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: newEstado, meta: { ...x.meta, status: newEstado } } : x));
                             if (supabaseReady) await updateCotizacionEstado(p.id, newEstado);
                           }}
-                            style={{ background: ec.bg, border: `1px solid ${ec.border}`, color: ec.text, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Inter'" }}>
+                            style={{ background: "#F2F2F7", border: "1px solid #E5E5EA", color: "#1C1C1E", borderRadius: 10, padding: "10px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                             {ESTADOS.map(es => <option key={es}>{es}</option>)}
                           </select>
-                          <button onClick={async () => { if (confirm("¿Eliminar este pedido?")) {
-                            setPedidos(prev => prev.filter(x => x.id !== p.id));
-                            if (supabaseReady) await deleteCotizacion(p.id);
-                          } }}
-                            className="btn-del" title="Eliminar">×</button>
                         </div>
                       </div>
-                      <div className="card-body" style={{ padding: "10px 16px" }}>
-                        <div style={{ fontSize: 11, color: "var(--text3)", marginBottom: 8, fontFamily: "'JetBrains Mono'", display:"flex", gap:12, flexWrap:"wrap" }}>
-                          <span>{new Date(p.fecha).toLocaleDateString("es-HN", { year:"numeric", month:"short", day:"numeric" })}</span>
-                          {p.telefono && <span>📱 {p.telefono}</span>}
-                          {p.notas && <span style={{ color:"var(--warn)", fontFamily:"'Inter'", fontSize:10 }}>📝 {p.notas.slice(0,60)}{p.notas.length>60?"…":""}</span>}
+
+                      {/* Right: receipt breakdown */}
+                      <div style={{ width: 280, background: "#F9F9FB", padding: "28px 24px", display: "flex", flexDirection: "column", position: "relative" }}>
+                        <div style={{ position: "absolute", top: 40, left: -12, width: 24, height: 24, borderRadius: "50%", background: "#fff", border: "1px solid #E5E5EA" }}/>
+                        <div style={{ textAlign: "center", fontWeight: 700, fontSize: 14, color: "#1C1C1E", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                          <span style={{ fontSize: 16 }}>🧾</span> Desglose Interno
                         </div>
-                        {groupedLines.map(group => (
-                          <div key={group.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--border)" }}>
-                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, gap: 12 }}>
-                              <span>
-                                <b style={{ color: "var(--accent)", fontFamily: "'JetBrains Mono'" }}>{group.totalQty}×</b>
-                                <span style={{ marginLeft: 6, fontWeight: 700 }}>{group.label}</span>
-                                {group.cfgLabel && <span style={{ color: "var(--text3)", fontSize: 11, marginLeft: 6 }}>{group.cfgLabel}</span>}
-                              </span>
-                              <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>L{group.totalLine || 0}</span>
-                            </div>
-                            <div style={{ marginTop: 6, display: "grid", gap: 4 }}>
-                              {group.variants.map(variant => (
-                                <div key={`${group.id}-${variant.sku}`} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text2)", gap: 8 }}>
-                                  <span style={{ fontFamily: "'JetBrains Mono'" }}>
-                                    {variant.sku} · {variant.color || "Sin color"}{variant.talla ? ` · ${variant.talla}` : ""}
-                                  </span>
-                                  <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }}>{variant.qty}u</span>
-                                </div>
-                              ))}
-                            </div>
+                        {isEstimated && autoCalc ? (
+                          <div style={{ flex: 1, fontSize: 12, fontFamily: "'JetBrains Mono'", color: "#8E8E93", display: "flex", flexDirection: "column", gap: 10, paddingBottom: 20, borderBottom: "2px dashed #E5E5EA", marginBottom: 20 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}><span>DTF</span><span>L{formatMoney(autoCalc.dtfCost)}</span></div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Prendas</span><span>L{formatMoney(autoCalc.lp.reduce((s,l) => s + l.prendaCost*l.qty, 0))}</span></div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Poliamida ({autoCalc.totalPoli?.toFixed(1)}g)</span><span>L{formatMoney(autoCalc.totalPoliCost)}</span></div>
+                            <div style={{ display: "flex", justifyContent: "space-between" }}><span>Energía</span><span>L{formatMoney(autoCalc.totalEnergyCost)}</span></div>
                           </div>
-                        ))}
-                        {/* ── Cost breakdown (admin only) ── */}
-                        {isEstimated && autoCalc && (
-                          <div style={{ marginTop: 10, padding: "10px 12px", background: "rgba(251,191,36,.06)", border: "1px solid rgba(251,191,36,.15)", borderRadius: 8 }}>
-                            <div style={{ fontSize: 10, fontWeight: 800, color: "var(--warn)", letterSpacing: ".05em", marginBottom: 6 }}>ESTIMADO AUTOMÁTICO</div>
-                            <div style={{ display: "grid", gap: 3, fontSize: 11, fontFamily: "'JetBrains Mono'" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text3)" }}>
-                                <span>DTF ({autoCalc.nesting?.results?.map(r => r.sheet.name).join(" + ") || "—"})</span>
-                                <span>L{formatMoney(autoCalc.dtfCost)}</span>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text3)" }}>
-                                <span>Prendas en blanco</span>
-                                <span>L{formatMoney(autoCalc.lp.reduce((s, l) => s + l.prendaCost * l.qty, 0))}</span>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text3)" }}>
-                                <span>Poliamida ({autoCalc.totalPoli?.toFixed(1)}g)</span>
-                                <span>L{formatMoney(autoCalc.totalPoliCost)}</span>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", color: "var(--text3)" }}>
-                                <span>Energía ({autoCalc.totalQty}×)</span>
-                                <span>L{formatMoney(autoCalc.totalEnergyCost)}</span>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(251,191,36,.2)", paddingTop: 4, marginTop: 2 }}>
-                                <span style={{ color: "#F87171", fontWeight: 700 }}>Mi costo</span>
-                                <span style={{ color: "#F87171", fontWeight: 700 }}>L{formatMoney(displayCost)}</span>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span style={{ color: "var(--warn)", fontWeight: 700 }}>Cobrar al cliente</span>
-                                <span style={{ color: "var(--warn)", fontWeight: 700 }}>L{formatMoney(displayTotal)}</span>
-                              </div>
-                              <div style={{ display: "flex", justifyContent: "space-between" }}>
-                                <span style={{ color: "#34D399", fontWeight: 700 }}>Ganancia</span>
-                                <span style={{ color: "#34D399", fontWeight: 700 }}>L{formatMoney(displayProfit)} ({displayTotal > 0 ? ((displayProfit / displayTotal) * 100).toFixed(0) : 0}%)</span>
-                              </div>
-                            </div>
+                        ) : (
+                          <div style={{ flex: 1, paddingBottom: 20, borderBottom: "2px dashed #E5E5EA", marginBottom: 20 }}>
+                            <div style={{ fontSize: 12, color: "#C7C7CC", textAlign: "center", padding: "20px 0" }}>Cotización manual</div>
                           </div>
                         )}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                          {isEstimated && autoCalc && (
+                            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#3C3C43", fontWeight: 500 }}>
+                              <span>Mi Costo Operativo</span>
+                              <span>L{formatMoney(displayCost)}</span>
+                            </div>
+                          )}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".08em", color: "#8E8E93" }}>Total Cliente</span>
+                            <span style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-.02em", color: "#1C1C1E" }}>
+                              L{formatMoney(displayTotal)}
+                              {isEstimated && <span style={{ fontSize: 12, color: "#FF9500", marginLeft: 4 }}>≈</span>}
+                            </span>
+                          </div>
+                          {isEstimated && autoCalc && displayTotal > 0 && (
+                            <div style={{ background: "rgba(52,199,89,0.08)", border: "1px solid rgba(52,199,89,0.2)", borderRadius: 10, padding: "10px 12px", textAlign: "center" }}>
+                              <div style={{ fontSize: 10, fontWeight: 700, color: "#34C759", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>Margen de Ganancia</div>
+                              <div style={{ fontWeight: 900, color: "#34C759", fontSize: 15 }}>L{formatMoney(displayProfit)} ({displayTotal > 0 ? ((displayProfit/displayTotal)*100).toFixed(0) : 0}%)</div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
