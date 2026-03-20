@@ -466,7 +466,7 @@ export default function ClientApp() {
                 <div style={card}>
                   <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: "#111827" }}>¿Cómo querés recibir la cotización?</div>
                   {[["whatsapp","📱","WhatsApp","Directo a tu chat"],["email","📧","Correo",email?`A ${email}`:"Ingresá tu correo"],["download","📄","Descargar","Te notificaremos"]].map(([val,ic,lb,desc])=>(
-                    <div key={val} onClick={()=>(val!=="email"||email)&&setDeliveryPref(val)} style={{ ...radio(deliveryPref===val), opacity: val==="email"&&!email?.4:1, cursor: val==="email"&&!email?"not-allowed":"pointer" }}>
+                    <div key={val} onClick={()=>(val!=="email"||email)&&setDeliveryPref(val)} style={{ ...radio(deliveryPref===val), opacity: val==="email"&&!email?0.4:1, cursor: val==="email"&&!email?"not-allowed":"pointer" }}>
                       <div style={dot(deliveryPref===val)}>{deliveryPref===val && <div style={{ width: 10, height: 10, borderRadius: 5, background: "#007AFF" }}/>}</div>
                       <div><div style={{ fontWeight: 600, fontSize: 13, color: "#111827" }}>{ic} {lb}</div><div style={{ fontSize: 11, color: "#9CA3AF", marginTop: 1 }}>{desc}</div></div>
                     </div>
