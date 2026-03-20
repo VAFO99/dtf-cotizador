@@ -1633,10 +1633,8 @@ export default function App() {
             <div style={{ background: "#fff", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(0,0,0,0.04)", boxShadow: "0 4px 24px rgba(0,0,0,0.04)" }}>
               {[
                 ["negocio","Mi Negocio","#007AFF","storefront"],
-                ["prendas","Prendas","#8E8E93","checkroom"],
+                ["catalogo","Prendas y Catálogo","#8E8E93","checkroom"],
                 ["placements","Posiciones","#8E8E93","place"],
-                ["tallas","Tallas","#8E8E93","straighten"],
-                ["colores","Colores","#8E8E93","palette"],
                 ["sheets","Hojas DTF","#FF9500","format_paint"],
                 ["poli","Poliamida","#FF9500","science"],
                 ["design","Servicios Diseño","#AF52DE","design_services"],
@@ -1653,7 +1651,7 @@ export default function App() {
                   cursor: "pointer", textAlign: "left", transition: "all .15s",
                 }}>
                   <div style={{ width: 28, height: 28, borderRadius: 7, background: cfgTab === k ? "#007AFF" : color, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                    <span style={{ fontSize: 14, color: "#fff", fontFamily: "'Material Symbols Outlined'", fontWeight: 300 }}>{k === "negocio" ? "storefront" : k === "prendas" ? "checkroom" : k === "placements" ? "place" : k === "tallas" ? "straighten" : k === "colores" ? "palette" : k === "sheets" ? "format_paint" : k === "poli" ? "science" : k === "design" ? "design_services" : k === "fix" ? "auto_fix_high" : k === "vol" ? "trending_up" : "receipt_long"}</span>
+                    <span style={{ fontSize: 14, color: "#fff", fontFamily: "'Material Symbols Outlined'", fontWeight: 300 }}>{k === "negocio" ? "storefront" : k === "catalogo" ? "checkroom" : k === "placements" ? "place" : k === "sheets" ? "format_paint" : k === "poli" ? "science" : k === "design" ? "design_services" : k === "fix" ? "auto_fix_high" : k === "vol" ? "trending_up" : "receipt_long"}</span>
                   </div>
                   <span style={{ fontSize: 13, fontWeight: cfgTab === k ? 700 : 500, color: cfgTab === k ? "#007AFF" : "#1C1C1E" }}>{label}</span>
                 </button>
@@ -1899,170 +1897,104 @@ export default function App() {
             )}
 
             {/* PRENDAS */}
-            {cfgTab === "prendas" && (
-              <div className="fade-up">
-                {prendas.map(p => (
-                  <div key={p.id} className="card" style={{ marginBottom: 10 }}>
-                    <div className="card-head">
-                      <span style={{ fontWeight: 700, fontSize: 14 }}>{p.name || "Nueva prenda"}</span>
-                      <button className="btn-del" style={{ marginLeft: "auto" }} onClick={() => del(setPrendas)(p.id)}>×</button>
-                    </div>
-                    <div className="card-body">
-                      <div className="grid2" style={{ marginBottom: 12 }}>
-                        <div>
-                          <div className="lbl">Nombre</div>
-                          <input className="inp inp-sm" value={p.name} onChange={e => upd(setPrendas)(p.id, "name", e.target.value)} />
-                        </div>
-                        <div>
-                          <div className="lbl">Costo (L)</div>
-                          <input type="number" className="inp inp-sm" value={p.cost} onChange={e => upd(setPrendas)(p.id, "cost", e.target.value)} style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700 }} />
-                        </div>
-                      </div>
-                      {/* Tallas por prenda */}
-                      <div style={{ marginBottom: 10 }}>
-                        <div className="lbl">Tallas disponibles para esta prenda</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
-                          {(p.tallas || tallasCfg).map(t => (
-                            <div key={t} style={{ display: "flex", alignItems: "center", gap: 3, background: "var(--bg)", border: "1.5px solid var(--accent)", borderRadius: 7, padding: "3px 8px" }}>
-                              <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 12, color: "var(--accent)" }}>{t}</span>
-                              <button onClick={() => setPrendas(prev => prev.map(x => x.id === p.id ? { ...x, tallas: (x.tallas || tallasCfg).filter(tl => tl !== t) } : x))}
-                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 12, lineHeight: 1, padding: "0 0 0 2px" }}>×</button>
-                            </div>
-                          ))}
-                          <select className="sel sel-sm" style={{ width: "auto", minWidth: 100 }}
-                            onChange={e => {
-                              const t = e.target.value; if (!t) return;
-                              setPrendas(prev => prev.map(x => x.id === p.id ? { ...x, tallas: [...new Set([...(x.tallas || tallasCfg), t])] } : x));
-                              e.target.value = "";
-                            }}>
-                            <option value="">+ Talla</option>
-                            {tallasCfg.filter(t => !(p.tallas || tallasCfg).includes(t)).map(t => <option key={t}>{t}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                      {/* Colores por prenda */}
-                      <div>
-                        <div className="lbl">Colores disponibles para esta prenda</div>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 6 }}>
-                          {(p.colores || coloresCfg).map(c => (
-                            <div key={c} style={{ display: "flex", alignItems: "center", gap: 3, background: "var(--bg)", border: "1.5px solid var(--border2)", borderRadius: 7, padding: "3px 10px" }}>
-                              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{c}</span>
-                              <button onClick={() => setPrendas(prev => prev.map(x => x.id === p.id ? { ...x, colores: (x.colores || coloresCfg).filter(cl => cl !== c) } : x))}
-                                style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 12, lineHeight: 1, padding: "0 0 0 2px" }}>×</button>
-                            </div>
-                          ))}
-                          <select className="sel sel-sm" style={{ width: "auto", minWidth: 120 }}
-                            onChange={e => {
-                              const c = e.target.value; if (!c) return;
-                              setPrendas(prev => prev.map(x => x.id === p.id ? { ...x, colores: [...new Set([...(x.colores || coloresCfg), c])] } : x));
-                              e.target.value = "";
-                            }}>
-                            <option value="">+ Color</option>
-                            {coloresCfg.filter(c => !(p.colores || coloresCfg).includes(c)).map(c => <option key={c}>{c}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                <button className="btn-add" onClick={add(setPrendas, { name: "Nueva prenda", cost: 0, tallas: [...tallasCfg], colores: [...coloresCfg] })}>+ Agregar prenda</button>
-              </div>
-            )}
+            {cfgTab === "catalogo" && (
+              <div className="fade-up" style={{ display: "flex", flexDirection: "column", gap: 0 }}>
 
-            {/* PLACEMENTS */}
-            {cfgTab === "placements" && (
-              <div className="card fade-up">
-                <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Posiciones de Estampado</span></div>
-                <div className="card-body">
-                  <div style={{ display: "grid", gridTemplateColumns: "32px 1fr 56px 56px 36px", gap: 6, fontSize: 10, fontWeight: 700, color: "var(--text3)", marginBottom: 8, textTransform: "uppercase", letterSpacing: ".08em" }}>
-                    <span></span><span>Nombre</span><span>W {unitSystem==="cm"?"cm":"″"}</span><span>H {unitSystem==="cm"?"cm":"″"}</span><span></span>
-                  </div>
-                  {placements.map(p => (
-                    <div key={p.id} style={{ display: "grid", gridTemplateColumns: "32px 1fr 56px 56px 36px", gap: 6, marginBottom: 6, alignItems: "center" }}>
-                      <input type="color" value={p.color} onChange={e => upd(setPlacements)(p.id, "color", e.target.value)}
-                        style={{ width: 30, height: 30, border: "2px solid var(--border2)", background: "none", cursor: "pointer", padding: 0, borderRadius: 7 }} />
-                      <input className="inp inp-sm" value={p.label} onChange={e => upd(setPlacements)(p.id, "label", e.target.value)} />
-                      <input type="number" className="inp inp-sm" value={p.w} onChange={e => upd(setPlacements)(p.id, "w", e.target.value)} step={0.5} style={{ textAlign: "center", fontFamily: "'JetBrains Mono'" }} />
-                      <input type="number" className="inp inp-sm" value={p.h} onChange={e => upd(setPlacements)(p.id, "h", e.target.value)} step={0.5} style={{ textAlign: "center", fontFamily: "'JetBrains Mono'" }} />
-                      <button className="btn-del" onClick={() => del(setPlacements)(p.id)}>×</button>
-                    </div>
-                  ))}
-                  <button className="btn-add" style={{ marginTop: 4 }} onClick={add(setPlacements, { label: "Nuevo", w: 5, h: 5, color: "#0071E3" })}>+ Agregar posición</button>
-                </div>
-              </div>
-            )}
-
-            {/* TALLAS */}
-            {cfgTab === "tallas" && (
-              <div className="card fade-up">
-                <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Tallas disponibles</span></div>
-                <div className="card-body">
-                  <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 12 }}>
-                    Define las tallas que aparecen al cotizar. Arrastrá para reordenar o eliminá las que no usás.
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-                    {tallasCfg.map((t, i) => (
-                      <div key={t} style={{ display: "flex", alignItems: "center", gap: 4, background: "var(--bg)", border: "1.5px solid var(--border2)", borderRadius: 8, padding: "6px 10px" }}>
-                        <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 13, color: "var(--accent)" }}>{t}</span>
-                        <button onClick={() => setTallasCfg(p => p.filter((_, j) => j !== i))}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 14, padding: "0 0 0 4px", lineHeight: 1 }}>×</button>
+                {/* PRENDAS */}
+                <div className="card">
+                  <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Catálogo de Prendas</span></div>
+                  <div className="card-body">
+                    {prendas.map((p, i) => (
+                      <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 32px", gap: 6, marginBottom: 8, alignItems: "center" }}>
+                        <input className="inp inp-sm" value={p.name} placeholder="Nombre prenda"
+                          onChange={e => setPrendas(pr => pr.map((x,j) => j===i ? {...x, name:e.target.value} : x))} />
+                        <input className="inp inp-sm" type="number" value={p.cost ?? 0} placeholder="Costo L"
+                          onChange={e => setPrendas(pr => pr.map((x,j) => j===i ? {...x, cost:Number(e.target.value)} : x))}
+                          style={{ textAlign: "center" }} />
+                        <input className="inp inp-sm" type="number" value={p.costCliente ?? 0} placeholder="C. cliente"
+                          onChange={e => setPrendas(pr => pr.map((x,j) => j===i ? {...x, costCliente:Number(e.target.value)} : x))}
+                          style={{ textAlign: "center" }} />
+                        <button onClick={() => setPrendas(p => p.filter((_,j) => j!==i))}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 18, lineHeight: 1 }}>×</button>
                       </div>
                     ))}
-                  </div>
-                  <div className="row" style={{ gap: 8 }}>
-                    <input className="inp inp-sm" placeholder="Nueva talla (ej. 4T, 6T, One Size…)" value={newTalla}
-                      onChange={e => setNewTalla(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter" && newTalla.trim() && !tallasCfg.includes(newTalla.trim())) { setTallasCfg(p => [...p, newTalla.trim()]); setNewTalla(""); }}}
-                      style={{ flex: 1 }} />
-                    <button onClick={() => { if (newTalla.trim() && !tallasCfg.includes(newTalla.trim())) { setTallasCfg(p => [...p, newTalla.trim()]); setNewTalla(""); }}}
-                      style={{ background: "var(--accent)", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 700, color: "var(--bg)", cursor: "pointer", minHeight: 38 }}>
-                      + Agregar
-                    </button>
-                  </div>
-                  <div style={{ marginTop: 12 }}>
-                    <button onClick={() => setTallasCfg(["XS","S","M","L","XL","XXL","XXXL"])}
-                      style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 14px", fontSize: 11, color: "var(--text3)", cursor: "pointer" }}>
-                      ↺ Restaurar defaults
-                    </button>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 32px", gap: 6, fontSize: 10, fontWeight: 700, color: "var(--text3)", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 4 }}>
+                      <span>Nombre</span><span style={{textAlign:"center"}}>Costo (Yo)</span><span style={{textAlign:"center"}}>Costo Cliente</span><span/>
+                    </div>
+                    <button className="btn-add" onClick={add(setPrendas, { id: Date.now(), name: "", cost: 0, costCliente: 0, colors: [], tallas: [] })}>+ Agregar prenda</button>
                   </div>
                 </div>
-              </div>
-            )}
 
-            {/* COLORES */}
-            {cfgTab === "colores" && (
-              <div className="card fade-up">
-                <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Colores de prenda frecuentes</span></div>
-                <div className="card-body">
-                  <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 12 }}>
-                    Estos colores aparecen como sugerencias al cotizar. El campo de color también acepta cualquier texto libre.
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-                    {coloresCfg.map((c, i) => (
-                      <div key={c} style={{ display: "flex", alignItems: "center", gap: 4, background: "var(--bg)", border: "1.5px solid var(--border2)", borderRadius: 8, padding: "6px 12px" }}>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{c}</span>
-                        <button onClick={() => setColoresCfg(p => p.filter((_, j) => j !== i))}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 14, padding: "0 0 0 4px", lineHeight: 1 }}>×</button>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="row" style={{ gap: 8 }}>
-                    <input className="inp inp-sm" placeholder="Nuevo color (ej. Verde militar, Tie dye…)" value={newColor}
-                      onChange={e => setNewColor(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter" && newColor.trim() && !coloresCfg.includes(newColor.trim())) { setColoresCfg(p => [...p, newColor.trim()]); setNewColor(""); }}}
-                      style={{ flex: 1 }} />
-                    <button onClick={() => { if (newColor.trim() && !coloresCfg.includes(newColor.trim())) { setColoresCfg(p => [...p, newColor.trim()]); setNewColor(""); }}}
-                      style={{ background: "var(--accent)", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 700, color: "var(--bg)", cursor: "pointer", minHeight: 38 }}>
-                      + Agregar
-                    </button>
-                  </div>
-                  <div style={{ marginTop: 12 }}>
-                    <button onClick={() => setColoresCfg(["Blanco","Negro","Gris","Rojo","Azul marino","Azul cielo","Verde","Amarillo","Naranja","Rosado","Morado","Café"])}
-                      style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 14px", fontSize: 11, color: "var(--text3)", cursor: "pointer" }}>
-                      ↺ Restaurar defaults
-                    </button>
+                {/* TALLAS */}
+                <div className="card">
+                  <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Tallas disponibles</span></div>
+                  <div className="card-body">
+                    <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 12 }}>
+                      Define las tallas que aparecen al cotizar.
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                      {tallasCfg.map((t, i) => (
+                        <div key={t} style={{ display: "flex", alignItems: "center", gap: 4, background: "var(--bg)", border: "1.5px solid var(--border2)", borderRadius: 8, padding: "6px 10px" }}>
+                          <span style={{ fontFamily: "'JetBrains Mono'", fontWeight: 700, fontSize: 13, color: "var(--accent)" }}>{t}</span>
+                          <button onClick={() => setTallasCfg(p => p.filter((_, j) => j !== i))}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 14, padding: "0 0 0 4px", lineHeight: 1 }}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="row" style={{ gap: 8 }}>
+                      <input className="inp inp-sm" placeholder="Nueva talla (ej. 4T, One Size…)" value={newTalla}
+                        onChange={e => setNewTalla(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter" && newTalla.trim() && !tallasCfg.includes(newTalla.trim())) { setTallasCfg(p => [...p, newTalla.trim()]); setNewTalla(""); }}}
+                        style={{ flex: 1 }} />
+                      <button onClick={() => { if (newTalla.trim() && !tallasCfg.includes(newTalla.trim())) { setTallasCfg(p => [...p, newTalla.trim()]); setNewTalla(""); }}}
+                        style={{ background: "var(--accent)", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 700, color: "var(--bg)", cursor: "pointer", minHeight: 38 }}>
+                        + Agregar
+                      </button>
+                    </div>
+                    <div style={{ marginTop: 12 }}>
+                      <button onClick={() => setTallasCfg(["XS","S","M","L","XL","XXL","XXXL"])}
+                        style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 14px", fontSize: 11, color: "var(--text3)", cursor: "pointer" }}>
+                        ↺ Restaurar defaults
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+                {/* COLORES */}
+                <div className="card">
+                  <div className="card-head"><span style={{ fontWeight: 700, fontSize: 14 }}>Colores de prenda frecuentes</span></div>
+                  <div className="card-body">
+                    <div style={{ fontSize: 12, color: "var(--text3)", marginBottom: 12 }}>
+                      Estos colores aparecen como sugerencias al cotizar.
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
+                      {coloresCfg.map((c, i) => (
+                        <div key={c} style={{ display: "flex", alignItems: "center", gap: 4, background: "var(--bg)", border: "1.5px solid var(--border2)", borderRadius: 8, padding: "6px 12px" }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>{c}</span>
+                          <button onClick={() => setColoresCfg(p => p.filter((_, j) => j !== i))}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text3)", fontSize: 14, padding: "0 0 0 4px", lineHeight: 1 }}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="row" style={{ gap: 8 }}>
+                      <input className="inp inp-sm" placeholder="Nuevo color (ej. Verde militar…)" value={newColor}
+                        onChange={e => setNewColor(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter" && newColor.trim() && !coloresCfg.includes(newColor.trim())) { setColoresCfg(p => [...p, newColor.trim()]); setNewColor(""); }}}
+                        style={{ flex: 1 }} />
+                      <button onClick={() => { if (newColor.trim() && !coloresCfg.includes(newColor.trim())) { setColoresCfg(p => [...p, newColor.trim()]); setNewColor(""); }}}
+                        style={{ background: "var(--accent)", border: "none", borderRadius: 8, padding: "8px 16px", fontSize: 12, fontWeight: 700, color: "var(--bg)", cursor: "pointer", minHeight: 38 }}>
+                        + Agregar
+                      </button>
+                    </div>
+                    <div style={{ marginTop: 12 }}>
+                      <button onClick={() => setColoresCfg(["Blanco","Negro","Gris","Rojo","Azul marino","Azul cielo","Verde","Amarillo","Naranja","Rosado","Morado","Café"])}
+                        style={{ background: "transparent", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 14px", fontSize: 11, color: "var(--text3)", cursor: "pointer" }}>
+                        ↺ Restaurar defaults
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             )}
 
