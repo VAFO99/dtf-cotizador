@@ -30,6 +30,8 @@ export const DOCUMENT_STATUS_COLORS = {
   Cancelada: { bg: "rgba(248,113,113,.1)", border: "rgba(248,113,113,.3)", text: "#F87171" },
 };
 
+const SEND_BLOCKED_STATUSES = new Set(["Enviada", "Cancelada"]);
+
 const LEGACY_STATUS_MAP = {
   Cotizado: "Enviada",
   Aceptado: "Aprobada",
@@ -65,12 +67,40 @@ export function normalizeDocumentStatus(status) {
   return DOCUMENT_STATUSES.includes(mapped) ? mapped : "Borrador";
 }
 
+export function normalizeSendApprovedAt(value) {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  return normalized || null;
+}
+
 export function inferDocumentType(docType, status) {
   if (DOCUMENT_TYPE_SET.has(docType)) return docType;
   const normalized = normalizeDocumentStatus(status);
   return ["Facturada", "En proceso", "Listo", "Entregado"].includes(normalized)
     ? "factura"
     : "cotizacion";
+}
+
+export function isSendApproved(meta) {
+  return Boolean(normalizeSendApprovedAt(meta?.sendApprovedAt));
+}
+
+export function canSendQuote({ docType, status, meta, telefono }) {
+  const normalizedStatus = normalizeDocumentStatus(status);
+  const normalizedType = inferDocumentType(docType, normalizedStatus);
+  const normalizedPhone = String(telefono ?? "").trim();
+
+  if (normalizedType !== "cotizacion") return false;
+  if (SEND_BLOCKED_STATUSES.has(normalizedStatus)) return false;
+  if (!isSendApproved(meta)) return false;
+  return normalizedPhone.length > 0;
+}
+
+export function getAllowedManualStatuses(status, meta) {
+  const currentStatus = normalizeDocumentStatus(status);
+  return DOCUMENT_STATUSES.filter(candidate => {
+    if (candidate !== "Enviada") return true;
+    return currentStatus === "Enviada" || isSendApproved(meta);
+  });
 }
 
 export function createEmptyCharge(label = "Cargo adicional") {

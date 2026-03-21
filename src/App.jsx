@@ -11,22 +11,26 @@ import { solvePackingRequest } from "./packing/client.mjs";
 import { solvePackingPreview } from "./packing/maxrects.mjs";
 import PhoneInput from "./PhoneInput.jsx";
 import {
+  canSendQuote,
   calculateDocumentAdjustments,
   createDocumentPayload,
   createEmptyCharge,
   DOCUMENT_TYPE_LABEL,
   extractDocumentItems,
   formatMoney,
+  getAllowedManualStatuses,
   getDocumentNextStatuses,
   inferDocumentType,
+  isSendApproved,
   normalizeDocumentAdjustments,
+  normalizeSendApprovedAt,
   normalizeDocumentStatus,
   readDocumentPayload,
   roundCurrency,
 } from "./documents.js";
 import {
   loadConfigRemote, saveConfigRemote,
-  loadCotizaciones, createCotizacion, updateCotizacion, updateCotizacionEstado, deleteCotizacion,
+  loadCotizaciones, createCotizacion, updateCotizacion, deleteCotizacion,
   getNextNumero, checkConnection,
 } from "./supabase.js";
 
@@ -76,6 +80,7 @@ function saveConfig(cfg) {
 }
 
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const normalizePhone = (value) => String(value ?? "").trim();
 
 const INIT_PRENDAS = [
   { id: uid(), name: "Camisa",  cost: 60,  tallas: ["XS","S","M","L","XL","XXL","XXXL"], colores: ["Blanco","Negro","Gris","Azul marino"] },
@@ -575,6 +580,7 @@ function defaultDocumentMeta(status = "Borrador", docType = "cotizacion") {
     fixId: "f0",
     adjustments: normalizeDocumentAdjustments(),
     internalNotes: "",
+    sendApprovedAt: null,
     sourceQuoteId: null,
     convertedAt: null,
     createdFrom: "admin",
@@ -668,6 +674,7 @@ function normalizeDocumentMeta(meta, row) {
     ...(meta || {}),
     status,
     docType,
+    sendApprovedAt: normalizeSendApprovedAt(meta?.sendApprovedAt),
     adjustments: normalizeDocumentAdjustments(meta?.adjustments),
   };
 }
@@ -994,6 +1001,7 @@ export default function App() {
     if (!calc) return false;
     const exists = loadPedidos().some(p => p.num === invoiceNum);
     if (exists) return "duplicate";
+    const normalizedTelefono = normalizePhone(telefono);
 
     const meta = {
       ...defaultDocumentMeta("Borrador", docTypeOverride),
@@ -1012,7 +1020,7 @@ export default function App() {
       const row = await createCotizacion({
         numero: invoiceNum,
         cliente: clientName || "Sin nombre",
-        email, telefono, notas,
+        email, telefono: normalizedTelefono, notas,
         total: calc.total,
         estado,
         lines: payload,
@@ -1023,7 +1031,7 @@ export default function App() {
     const nuevo = hydratePedidoRecord({
       id, num: invoiceNum,
       cliente: clientName || "Sin nombre",
-      email, telefono, notas,
+      email, telefono: normalizedTelefono, notas,
       fecha: new Date().toISOString(),
       total: calc.total,
       estado,
@@ -1035,6 +1043,7 @@ export default function App() {
 
   const savePedidoEdits = useCallback(async (pedidoBase, calc, overrides) => {
     if (!calc) return false;
+    const normalizedTelefono = normalizePhone(overrides.telefono);
 
     const meta = {
       ...defaultDocumentMeta(overrides.status, overrides.docType),
@@ -1046,6 +1055,9 @@ export default function App() {
       fixId: overrides.fixId,
       adjustments: normalizeDocumentAdjustments(overrides.adjustments),
       internalNotes: overrides.internalNotes || "",
+      sendApprovedAt: overrides.sendApprovedAt !== undefined
+        ? normalizeSendApprovedAt(overrides.sendApprovedAt)
+        : normalizeSendApprovedAt(pedidoBase?.meta?.sendApprovedAt),
       sourceQuoteId: overrides.sourceQuoteId || pedidoBase?.meta?.sourceQuoteId || null,
       convertedAt: overrides.convertedAt || pedidoBase?.meta?.convertedAt || null,
       createdFrom: pedidoBase?.meta?.createdFrom || (pedidoBase?.fromWeb ? "web" : "admin"),
@@ -1056,7 +1068,7 @@ export default function App() {
       numero: overrides.num,
       cliente: overrides.cliente,
       email: overrides.email,
-      telefono: overrides.telefono,
+      telefono: normalizedTelefono,
       created_at: pedidoBase.fecha,
       total: calc.total,
       estado: overrides.status,
@@ -1072,7 +1084,7 @@ export default function App() {
         numero: overrides.num,
         cliente: overrides.cliente,
         email: overrides.email,
-        telefono: overrides.telefono,
+        telefono: normalizedTelefono,
         total: calc.total,
         estado: overrides.status,
         notas: overrides.notas,
@@ -1081,6 +1093,47 @@ export default function App() {
     }
 
     return true;
+  }, [placements, prendas, supabaseReady, tallasCfg]);
+
+  const persistPedidoRecord = useCallback(async (pedidoBase, updates = {}) => {
+    const nextStatus = normalizeDocumentStatus(updates.status || pedidoBase.estado);
+    const nextMeta = normalizeDocumentMeta({
+      ...(pedidoBase.meta || {}),
+      ...(updates.meta || {}),
+      status: nextStatus,
+    }, { estado: nextStatus });
+    const payload = createDocumentPayload(pedidoBase.lines || [], nextMeta);
+    const normalizedTelefono = normalizePhone(updates.telefono ?? pedidoBase.telefono);
+    const normalizedRecord = hydratePedidoRecord({
+      id: pedidoBase.id,
+      numero: updates.num || pedidoBase.num,
+      cliente: updates.cliente ?? pedidoBase.cliente,
+      email: updates.email ?? pedidoBase.email,
+      telefono: normalizedTelefono,
+      created_at: pedidoBase.fecha,
+      total: updates.total ?? pedidoBase.total,
+      estado: nextStatus,
+      notas: updates.notas ?? pedidoBase.notas,
+      lines: payload,
+    }, { prendas, placements, tallasCfg });
+
+    setPedidos(prev => prev.map(item => item.id === normalizedRecord.id ? normalizedRecord : item));
+    setSelectedPedido(prev => prev?.id === normalizedRecord.id ? normalizedRecord : prev);
+
+    if (supabaseReady) {
+      await updateCotizacion(pedidoBase.id, {
+        numero: normalizedRecord.num,
+        cliente: normalizedRecord.cliente,
+        email: normalizedRecord.email,
+        telefono: normalizedRecord.telefono,
+        total: normalizedRecord.total,
+        estado: normalizedRecord.estado,
+        notas: normalizedRecord.notas,
+        lines: payload,
+      });
+    }
+
+    return normalizedRecord;
   }, [placements, prendas, supabaseReady, tallasCfg]);
 
   const poliRate = poliBolsa / poliGramos;
@@ -1599,7 +1652,7 @@ export default function App() {
         </div>
       </header>
 
-      {/* ── MAIN ── */}}
+      {/* ── MAIN ── */}
       <main style={{ maxWidth: 1080, margin: "0 auto", padding: "20px clamp(16px, 3vw, 40px) 80px" }} className="page-pad">
 
         {/* ══ CONFIG ══ */}
@@ -2304,6 +2357,9 @@ export default function App() {
                   const enrichedLines = autoCalc ? autoCalc.lp : (p.lines || []);
                   const groupedLines = buildQuoteGroups(enrichedLines);
                   const badgeColor = p.estado === "Pendiente" ? "#FF9500" : p.estado === "Enviada" ? "#007AFF" : p.estado === "Entregado" ? "#34C759" : "#8E8E93";
+                  const sendApproved = isSendApproved(p.meta);
+                  const canSend = canSendQuote({ docType: p.docType, status: p.estado, meta: p.meta, telefono: p.telefono });
+                  const allowedStatuses = getAllowedManualStatuses(p.estado, p.meta);
                   return (
                     <div key={p.id} style={{ background: "#fff", borderRadius: 24, border: "1px solid #E5E5EA", boxShadow: "0 4px 24px rgba(0,0,0,0.04)", marginBottom: 16, overflow: "hidden", display: "flex" }}>
                       {/* Left: main content */}
@@ -2369,29 +2425,56 @@ export default function App() {
 
                         {/* Approve button */}
                         <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                          {p.estado === "Pendiente" && whatsappBiz && (
-                            <button onClick={() => {
-                              const groupPreview = groupedLines.map(group =>
-                                `👕 ${group.label}\n🎨 ${group.cfgLabel || "Sin posiciones"}\n📦 ${group.totalQty} prendas\n↳ ${formatGroupSummaryText(group)}`
-                              ).join("\n\n");
-                              const msg = encodeURIComponent(
-                                `Hola ${p.cliente}! 👋\n\n📋 *Cotización #${p.num} — ${businessName}*\n\n${groupPreview ? `${groupPreview}\n\n` : ""}💰 *Total: L${displayTotal ? formatMoney(displayTotal) : "_____"}*\n\n_Confirmame si estás de acuerdo y coordinamos los detalles._`
-                              );
-                              window.open(`https://wa.me/${p.telefono || p.lines?.[0]?.telefono}?text=${msg}`, "_blank");
-                              setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: "Enviada", meta: { ...x.meta, status: "Enviada" } } : x));
-                              if (supabaseReady) updateCotizacionEstado(p.id, "Enviada");
-                            }}
-                              style={{ background: "#34C759", color: "#fff", border: "none", borderRadius: 12, padding: "12px 20px", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, flex: 1, justifyContent: "center" }}>
-                              ✓ Aprobar y Enviar WhatsApp
+                          {p.docType === "cotizacion" && !sendApproved && (
+                            <button
+                              onClick={() => persistPedidoRecord(p, {
+                                meta: { ...p.meta, sendApprovedAt: new Date().toISOString() },
+                              })}
+                              style={{ background: "#34C759", color: "#fff", border: "none", borderRadius: 12, padding: "12px 20px", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, justifyContent: "center" }}
+                            >
+                              ✓ Aprobar cotización
                             </button>
+                          )}
+                          {p.docType === "cotizacion" && sendApproved && whatsappBiz && (
+                            <button
+                              disabled={!canSend}
+                              onClick={async () => {
+                                if (!canSend) {
+                                  alert("Agrega teléfono para enviar por WhatsApp.");
+                                  return;
+                                }
+                                const groupPreview = groupedLines.map(group =>
+                                  `👕 ${group.label}\n🎨 ${group.cfgLabel || "Sin posiciones"}\n📦 ${group.totalQty} prendas\n↳ ${formatGroupSummaryText(group)}`
+                                ).join("\n\n");
+                                const msg = encodeURIComponent(
+                                  `Hola ${p.cliente}! 👋\n\n📋 *Cotización #${p.num} — ${businessName}*\n\n${groupPreview ? `${groupPreview}\n\n` : ""}💰 *Total: L${displayTotal ? formatMoney(displayTotal) : "_____"}*\n\n_Confirmame si estás de acuerdo y coordinamos los detalles._`
+                                );
+                                window.open(`https://wa.me/${p.telefono}?text=${msg}`, "_blank");
+                                await persistPedidoRecord(p, {
+                                  status: "Enviada",
+                                  meta: { ...p.meta, sendApprovedAt: p.meta?.sendApprovedAt },
+                                });
+                              }}
+                              style={{ background: canSend ? "#007AFF" : "#D1D5DB", color: "#fff", border: "none", borderRadius: 12, padding: "12px 20px", fontWeight: 700, fontSize: 13, cursor: canSend ? "pointer" : "not-allowed", display: "flex", alignItems: "center", gap: 6, justifyContent: "center", opacity: canSend ? 1 : 0.75 }}
+                            >
+                              Enviar por WhatsApp
+                            </button>
+                          )}
+                          {p.docType === "cotizacion" && sendApproved && !p.telefono && (
+                            <span style={{ fontSize: 12, color: "#FF9500", fontWeight: 600 }}>
+                              Agrega teléfono para enviar por WhatsApp
+                            </span>
                           )}
                           <select value={p.estado} onChange={async e => {
                             const newEstado = e.target.value;
-                            setPedidos(prev => prev.map(x => x.id === p.id ? { ...x, estado: newEstado, meta: { ...x.meta, status: newEstado } } : x));
-                            if (supabaseReady) await updateCotizacionEstado(p.id, newEstado);
+                            if (newEstado === "Enviada" && !isSendApproved(p.meta)) {
+                              alert("Aprueba la cotización antes de marcarla como enviada.");
+                              return;
+                            }
+                            await persistPedidoRecord(p, { status: newEstado });
                           }}
                             style={{ background: "#F2F2F7", border: "1px solid #E5E5EA", color: "#1C1C1E", borderRadius: 10, padding: "10px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                            {ESTADOS.map(es => <option key={es}>{es}</option>)}
+                            {allowedStatuses.map(es => <option key={es}>{es}</option>)}
                           </select>
                         </div>
                       </div>
@@ -3023,6 +3106,7 @@ function DocumentEditorModal({
   const [designId, setDesignId] = useState(pedido.meta?.designId || "d0");
   const [fixId, setFixId] = useState(pedido.meta?.fixId || "f0");
   const [adjustments, setAdjustments] = useState(() => normalizeDocumentAdjustments(pedido.meta?.adjustments));
+  const [sendApprovedAt, setSendApprovedAt] = useState(() => normalizeSendApprovedAt(pedido.meta?.sendApprovedAt));
   const [editorLines, setEditorLines] = useState(() => pedido.editorLines.map(line => ({ ...line, customs: [...line.customs], tallas: [...line.tallas] })));
   const [saving, setSaving] = useState(false);
   const editorPackingCacheRef = useRef(new Map());
@@ -3046,6 +3130,7 @@ function DocumentEditorModal({
     setDesignId(pedido.meta?.designId || "d0");
     setFixId(pedido.meta?.fixId || "f0");
     setAdjustments(normalizeDocumentAdjustments(pedido.meta?.adjustments));
+    setSendApprovedAt(normalizeSendApprovedAt(pedido.meta?.sendApprovedAt));
     setEditorLines(pedido.editorLines.map(line => ({
       ...line,
       customs: (line.customs || []).map(custom => ({ ...custom })),
@@ -3219,8 +3304,20 @@ function DocumentEditorModal({
     () => formatPackingMode(editorActiveSolution, editorPackingState.loading),
     [editorActiveSolution, editorPackingState.loading]
   );
-  const nextStatuses = getDocumentNextStatuses(status);
+  const approvalMeta = useMemo(() => ({
+    ...(pedido.meta || {}),
+    sendApprovedAt,
+  }), [pedido.meta, sendApprovedAt]);
+  const allowedStatuses = useMemo(
+    () => getAllowedManualStatuses(status, approvalMeta),
+    [approvalMeta, status]
+  );
+  const nextStatuses = useMemo(
+    () => getDocumentNextStatuses(status).filter(nextStatus => allowedStatuses.includes(nextStatus)),
+    [allowedStatuses, status]
+  );
   const canConvert = docType === "cotizacion" && status === "Aprobada";
+  const sendApproved = isSendApproved(approvalMeta);
 
   const persist = useCallback(async (nextValues = {}) => {
     if (!calc) return;
@@ -3240,13 +3337,15 @@ function DocumentEditorModal({
       designId,
       fixId,
       adjustments,
+      sendApprovedAt: nextValues.sendApprovedAt !== undefined ? nextValues.sendApprovedAt : sendApprovedAt,
       sourceQuoteId: nextValues.sourceQuoteId || pedido.meta?.sourceQuoteId || null,
       convertedAt: nextValues.convertedAt || pedido.meta?.convertedAt || null,
     });
     setStatus(finalStatus);
     setDocType(finalDocType);
+    setSendApprovedAt(nextValues.sendApprovedAt !== undefined ? normalizeSendApprovedAt(nextValues.sendApprovedAt) : sendApprovedAt);
     setSaving(false);
-  }, [adjustments, calc, cliente, designId, designTypes, designWho, docType, email, fixId, internalNotes, notas, num, onSave, pedido, status, telefono]);
+  }, [adjustments, calc, cliente, designId, designWho, docType, email, fixId, internalNotes, notas, num, onSave, pedido, sendApprovedAt, status, telefono]);
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 240, background: "rgba(8,10,16,.82)", backdropFilter: "blur(14px)", overflowY: "auto", padding: "20px 14px 40px" }}>
@@ -3314,7 +3413,7 @@ function DocumentEditorModal({
                   <div>
                     <div className="lbl">Estado</div>
                     <select className="sel sel-sm" value={status} onChange={e => setStatus(e.target.value)}>
-                      {ESTADOS.map(option => <option key={option} value={option}>{option}</option>)}
+                      {allowedStatuses.map(option => <option key={option} value={option}>{option}</option>)}
                     </select>
                   </div>
                   <div>
@@ -3332,6 +3431,25 @@ function DocumentEditorModal({
                       ))}
                     </div>
                   </div>
+                </div>
+                <div style={{ background: "var(--bg)", borderRadius: 12, padding: "12px 14px", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                  <div>
+                    <div className="lbl">Aprobación para envío</div>
+                    <div style={{ fontSize: 12, color: "var(--text2)", lineHeight: 1.5 }}>
+                      {sendApproved
+                        ? `Aprobada para enviar${sendApprovedAt ? ` el ${new Date(sendApprovedAt).toLocaleString("es-HN")}` : ""}.`
+                        : "Pendiente de aprobación interna antes de enviar al cliente."}
+                    </div>
+                  </div>
+                  {docType === "cotizacion" && !sendApproved && (
+                    <button
+                      disabled={saving || !calc}
+                      onClick={() => persist({ sendApprovedAt: new Date().toISOString() })}
+                      style={{ background: "#34C759", border: "none", borderRadius: 10, padding: "10px 14px", color: "#fff", cursor: "pointer", fontWeight: 800 }}
+                    >
+                      Aprobar cotización
+                    </button>
+                  )}
                 </div>
                 <div style={{ background: "var(--bg)", borderRadius: 12, padding: "12px 14px", border: "1px solid var(--border)" }}>
                   <div className="lbl">Lógica comercial</div>
@@ -3356,7 +3474,7 @@ function DocumentEditorModal({
                   </div>
                   <div>
                     <div className="lbl">Teléfono</div>
-                    <input className="inp inp-sm" value={telefono} onChange={e => setTelefono(e.target.value)} />
+                    <PhoneInput value={telefono} onChange={setTelefono} placeholder="tu número" />
                   </div>
                 </div>
                 <div>
@@ -3875,7 +3993,7 @@ ${businessName}`
           </div>
           <div>
             <div className="lbl">Teléfono</div>
-            <input className="inp inp-sm" type="tel" placeholder="+504 9999-9999" value={clientPhone} onChange={e => setClientPhone(e.target.value)} />
+            <PhoneInput value={clientPhone} onChange={setClientPhone} placeholder="tu número" />
           </div>
           <div>
             <div className="lbl">Nº de {docLabel.toLowerCase()}</div>
