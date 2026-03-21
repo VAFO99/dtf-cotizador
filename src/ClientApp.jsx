@@ -256,6 +256,7 @@ export default function ClientApp() {
   const prendas = cfg?.prendas ?? [];
   const businessName = cfg?.businessName ?? "DTF";
   const whatsappBiz = cfg?.whatsappBiz ?? "";
+  const placements = cfg?.placements ?? PLACEMENTS_INFO;
   const validezDias = cfg?.validezDias ?? 15;
   const prenda = prendas.find(p => p.id === prendaId);
   const availableTallas = prenda?.tallas ?? TALLAS_DEFAULT;
