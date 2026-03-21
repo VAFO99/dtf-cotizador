@@ -172,14 +172,15 @@ function InfoPage({ businessName, onCotizar, placements, unitSystem }) {
           .info-hero-sec  { padding: 80px 16px 48px !important; min-height: auto !important; }
           .info-h2        { font-size: clamp(22px,6vw,36px) !important; }
           .info-spec-card { padding: 24px !important; border-radius: 20px !important; }
-          .info-nav-full  { display: none !important; }
-          .info-nav-cta   { display: flex !important; }
           .info-float     { animation: none !important; }
           .info-step-grid { grid-template-columns: 1fr 1fr !important; gap: 24px !important; }
           .info-footer-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
           .info-img-grid  { grid-template-columns: 1fr !important; gap: 12px !important; }
           .info-img-grid img:last-child { margin-top: 0 !important; }
           .info-placement-grid { grid-template-columns: 1fr !important; }
+          /* Nav: hide full menu, show CTA button */
+          .dtf-nav-desktop { display: none !important; }
+          .dtf-nav-mobile  { display: block !important; }
         }
       `}</style>
 
@@ -564,29 +565,48 @@ export default function ClientApp() {
   };
 
   const headerNav = (
-    <header style={{ background: "rgba(255,255,255,.9)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: "1px solid #e2e8f0", position: "sticky", top: 0, zIndex: 50 }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 clamp(16px,3vw,32px)", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+    <header style={{ background: "rgba(255,255,255,.92)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", borderBottom: "1px solid #e2e8f0", position: "sticky", top: 0, zIndex: 50 }}>
+      <style>{`
+        .dtf-nav-desktop { display: flex; }
+        .dtf-nav-mobile  { display: none; }
+        @media(max-width: 600px) {
+          .dtf-nav-desktop { display: none !important; }
+          .dtf-nav-mobile  { display: block !important; }
+        }
+      `}</style>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 clamp(16px,3vw,32px)", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }} onClick={() => handleNavClick("inicio")}>
           <div style={{ background: "#007AFF", padding: 6, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Shirt color="#fff" size={18} strokeWidth={2.5} />
           </div>
           <div>
-            <div style={{ fontWeight: 900, fontSize: 18, letterSpacing: "-0.02em", color: "#1d1d1f", fontFamily: "'Inter','Outfit',sans-serif", lineHeight: 1.1 }}>{businessName === "DTF" ? "Kromavida" : businessName}</div>
-            <div style={{ fontSize: 10, color: "#86868B", letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 600 }}>{cfg?.seoSlogan || "Estampado DTF"}</div>
+            <div style={{ fontWeight: 900, fontSize: 17, letterSpacing: "-0.02em", color: "#1d1d1f", fontFamily: "'Inter','Outfit',sans-serif", lineHeight: 1.1 }}>{businessName === "DTF" ? "Kromavida" : businessName}</div>
+            <div style={{ fontSize: 9, color: "#86868B", letterSpacing: ".08em", textTransform: "uppercase", fontWeight: 600 }}>{cfg?.seoSlogan || "Estampado DTF"}</div>
           </div>
         </div>
-        <nav style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+        {/* Desktop & Tablet nav */}
+        <nav className="dtf-nav-desktop" style={{ gap: 2, flexWrap: "nowrap", alignItems: "center" }}>
           {[["inicio","Inicio"],["ubicaciones","Ubicaciones"],["como-funciona","Cómo funciona"],["cuidados","Cuidados"],["cotizar","Cotizar"]].map(([id, label]) => {
             const isActive = page === "cotizar" ? id === "cotizar" : (page === "info" && id === "inicio");
+            const isCta = id === "cotizar";
             return (
-              <button key={id} onClick={() => handleNavClick(id)} style={{ padding: "6px 14px", borderRadius: 20, fontSize: 12, fontWeight: 700, cursor: "pointer", border: "1.5px solid transparent", transition: "all .2s", background: isActive ? "#1d1d1f" : "transparent", borderColor: isActive ? "#1d1d1f" : "transparent", color: isActive ? "#fff" : "#4B5563", fontFamily: "'Inter','Outfit',sans-serif" }}
-                onMouseEnter={e => { if (!isActive) { e.currentTarget.style.background = "#f5f5f7"; e.currentTarget.style.borderColor = "#e2e8f0"; }}}
-                onMouseLeave={e => { if (!isActive) { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}}>
+              <button key={id} onClick={() => handleNavClick(id)}
+                style={{ padding: isCta ? "8px 16px" : "6px 12px", borderRadius: isCta ? 10 : 20, fontSize: 12, fontWeight: 700, cursor: "pointer", border: "none", transition: "all .2s", whiteSpace: "nowrap",
+                  background: isCta ? "#007AFF" : (isActive ? "#1d1d1f" : "transparent"),
+                  color: (isCta || isActive) ? "#fff" : "#4B5563",
+                  fontFamily: "'Inter','Outfit',sans-serif" }}
+                onMouseEnter={e => { if (!isActive && !isCta) e.currentTarget.style.background = "#f5f5f7"; }}
+                onMouseLeave={e => { if (!isActive && !isCta) e.currentTarget.style.background = "transparent"; }}>
                 {label}
               </button>
             );
           })}
         </nav>
+        {/* Mobile: single CTA only */}
+        <button className="dtf-nav-mobile" onClick={() => handleNavClick("cotizar")}
+          style={{ background: "#007AFF", border: "none", borderRadius: 10, padding: "9px 20px", fontSize: 14, fontWeight: 700, color: "#fff", cursor: "pointer" }}>
+          Cotizar
+        </button>
       </div>
     </header>
   );
