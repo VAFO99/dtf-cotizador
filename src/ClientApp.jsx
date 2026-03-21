@@ -110,6 +110,7 @@ function InfoPage({ businessName, onCotizar, placements, unitSystem }) {
     borderRadius: 32, padding: 40,
     boxShadow: "0 4px 20px rgba(0,0,0,0.04)", transition: "all 0.3s",
   };
+  const specCardClass = "info-card-hover info-spec-card";
   const stepCircle = (active) => ({
     width: 64, height: 64, borderRadius: "50%", background: "#fff",
     border: `2px solid ${active ? primary : borderLight}`,
@@ -129,25 +130,61 @@ function InfoPage({ businessName, onCotizar, placements, unitSystem }) {
     <div style={{ fontFamily: "'Inter','Outfit',sans-serif", background: bg, color: textMain }}>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
       <style>{`
-        .info-card-hover:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.08) !important; }
-        .info-btn-primary:hover { background: #005bb5 !important; transform: scale(1.02); }
+        /* ── SHARED ── */
+        .info-card-hover { transition: transform 0.3s, box-shadow 0.3s; }
+        .info-card-hover:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(0,0,0,0.1) !important; }
+        .info-btn-primary:hover { filter: brightness(0.88); transform: scale(1.02); }
         .info-btn-sec:hover { background: #e2e8f0 !important; }
-        @keyframes infoFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-16px)} }
-        .info-float { animation: infoFloat 6s ease-in-out infinite; }
+        @keyframes infoFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+        .info-float { animation: infoFloat 7s ease-in-out infinite; }
         .info-gradient-text {
           background: linear-gradient(135deg, #0066cc 0%, #3399ff 100%);
           -webkit-background-clip: text; background-clip: text;
           -webkit-text-fill-color: transparent;
         }
-        @media(max-width:768px){
-          .info-two-col { grid-template-columns: 1fr !important; }
-          .info-three-col { grid-template-columns: 1fr 1fr !important; }
-          .info-four-col { grid-template-columns: 1fr 1fr !important; }
+
+        /* ── DESKTOP (>1024px): full layout ── */
+        .info-two-col   { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
+        .info-three-col { display: grid; grid-template-columns: repeat(3,1fr); gap: 24px; }
+        .info-four-col  { display: grid; grid-template-columns: repeat(4,1fr); gap: 32px; }
+        .info-hero-img  { height: 480px; }
+        .info-nav-links { display: flex; }
+        
+        /* ── TABLET (601–1024px) ── */
+        @media(max-width:1024px) and (min-width:601px) {
+          .info-two-col   { gap: 40px; }
+          .info-three-col { grid-template-columns: 1fr 1fr; }
+          .info-four-col  { grid-template-columns: 1fr 1fr; gap: 20px; }
+          .info-hero-img  { height: 360px !important; }
+          .info-section   { padding: 72px 20px !important; }
+          .info-h2        { font-size: clamp(24px,4vw,40px) !important; }
+          .info-nav-links { gap: 2px !important; }
+          .info-nav-links button { padding: 6px 10px !important; font-size: 11px !important; }
+        }
+
+        /* ── MOBILE (≤600px) ── */
+        @media(max-width:600px) {
+          .info-two-col   { grid-template-columns: 1fr !important; gap: 32px !important; }
+          .info-three-col { grid-template-columns: 1fr !important; }
+          .info-four-col  { grid-template-columns: 1fr 1fr !important; gap: 16px !important; }
+          .info-hero-img  { height: 240px !important; border-radius: 20px !important; }
+          .info-section   { padding: 60px 16px !important; }
+          .info-hero-sec  { padding: 80px 16px 48px !important; min-height: auto !important; }
+          .info-h2        { font-size: clamp(22px,6vw,36px) !important; }
+          .info-spec-card { padding: 24px !important; border-radius: 20px !important; }
+          .info-nav-full  { display: none !important; }
+          .info-nav-cta   { display: flex !important; }
+          .info-float     { animation: none !important; }
+          .info-step-grid { grid-template-columns: 1fr 1fr !important; gap: 24px !important; }
+          .info-footer-grid { grid-template-columns: 1fr !important; gap: 32px !important; }
+          .info-img-grid  { grid-template-columns: 1fr !important; gap: 12px !important; }
+          .info-img-grid img:last-child { margin-top: 0 !important; }
+          .info-placement-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
 
       {/* HERO */}
-      <section id="inicio" style={{ minHeight: "90vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "100px 24px 60px", position: "relative", overflow: "hidden" }}>
+      <section id="inicio" className="info-hero-sec" style={{ minHeight: "90vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", padding: "100px 24px 60px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", width: 800, height: 800, background: `${primary}08`, borderRadius: "50%", filter: "blur(120px)", zIndex: 0, pointerEvents: "none" }}/>
         <span style={{ position: "relative", zIndex: 1, display: "inline-block", background: "#fff", border: `1px solid ${borderLight}`, borderRadius: 50, padding: "6px 20px", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: textGray, marginBottom: 28, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
           Personalización Textil de Alta Calidad
@@ -169,7 +206,7 @@ function InfoPage({ businessName, onCotizar, placements, unitSystem }) {
           <img
             src="https://images.unsplash.com/photo-1571945153237-4929e783af4a?q=80&w=2000&auto=format&fit=crop"
             alt="Impresión DTF colores vibrantes"
-            style={{ width: "100%", height: 480, objectFit: "cover", borderRadius: 40, border: `1px solid ${borderLight}`, boxShadow: "0 20px 60px rgba(0,102,204,0.12)" }}
+            className="info-hero-img" style={{ width: "100%", height: 480, objectFit: "cover", borderRadius: 40, border: `1px solid ${borderLight}`, boxShadow: "0 20px 60px rgba(0,102,204,0.12)" }}
           />
         </div>
       </section>
@@ -187,7 +224,7 @@ function InfoPage({ businessName, onCotizar, placements, unitSystem }) {
             { icon: <Briefcase width="32" height="32" color={primary} strokeWidth={1.5} />, title: "Uniformes de Empresa", desc: "Logos nítidos, colores corporativos exactos y una resistencia increíble para aguantar el trabajo diario de tu equipo." },
             { icon: <Gift width="32" height="32" color={primary} strokeWidth={1.5} />, title: "Regalos y Eventos", desc: "Imprime desde una sola pieza para cumpleaños, viajes familiares, bodas o cualquier detalle especial y único." },
           ].map(({ icon, title, desc }) => (
-            <div className="info-card-hover" key={title} style={{ ...specCard, background: appleGray, textAlign: "center" }}>
+            <div className={specCardClass} key={title} style={{ ...specCard, background: appleGray, textAlign: "center" }}>
               <div style={{ width: 64, height: 64, background: "#fff", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", boxShadow: "0 4px 12px rgba(0,0,0,0.05)" }}>{icon}</div>
               <h3 style={{ fontSize: 22, fontWeight: 800, color: textMain, marginBottom: 12 }}>{title}</h3>
               <p style={{ color: "#64748b", lineHeight: 1.7, fontSize: 15 }}>{desc}</p>
@@ -203,7 +240,7 @@ function InfoPage({ businessName, onCotizar, placements, unitSystem }) {
           <h2 style={{ fontSize: "clamp(28px,4vw,56px)", fontWeight: 900, letterSpacing: "-0.03em", marginBottom: 20, color: textMain }}>¿Dónde podemos estampar?</h2>
           <p style={{ fontSize: 18, color: textGray, fontWeight: 500, maxWidth: 650, margin: "0 auto" }}>Conoce las ubicaciones y tamaños estándar que manejamos en nuestro taller.</p>
         </div>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 24 }}>
+        <div className="info-placement-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 24 }}>
           {(placements || []).map((p, i) => (
             <div className="info-card-hover" key={i} style={{ background: "#fff", border: `1px solid ${borderLight}`, borderRadius: 24, padding: 32, display: "flex", flexDirection: "column", transition: "all 0.3s" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16 }}>
@@ -213,10 +250,10 @@ function InfoPage({ businessName, onCotizar, placements, unitSystem }) {
                 <h3 style={{ fontSize: 18, fontWeight: 800, color: textMain, margin: 0 }}>{p.label || p.name || p.key}</h3>
               </div>
               <p style={{ color: "#64748b", lineHeight: 1.6, fontSize: 15, margin: "0 0 20px 0", flex: 1 }}>{p.desc || "Ubicación ideal para destacar tu marca o diseño."}</p>
-              {(p.maxW || p.maxH) && (
+              {(p.maxW || p.maxH || p.w || p.h) && (
                 <div style={{ background: appleGray, padding: "10px 14px", borderRadius: 12, fontSize: 13, fontWeight: 700, color: textMain, display: "inline-flex", alignItems: "center", gap: 8, alignSelf: "flex-start" }}>
                   <Scissors size={14} color={primary} />
-                  Máx: {p.maxW || "?"}×{p.maxH || "?"} {unitSystem || "in"}
+                  Máx: {p.maxW || p.w || "?"}×{p.maxH || p.h || "?"} {unitSystem || "in"}
                 </div>
               )}
             </div>
@@ -230,7 +267,7 @@ function InfoPage({ businessName, onCotizar, placements, unitSystem }) {
       {/* QUÉ ES DTF */}
       <section style={{ padding: "120px 24px", background: bg, borderTop: `1px solid ${borderLight}` }}>
         <div className="info-two-col" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 80, alignItems: "center" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div className="info-img-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <img src="https://images.unsplash.com/photo-1576566588028-4147f3842f27?q=80&w=600&auto=format&fit=crop" alt="Camiseta" style={{ borderRadius: 24, objectFit: "cover", width: "100%", height: 260, border: `1px solid ${borderLight}` }} />
             <img src="https://images.unsplash.com/photo-1556821840-3a63f95609a7?q=80&w=600&auto=format&fit=crop" alt="Hoodie" style={{ borderRadius: 24, objectFit: "cover", width: "100%", height: 260, border: `1px solid ${borderLight}`, marginTop: 40 }} />
           </div>
@@ -254,7 +291,7 @@ function InfoPage({ businessName, onCotizar, placements, unitSystem }) {
             <p style={{ color: primary, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", fontSize: 12, marginBottom: 16 }}>Es súper sencillo</p>
             <h2 style={{ fontSize: "clamp(28px,4vw,48px)", fontWeight: 900, letterSpacing: "-0.03em", color: textMain }}>Los 4 pasos de tu pedido</h2>
           </div>
-          <div className="info-four-col" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 40 }}>
+          <div className="info-four-col info-step-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 40 }}>
             {[
               { icon: <Lightbulb strokeWidth={2} />, title: "1. Cotiza", desc: "Usa nuestra calculadora para elegir la ropa y decirnos qué necesitas.", active: true },
               { icon: <MessageCircle strokeWidth={2} />, title: "2. Envía tu Idea", desc: "Nos mandas tu foto o diseño por WhatsApp para revisar la calidad.", active: false },
@@ -286,7 +323,7 @@ function InfoPage({ businessName, onCotizar, placements, unitSystem }) {
             { icon: <Blend width="40" height="40" color={primary} strokeWidth={1.5} />, title: "Fondo Transparente", desc: "¡Muy importante! Asegúrate de que tu imagen no tenga un cuadro blanco de fondo, a menos que quieras que el cuadro blanco se imprima." },
             { icon: <Search width="40" height="40" color={primary} strokeWidth={1.5} />, title: "Buena Resolución", desc: "Si acercas (haces zoom) a tu imagen y se ve borrosa o pixelada, así mismo saldrá en la camisa. Envía imágenes grandes y nítidas." },
           ].map(({ icon, title, desc }) => (
-            <div className="info-card-hover" key={title} style={{ ...specCard }}>
+            <div className={specCardClass} key={title} style={{ ...specCard }}>
               <div style={{ marginBottom: 24 }}>{icon}</div>
               <h3 style={{ fontSize: 22, fontWeight: 800, color: textMain, marginBottom: 12 }}>{title}</h3>
               <p style={{ color: "#64748b", lineHeight: 1.7, fontSize: 15 }}>{desc}</p>
@@ -307,7 +344,7 @@ function InfoPage({ businessName, onCotizar, placements, unitSystem }) {
             { icon: <Maximize width="40" height="40" color={primary} strokeWidth={1.5} />, title: "Súper elástico", desc: "El diseño se estira con la ropa. No se parte, no se pela y aguanta docenas de lavadas luciendo como nuevo." },
             { icon: <Scissors width="40" height="40" color={primary} strokeWidth={1.5} />, title: "En cualquier tela", desc: "Funciona perfecto en algodón, poliéster, mezclilla o cuero. No importa si tu ropa es clara u oscura." },
           ].map(({ icon, title, desc }) => (
-            <div className="info-card-hover" key={title} style={{ ...specCard, background: "#fff" }}>
+            <div className={specCardClass} key={title} style={{ ...specCard, background: "#fff" }}>
               <div style={{ marginBottom: 24 }}>{icon}</div>
               <h3 style={{ fontSize: 22, fontWeight: 800, color: textMain, marginBottom: 12 }}>{title}</h3>
               <p style={{ color: "#64748b", lineHeight: 1.7, fontSize: 15 }}>{desc}</p>
@@ -366,7 +403,7 @@ function InfoPage({ businessName, onCotizar, placements, unitSystem }) {
 
       {/* FOOTER */}
       <footer style={{ background: "#1d1d1f", color: "#f5f5f7", padding: "80px 24px 40px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 50, borderBottom: "1px solid #333", paddingBottom: 50, marginBottom: 30 }}>
+        <div className="info-footer-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 50, borderBottom: "1px solid #333", paddingBottom: 50, marginBottom: 30 }}>
           <div>
             <h3 style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 16 }}>{businessName === "DTF" ? "Kromavida" : businessName}</h3>
             <p style={{ fontSize: 14, color: "#9ca3af", lineHeight: 1.7, marginBottom: 24 }}>Especialistas en personalización textil y tecnología de impresión DTF de alta calidad.</p>
@@ -582,7 +619,27 @@ export default function ClientApp() {
   return (
     <div style={{ minHeight: "100vh", background: "#F9FAFC", color: "#111827", fontFamily: "'Outfit',sans-serif" }}>
       <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
-      <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}} .fade-up{animation:fadeUp .4s ease both} .cinp{width:100%;background:#F9FAFC;border:1.5px solid #E8E8ED;border-radius:12px;padding:13px 16px;font-size:15px;color:#111827;font-family:'Outfit';outline:none;transition:border .2s} .cinp:focus{border-color:#007AFF;background:#fff;box-shadow:0 0 0 3px rgba(0,122,255,0.1)} .cinp::placeholder{color:#9CA3AF} .layout-grid{display:grid;grid-template-columns:1fr 340px;gap:40px;align-items:start} .sidebar-sticky{position:sticky;top:100px;display:flex;flex-direction:column;gap:24px} @media(max-width:960px){.layout-grid{grid-template-columns:1fr}.sidebar-sticky{position:static!important}} @media(max-width:480px){.mci{width:52px;font-size:14px}}`}</style>
+      <style>{`
+        @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+        .fade-up{animation:fadeUp .4s ease both}
+        .cinp{width:100%;background:#F9FAFC;border:1.5px solid #E8E8ED;border-radius:12px;padding:13px 16px;font-size:15px;color:#111827;font-family:'Outfit';outline:none;transition:border .2s}
+        .cinp:focus{border-color:#007AFF;background:#fff;box-shadow:0 0 0 3px rgba(0,122,255,0.1)}
+        .cinp::placeholder{color:#9CA3AF}
+        /* Layout */
+        .layout-grid{display:grid;grid-template-columns:1fr 320px;gap:32px;align-items:start}
+        .sidebar-sticky{position:sticky;top:88px;display:flex;flex-direction:column;gap:20px}
+        /* Tablet (601–960px): collapse sidebar */
+        @media(max-width:960px){
+          .layout-grid{grid-template-columns:1fr}
+          .sidebar-sticky{position:static!important}
+        }
+        /* Mobile (≤600px): tighter padding */
+        @media(max-width:600px){
+          .layout-grid{gap:16px}
+          .cinp{padding:11px 14px;font-size:14px}
+        }
+        @media(max-width:480px){.mci{width:48px;font-size:13px;padding:8px 4px}}
+      `}</style>
 
       {headerNav}
       {page === "info" && <InfoPage businessName={businessName} onCotizar={() => setPage("cotizar")} placements={placements} unitSystem={unitSystem} />}
